@@ -191,6 +191,27 @@ type Goal =
   | "mage"
   | "unsure";
 
+type PlanApply =
+  | "moxie"
+  | "bloodied-unbowed"
+  | "dig-deep"
+  | "dig-deep-exhaustion"
+  | "swagger"
+  | "none";
+
+/** A button on a plan. Tapping it spends the cost and shows the payoff. */
+type PlanChoice = {
+  id: string;
+  label: string;
+  detail: string;
+  /** Moxie spent. 0 for Dig Deep, Swagger, and Bloodied But Unbowed. */
+  cost: number;
+  apply: Exclude<PlanApply, "none">;
+  dice?: ("attack" | "damage" | "brace" | "swagger")[];
+  /** Rolled and applied in the same tap, instead of a separate dice button. */
+  auto?: "brace" | "swagger";
+};
+
 type Plan = {
   title: string;
   action: string;
@@ -201,13 +222,8 @@ type Plan = {
   why: string;
   gym: string;
   /** What “Apply” does to the tracker */
-  apply?:
-    | "moxie"
-    | "bloodied-unbowed"
-    | "dig-deep"
-    | "dig-deep-exhaustion"
-    | "swagger"
-    | "none";
+  apply?: PlanApply;
+  choices?: PlanChoice[];
 };
 
 type Sheet = {
@@ -392,12 +408,22 @@ function planFor(goal: Goal, sheet: Sheet, gary: GaryStats): Plan {
             title: "Damage focus",
             action:
               "Attack → Unarmed Strike. On hit, Heavy Hitter: deal damage and Grapple or Shove.",
-            bonus: "One-Two Punch (1 Moxie): two more Unarmed Strikes.",
+            bonus: "The button below spends 1 Moxie for two extra strikes.",
             cost: 1,
-            costLabel: "1",
+            costLabel: "1 Moxie",
             why: "Action punch + Heavy Hitter, then burst with One-Two while you have Moxie.",
             gym: 'The One-Two. "Cardio."',
             apply: "moxie",
+            choices: [
+              {
+                id: "one-two",
+                label: "One-Two Punch",
+                detail: "Two extra Unarmed Strikes. Roll each one below.",
+                cost: 1,
+                apply: "moxie",
+                dice: ["attack", "damage"],
+              },
+            ],
           }
         : {
             title: "Damage focus (no Moxie)",
@@ -416,13 +442,25 @@ function planFor(goal: Goal, sheet: Sheet, gary: GaryStats): Plan {
         action:
           "Attack → Unarmed. On hit, Stop and Drop: Grapple and Shove (no mastery).",
         bonus: canSpend
-          ? "Hold Inescapable for their escape attempt (1 Moxie). Until then, Fisticuffs Unarmed or shove prone."
-          : "Fisticuffs Unarmed, or shove prone if already grappled. Inescapable locked until you have 1 Moxie.",
+          ? "Fisticuffs Unarmed or shove prone. Tap Inescapable when they try to get out."
+          : "Fisticuffs Unarmed, or shove prone if already grappled. Inescapable needs 1 Moxie.",
         cost: 0,
         costLabel: canSpend ? "0 now · 1 later" : "0",
         why: `Compression Lock deals ${unarmedDice(gary)} at the start of your turns while you hold them.`,
         gym: "Sit Down. Still Hugging.",
-        apply: "none",
+        apply: canSpend ? "moxie" : "none",
+        choices: canSpend
+          ? [
+              {
+                id: "inescapable",
+                label: "Inescapable",
+                detail:
+                  "Their next check or save to escape the grapple has Disadvantage.",
+                cost: 1,
+                apply: "moxie",
+              },
+            ]
+          : undefined,
       };
     case "survive":
       if (canSpend) {
@@ -430,17 +468,25 @@ function planFor(goal: Goal, sheet: Sheet, gary: GaryStats): Plan {
           title: "Stay standing",
           action:
             "Attack only if safe. Prefer holding position or Disengaging later.",
-          bonus: sheet.digDeep
-            ? `Brace Up (1 Moxie): temp HP = ${braceDice(gary)}. Dig Deep still available (1/long rest).`
-            : `Brace Up (1 Moxie): temp HP = ${braceDice(gary)}. Dig Deep already used — ${digDeepAgainNote(sheet.exhaustion)}`,
+          bonus: `The button below spends 1 Moxie, rolls ${braceDice(gary)} temp HP, and applies it.`,
           reaction: sheet.bloodiedUnbowed
             ? "If bloodied and you take damage: Bloodied But Unbowed still available."
             : "Bloodied But Unbowed already used this short rest.",
           cost: 1,
-          costLabel: "1",
+          costLabel: "1 Moxie",
           why: "Temp HP now. Dig Deep is free but once per long rest.",
           gym: "Flex. Leg Day.",
           apply: "moxie",
+          choices: [
+            {
+              id: "brace",
+              label: "Brace Up",
+              detail: `Rolls ${braceDice(gary)} and sets temp HP to the result (keeps a higher pool).`,
+              cost: 1,
+              apply: "moxie",
+              auto: "brace",
+            },
+          ],
         };
       }
       if (sheet.digDeep) {
@@ -449,12 +495,21 @@ function planFor(goal: Goal, sheet: Sheet, gary: GaryStats): Plan {
           action:
             "Attack only if safe. Hold position behind allies if possible.",
           bonus:
-            "Dig Deep (1/long rest): resistance to nonmagical B/P/S for 10 minutes. Brace Up locked (no Moxie).",
+            "No Moxie for Brace Up. Dig Deep is the free resistance.",
           cost: 0,
-          costLabel: "0 · Dig Deep",
+          costLabel: "Dig Deep",
           why: "No Brace Up without Moxie. Burn Dig Deep if the fight is brutal.",
           gym: "Leg Day.",
           apply: "dig-deep",
+          choices: [
+            {
+              id: "dig-deep",
+              label: "Dig Deep",
+              detail: "Resistance to nonmagical bludgeoning, piercing, and slashing for about 10 minutes.",
+              cost: 0,
+              apply: "dig-deep",
+            },
+          ],
         };
       }
       if (!sheet.digDeepActive && canDigDeepAgain(sheet.exhaustion)) {
@@ -463,7 +518,7 @@ function planFor(goal: Goal, sheet: Sheet, gary: GaryStats): Plan {
           title: "Stay standing — Dig Deep again",
           action:
             "Attack only if safe. Hold position behind allies if possible.",
-          bonus: `Dig Deep again by taking 1 Exhaustion (${sheet.exhaustion} → ${next}): resistance to nonmagical B/P/S.`,
+          bonus: `No free Dig Deep left. Another use costs 1 Exhaustion (${sheet.exhaustion} → ${next}).`,
           cost: 0,
           costLabel: "+1 Exhaustion",
           why:
@@ -472,6 +527,15 @@ function planFor(goal: Goal, sheet: Sheet, gary: GaryStats): Plan {
               : `Exhaustion ${next}: −${2 * next} to every d20 test and −${5 * next} ft speed until long rests clear it.`,
           gym: "One More Rep.",
           apply: "dig-deep-exhaustion",
+          choices: [
+            {
+              id: "dig-deep-again",
+              label: "Dig Deep again",
+              detail: `Resistance to nonmagical B/P/S. Exhaustion ${sheet.exhaustion} → ${next}.`,
+              cost: 0,
+              apply: "dig-deep-exhaustion",
+            },
+          ],
         };
       }
       return {
@@ -494,12 +558,22 @@ function planFor(goal: Goal, sheet: Sheet, gary: GaryStats): Plan {
         title: "Close or bounce",
         action:
           "Attack if in reach after Stick and Move; otherwise arrive ready for next turn.",
-        bonus: "Stick and Move (1 Moxie): Unarmed Strike + Dash or Disengage.",
+        bonus: "Tap Stick and Move to spend 1 Moxie.",
         cost: 1,
-        costLabel: "1",
+        costLabel: "1 Moxie",
         why: "One resource buys offense and movement without burning your Action on Dash alone.",
         gym: "Bounce, don't plant.",
         apply: "moxie",
+        choices: [
+          {
+            id: "stick",
+            label: "Stick and Move",
+            detail: "One Unarmed Strike, plus Dash or Disengage.",
+            cost: 1,
+            apply: "moxie",
+            dice: ["attack", "damage"],
+          },
+        ],
       };
     case "mage":
       return canSpend
@@ -507,15 +581,32 @@ function planFor(goal: Goal, sheet: Sheet, gary: GaryStats): Plan {
             title: "Shut down the caster",
             action:
               "Get adjacent. Attack with advantage from Mage Slayer when they cast. Grapple if you can keep them stuck.",
-            bonus:
-              "Stick and Move (1 Moxie) to close, or One-Two (1 Moxie) once adjacent.",
+            bonus: "Pick one bonus action. It spends 1 Moxie and sets up the roll.",
             reaction:
               "When a creature within 5 ft casts a spell with a spell slot: Mage Slayer reaction Unarmed Strike.",
             cost: 1,
-            costLabel: "1",
-            why: "Spend Moxie to get on them or burst once you're there.",
+            costLabel: "1 Moxie",
+            why: "Close on them, or burst once you're already there. The reaction strike is free.",
             gym: "HEY. Soften the wizard.",
             apply: "moxie",
+            choices: [
+              {
+                id: "stick",
+                label: "Stick and Move",
+                detail: "Close in: one Unarmed Strike, then Dash or Disengage.",
+                cost: 1,
+                apply: "moxie",
+                dice: ["attack", "damage"],
+              },
+              {
+                id: "one-two",
+                label: "One-Two",
+                detail: "Already adjacent: two Unarmed Strikes. Roll each one.",
+                cost: 1,
+                apply: "moxie",
+                dice: ["attack", "damage"],
+              },
+            ],
           }
         : {
             title: "Shut down the caster (no Moxie)",
@@ -552,13 +643,21 @@ function reactionPlan(kind: ReactionKind, gary: GaryStats): Plan {
         title: "Bloodied But Unbowed",
         action: "No Action — this is a Reaction.",
         bonus: "—",
-        reaction:
-          "Spend your Reaction: regain all Moxie Points and gain 36 temporary HP (1/short rest).",
+        reaction: "This spends the Reaction and the short-rest use.",
         cost: 0,
-        costLabel: "refill Moxie + 36 temp",
+        costLabel: "refill + 36 temp",
         why: "Only when you take damage while bloodied. Biggest swing button in the kit.",
         gym: "Not done. Spot me.",
         apply: "bloodied-unbowed",
+        choices: [
+          {
+            id: "unbowed",
+            label: "Bloodied But Unbowed",
+            detail: "Moxie refills to full and temp HP becomes at least 36.",
+            cost: 0,
+            apply: "bloodied-unbowed",
+          },
+        ],
       };
     case "mage-cast":
       return {
@@ -632,12 +731,22 @@ function checkFailPlan(swaggerAvailable: boolean): Plan {
     title: "Swagger Streak",
     action: "No Action — after you fail a Str, Dex, Con, or Cha check.",
     bonus: "—",
-    reaction: "Add 1d10 to the failed check (1/short rest).",
+    reaction: "Tap it to roll the d10 and mark the use spent.",
     cost: 0,
-    costLabel: "0 · 1/SR",
+    costLabel: "1/short rest",
     why: "Use on Athletics grapples/shoves or key Str/Dex/Con/Cha checks you can't afford to miss.",
     gym: "One more rep.",
     apply: "swagger",
+    choices: [
+      {
+        id: "swagger",
+        label: "Add 1d10",
+        detail: "Rolled and added to the failed Str, Dex, Con, or Cha check.",
+        cost: 0,
+        apply: "swagger",
+        auto: "swagger",
+      },
+    ],
   };
 }
 
@@ -3344,7 +3453,8 @@ export function GaryCombatTool() {
     "gary-grapplesauce-combat:tab",
     "play",
   );
-  const [spentApplied, setSpentApplied] = useState(false);
+  const [committed, setCommitted] = useState<string | null>(null);
+  const [receipt, setReceipt] = useState<string | null>(null);
   const [rollLog, setRollLog] = usePersistentState<RollLogEntry[]>(
     "gary-grapplesauce-combat:roll-log",
     [],
@@ -3396,39 +3506,47 @@ export function GaryCombatTool() {
   const liveGoalPlan = useMemo(() => {
     if (!selectedGoal) return null;
     const option = GOAL_OPTIONS.find((g) => g.id === selectedGoal);
-    if (!option || option.cost > sheet.moxie) return null;
-    return planFor(selectedGoal, sheet, gary);
-  }, [selectedGoal, sheet, gary]);
+    if (!option || (!committed && option.cost > sheet.moxie)) return null;
+    // Keep the "you had Moxie" plan on screen after the tap spends the last point.
+    const forPlan = committed
+      ? { ...sheet, moxie: Math.max(sheet.moxie, 1) }
+      : sheet;
+    return planFor(selectedGoal, forPlan, gary);
+  }, [selectedGoal, sheet, gary, committed]);
 
   const plan = selectedGoal ? liveGoalPlan : staticPlan;
 
   useEffect(() => {
-    if (!selectedGoal || phase !== "result") return;
+    if (!selectedGoal || phase !== "result" || committed) return;
     const option = GOAL_OPTIONS.find((g) => g.id === selectedGoal);
     if (!option || option.cost > sheet.moxie) {
       setSelectedGoal(null);
-      setSpentApplied(false);
+      setCommitted(null);
+      setReceipt(null);
       setPhase("goal");
     }
-  }, [sheet.moxie, selectedGoal, phase]);
+  }, [sheet.moxie, selectedGoal, phase, committed]);
 
   useEffect(() => {
-    setSpentApplied(false);
-  }, [liveGoalPlan?.title, liveGoalPlan?.costLabel, staticPlan?.title]);
+    setCommitted(null);
+    setReceipt(null);
+  }, [liveGoalPlan?.title, staticPlan?.title]);
 
   function resetDecision() {
     setPhase("timing");
     setTiming(null);
     setSelectedGoal(null);
     setStaticPlan(null);
-    setSpentApplied(false);
+    setCommitted(null);
+    setReceipt(null);
   }
 
   function pickTiming(next: Timing) {
     setTiming(next);
     setSelectedGoal(null);
     setStaticPlan(null);
-    setSpentApplied(false);
+    setCommitted(null);
+    setReceipt(null);
     if (next === "check-fail") {
       setStaticPlan(checkFailPlan(sheet.swagger));
       setPhase("result");
@@ -3444,7 +3562,8 @@ export function GaryCombatTool() {
   function pickReaction(kind: ReactionKind) {
     setSelectedGoal(null);
     setStaticPlan(reactionPlan(kind, gary));
-    setSpentApplied(false);
+    setCommitted(null);
+    setReceipt(null);
     setPhase("result");
   }
 
@@ -3453,19 +3572,55 @@ export function GaryCombatTool() {
     if (!option || option.cost > sheet.moxie) return;
     setStaticPlan(null);
     setSelectedGoal(goal);
-    setSpentApplied(false);
+    setCommitted(null);
+    setReceipt(null);
     setPhase("result");
   }
 
-  function applyPlan() {
-    if (!plan || spentApplied || !plan.apply || plan.apply === "none") return;
+  function commitChoice(choice: PlanChoice) {
+    if (committed) return;
+    if (choice.apply === "moxie" && sheet.moxie < choice.cost) return;
+    if (choice.apply === "dig-deep" && !sheet.digDeep) return;
+    if (choice.apply === "dig-deep-exhaustion" && !canDigDeepAgain(sheet.exhaustion)) return;
+    if (choice.apply === "swagger" && !sheet.swagger) return;
+    if (choice.apply === "bloodied-unbowed" && !sheet.bloodiedUnbowed) return;
+
+    const moxieBefore = sheet.moxie;
+    const tempBefore = sheet.tempHp;
+    let rolled = "";
+    let nextTemp = tempBefore;
+
+    if (choice.auto === "brace") {
+      const die = rollDie(gary.fisticuffsDie);
+      const total = die + gary.braceBonus;
+      nextTemp = Math.max(tempBefore, total);
+      rolled = `Rolled d${gary.fisticuffsDie} ${die} + ${gary.braceBonus} = ${total} temp HP${
+        nextTemp === tempBefore ? ` (kept ${tempBefore})` : ` (${tempBefore} → ${nextTemp})`
+      }.`;
+      rollApi.record({
+        label: "Brace Up (temp HP)",
+        expression: withModifier(`1d${gary.fisticuffsDie}`, gary.braceBonus),
+        breakdown: withModifier(`d${gary.fisticuffsDie} (${die})`, gary.braceBonus),
+        total,
+      });
+    } else if (choice.auto === "swagger") {
+      const die = rollDie(10);
+      rolled = `Rolled +${die}. Add it to the failed check.`;
+      rollApi.record({
+        label: "Swagger Streak",
+        expression: "1d10",
+        breakdown: `d10 (${die})`,
+        total: die,
+      });
+    }
 
     setSheet((s) => {
-      switch (plan.apply) {
+      switch (choice.apply) {
         case "moxie":
           return {
             ...s,
-            moxie: clamp(s.moxie - plan.cost, 0, MOXIE_MAX),
+            moxie: clamp(s.moxie - choice.cost, 0, MOXIE_MAX),
+            tempHp: choice.auto === "brace" ? nextTemp : s.tempHp,
           };
         case "bloodied-unbowed":
           return {
@@ -3475,59 +3630,29 @@ export function GaryCombatTool() {
             tempHp: Math.max(s.tempHp, 36),
           };
         case "dig-deep":
-          return {
-            ...s,
-            digDeep: false,
-            digDeepActive: true,
-          };
+          return { ...s, digDeep: false, digDeepActive: true };
         case "dig-deep-exhaustion":
           if (!canDigDeepAgain(s.exhaustion)) return s;
-          return {
-            ...s,
-            digDeepActive: true,
-            exhaustion: s.exhaustion + 1,
-          };
+          return { ...s, digDeepActive: true, exhaustion: s.exhaustion + 1 };
         case "swagger":
           return { ...s, swagger: false };
         default:
           return s;
       }
     });
-    setSpentApplied(true);
-  }
 
-  function applyLabel(p: Plan): string | null {
-    if (!p.apply || p.apply === "none") return null;
-    if (spentApplied) {
-      switch (p.apply) {
-        case "moxie":
-          return `Spent ${p.cost} Moxie`;
-        case "bloodied-unbowed":
-          return "Applied — Moxie full + 36 temp";
-        case "dig-deep":
-          return "Dig Deep used";
-        case "dig-deep-exhaustion":
-          return "Dig Deep used · +1 Exhaustion";
-        case "swagger":
-          return "Swagger used";
-        default:
-          return "Applied";
-      }
-    }
-    switch (p.apply) {
-      case "moxie":
-        return `Spend ${p.cost} Moxie`;
-      case "bloodied-unbowed":
-        return "Apply Bloodied But Unbowed";
-      case "dig-deep":
-        return "Use Dig Deep";
-      case "dig-deep-exhaustion":
-        return "Dig Deep (+1 Exhaustion)";
-      case "swagger":
-        return "Use Swagger Streak";
-      default:
-        return null;
-    }
+    const paid =
+      choice.apply === "moxie"
+        ? `Moxie ${moxieBefore} → ${clamp(moxieBefore - choice.cost, 0, MOXIE_MAX)}.`
+        : choice.apply === "bloodied-unbowed"
+          ? `Moxie ${moxieBefore} → ${MOXIE_MAX}. Temp HP ${tempBefore} → ${Math.max(tempBefore, 36)}.`
+          : choice.apply === "dig-deep"
+            ? "Dig Deep is on: nonmagical bludgeoning, piercing, and slashing are resisted."
+            : choice.apply === "dig-deep-exhaustion"
+              ? `Exhaustion ${sheet.exhaustion} → ${sheet.exhaustion + 1}. Dig Deep is on.`
+              : "Swagger is spent until a short rest.";
+    setReceipt([rolled, paid].filter(Boolean).join(" "));
+    setCommitted(choice.id);
   }
 
   const effects = effectsFor(sheet, gary);
@@ -3872,32 +3997,93 @@ export function GaryCombatTool() {
                       {plan.gym}
                     </div>
                     <PlanTips plan={plan} />
-                    <Row gap={8} wrap>
-                      {applyLabel(plan) ? (
-                        <Button
-                          variant="primary"
-                          icon={spentApplied ? CircleCheck : Check}
-                          disabled={
-                            spentApplied ||
-                            (plan.apply === "moxie" && sheet.moxie < plan.cost)
-                          }
-                          onClick={applyPlan}
+                    {plan.choices && plan.choices.length > 0 ? (
+                      <Stack gap={8}>
+                        {plan.choices.map((choice) => {
+                          const used = committed === choice.id;
+                          const cantAfford =
+                            !committed &&
+                            choice.apply === "moxie" &&
+                            sheet.moxie < choice.cost;
+                          return (
+                            <div
+                              key={choice.id}
+                              className={cx(
+                                "flex flex-col gap-1 rounded-lg border px-3 py-2.5",
+                                used
+                                  ? "border-gold/50 bg-gold/[0.07]"
+                                  : "border-line bg-well/40",
+                              )}
+                            >
+                              <Button
+                                variant={used ? "primary" : "secondary"}
+                                icon={used ? CircleCheck : choice.cost > 0 ? Flame : Check}
+                                className="w-full"
+                                disabled={
+                                  !!committed ||
+                                  cantAfford ||
+                                  (choice.apply === "dig-deep" && !sheet.digDeep) ||
+                                  (choice.apply === "dig-deep-exhaustion" &&
+                                    !canDigDeepAgain(sheet.exhaustion)) ||
+                                  (choice.apply === "swagger" && !sheet.swagger) ||
+                                  (choice.apply === "bloodied-unbowed" &&
+                                    !sheet.bloodiedUnbowed)
+                                }
+                                onClick={() => commitChoice(choice)}
+                              >
+                                {used
+                                  ? `${choice.label} · done`
+                                  : choice.cost > 0
+                                    ? `${choice.label} · ${choice.cost} Moxie`
+                                    : choice.label}
+                              </Button>
+                              <Text tone="tertiary">{choice.detail}</Text>
+                            </div>
+                          );
+                        })}
+                        <div
+                          className={cx(
+                            "flex min-h-11 items-center rounded-lg border px-3 py-2 text-sm",
+                            receipt
+                              ? "border-gold/30 bg-gold/[0.06] text-gold-soft"
+                              : "border-dashed border-line text-faint",
+                          )}
+                          aria-live="polite"
                         >
-                          {applyLabel(plan)}
-                        </Button>
-                      ) : null}
-                      {selectedGoal === "survive" &&
-                      plan.apply === "moxie" ? (
+                          {receipt ??
+                            "Tap a move. The cost comes off immediately and the result shows here."}
+                        </div>
+                        {committed
+                          ? plan.choices
+                              .filter((choice) => choice.id === committed && choice.dice)
+                              .map((choice) => (
+                                <ActionRolls
+                                  key={choice.id}
+                                  dice={choice.dice ?? []}
+                                  sheet={sheet}
+                                  setSheet={setSheet}
+                                />
+                              ))
+                          : null}
+                      </Stack>
+                    ) : null}
+                    <Row gap={8} wrap>
+                      {selectedGoal === "survive" && plan.apply === "moxie" ? (
                         <Button
                           variant="secondary"
                           icon={sheet.digDeep ? Pickaxe : CircleCheck}
-                          disabled={spentApplied || !sheet.digDeep}
+                          disabled={!sheet.digDeep}
                           onClick={() => {
                             setSheet((s) => ({
                               ...s,
                               digDeep: false,
                               digDeepActive: true,
                             }));
+                            setReceipt((current) =>
+                              current
+                                ? `${current} Dig Deep is also on.`
+                                : "Dig Deep is on: nonmagical B/P/S is resisted.",
+                            );
                           }}
                         >
                           {sheet.digDeep ? "Also Dig Deep" : "Dig Deep used"}
@@ -3917,7 +4103,8 @@ export function GaryCombatTool() {
                           onClick={() => {
                             setSelectedGoal(null);
                             setStaticPlan(null);
-                            setSpentApplied(false);
+                            setCommitted(null);
+                            setReceipt(null);
                             setPhase("goal");
                           }}
                         >
@@ -4107,7 +4294,10 @@ export function GaryCombatTool() {
           { name: "Sheet", timeline: sheetHistory },
           { name: "Gear", timeline: inventory },
         ]}
-        onTravel={() => setSpentApplied(false)}
+        onTravel={() => {
+          setCommitted(null);
+          setReceipt(null);
+        }}
       />
     </div>
     </RollLogContext.Provider>

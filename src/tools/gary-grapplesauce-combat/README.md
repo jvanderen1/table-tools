@@ -95,7 +95,7 @@ The sheet and the inventory use `useUndoableState` (`src/lib/useUndoableState.ts
 ### Decision tree behavior
 
 - Filters goals/reactions by **Moxie** and limited uses (e.g. Bloodied But Unbowed needs bloodied HP ≤ 51 **and** the use free).
-- **Apply** buttons spend Moxie / mark Dig Deep / Swagger / Bloodied refill.
+- Each plan’s moves are buttons (“Stick and Move · 1 Moxie”, “One-Two · 1 Moxie”, “Brace Up · 1 Moxie”). Tapping one spends the cost and shows the result: Brace Up and Swagger roll and apply immediately; attack moves then offer to-hit and damage. Shut down the caster asks which bonus action you’re buying instead of a bare “Spend 1 Moxie”.
 - Live plans recompute when Moxie changes (e.g. Damage focus ↔ free Fisticuffs).
 
 ### Hit tab behavior

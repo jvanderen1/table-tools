@@ -14,6 +14,7 @@ import {
   Ban,
   BatteryLow,
   BicepsFlexed,
+  Backpack,
   BookOpen,
   Brain,
   Calculator,
@@ -112,6 +113,7 @@ import {
 } from "./conditions";
 import { GLOSSARY } from "./glossary";
 import { GlossaryItem, GlossaryList, Tip } from "./Tip";
+import { InventoryPanel } from "./Inventory";
 import {
   ROLL_LOG_MAX,
   RollLogContext,
@@ -3140,7 +3142,7 @@ function DiceRoller() {
   );
 }
 
-type MainTab = "play" | "hit" | "roll" | "conds" | "rest";
+type MainTab = "play" | "hit" | "roll" | "conds" | "rest" | "gear";
 
 export function GaryCombatTool() {
   const [phase, setPhase] = useState<Phase>("timing");
@@ -3449,7 +3451,7 @@ export function GaryCombatTool() {
 
       <Stack gap={14} className="min-w-0">
         <div
-          className="grid grid-cols-5 gap-1 rounded-xl border border-line bg-well/80 p-1"
+          className="grid grid-cols-6 gap-1 rounded-xl border border-line bg-well/80 p-1"
           role="tablist"
           aria-label="Main mode"
         >
@@ -3473,7 +3475,8 @@ export function GaryCombatTool() {
           ))}
         </div>
 
-        {(effects.dead && tab !== "conds") || (tab === "play" && cantAct) ? (
+        {(effects.dead && tab !== "conds" && tab !== "gear") ||
+        (tab === "play" && cantAct) ? (
           <Callout
             title={effects.dead ? "Gary is dead — Exhaustion 6" : "Gary can’t act"}
             tone="warning"
@@ -3786,6 +3789,8 @@ export function GaryCombatTool() {
           </Card>
         ) : null}
 
+        {tab === "gear" ? <InventoryPanel /> : null}
+
         <footer className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-1 text-[0.8rem] text-faint">
           <span className="inline-flex items-center gap-1.5">
             <ScrollText className="size-3.5 text-gold/70" aria-hidden />
@@ -3883,6 +3888,7 @@ const MAIN_TABS: { id: MainTab; label: string; icon: LucideIcon }[] = [
   { id: "roll", label: "Roll", icon: Dices },
   { id: "conds", label: "Conds", icon: ShieldAlert },
   { id: "rest", label: "Rest", icon: Tent },
+  { id: "gear", label: "Gear", icon: Backpack },
 ];
 
 const GOAL_ICONS: Record<Goal, LucideIcon> = {

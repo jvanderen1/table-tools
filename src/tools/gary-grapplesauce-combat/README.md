@@ -47,6 +47,14 @@ Three tabs so the screen isn’t a wall of controls:
 | **Roll** | Saves, checks, unarmed attack, and hit dice — bonuses include conditions |
 | **Conds** | Effects on Gary (auto-calculated) + 2024 conditions + Exhaustion 0–6 |
 | **Rest** | Once-per-rest toggles + Short / Long rest |
+| **Gear** | Inventory (`Inventory.tsx`): coins, items with quantity, nickname → real item, notes, attunement (max 3) |
+
+### Gear tab behavior
+
+- Seeded from the attuned items and inventory flavor above (the DDB sheet is private, so coins start at 0 — fill them in). Persisted under `inventory`.
+- Add box on top; new items go to the top of a fixed-height list that scrolls on its own, so adding never moves the page.
+- Tap an item to edit name, real item, notes, attunement, or remove it (with confirm). Quantity 0 keeps the item, dimmed.
+- Purely a record: it doesn’t change the numbers in `GARY`. If an attuned item changes, update `GARY` too.
 
 Always visible above tabs: **HP bar**, **Moxie dots**, and three status sections, all fixed-size so changes never move the page (no sideways carousels; everything is visible at a glance):
 

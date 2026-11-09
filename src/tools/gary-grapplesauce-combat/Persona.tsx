@@ -34,15 +34,7 @@ import {
 } from "../../lib/ai";
 import { cx } from "../../lib/cx";
 import { usePersistentState } from "../../lib/usePersistentState";
-import {
-  Button,
-  Card,
-  CardBody,
-  CardHeader,
-  Drawer,
-  Stack,
-  Text,
-} from "../../ui";
+import { Button, Card, CardBody, CardHeader, Drawer, Stack, Text } from "../../ui";
 
 type Bio = {
   concept: string;
@@ -74,11 +66,26 @@ const BIO_FIELDS: {
   rows: number;
   placeholder: string;
 }[] = [
-  { id: "concept", label: "Concept & look", rows: 2, placeholder: "One-line pitch and appearance" },
+  {
+    id: "concept",
+    label: "Concept & look",
+    rows: 2,
+    placeholder: "One-line pitch and appearance",
+  },
   { id: "personality", label: "Personality", rows: 3, placeholder: "How he acts" },
-  { id: "voice", label: "Voice & catchphrases", rows: 3, placeholder: "How he talks, signature lines" },
+  {
+    id: "voice",
+    label: "Voice & catchphrases",
+    rows: 3,
+    placeholder: "How he talks, signature lines",
+  },
   { id: "ideals", label: "Ideals", rows: 2, placeholder: "What he believes in" },
-  { id: "bonds", label: "Bonds", rows: 2, placeholder: "People and places he’d fight for" },
+  {
+    id: "bonds",
+    label: "Bonds",
+    rows: 2,
+    placeholder: "People and places he’d fight for",
+  },
   { id: "flaws", label: "Flaws", rows: 2, placeholder: "What gets him in trouble" },
   { id: "backstory", label: "Backstory", rows: 6, placeholder: "Where he came from" },
 ];
@@ -86,11 +93,36 @@ const BIO_FIELDS: {
 type Ask = { id: string; label: string; icon: LucideIcon; ask: string };
 
 const ASKS: Ask[] = [
-  { id: "battle-cry", label: "Battle cry", icon: Megaphone, ask: "A battle cry as he charges in." },
-  { id: "taunt", label: "Taunt", icon: Swords, ask: "A taunt aimed at the enemy in front of him." },
-  { id: "hype", label: "Hype ally", icon: HandHeart, ask: "Encouragement for an ally who’s struggling." },
-  { id: "reply", label: "Reply", icon: MessageCircle, ask: "His reply to what was just said or done to him." },
-  { id: "hurt", label: "Took a hit", icon: HeartCrack, ask: "What he says right after taking a big hit." },
+  {
+    id: "battle-cry",
+    label: "Battle cry",
+    icon: Megaphone,
+    ask: "A battle cry as he charges in.",
+  },
+  {
+    id: "taunt",
+    label: "Taunt",
+    icon: Swords,
+    ask: "A taunt aimed at the enemy in front of him.",
+  },
+  {
+    id: "hype",
+    label: "Hype ally",
+    icon: HandHeart,
+    ask: "Encouragement for an ally who’s struggling.",
+  },
+  {
+    id: "reply",
+    label: "Reply",
+    icon: MessageCircle,
+    ask: "His reply to what was just said or done to him.",
+  },
+  {
+    id: "hurt",
+    label: "Took a hit",
+    icon: HeartCrack,
+    ask: "What he says right after taking a big hit.",
+  },
   { id: "win", label: "Victory", icon: Trophy, ask: "A line after the fight is won." },
 ];
 
@@ -102,8 +134,7 @@ const VOICE_LOG_MAX = 20;
 
 const FIELD =
   "w-full appearance-none rounded-lg border border-line bg-well px-3 py-2 text-sm text-ink outline-none transition-colors placeholder:text-faint focus:border-gold/70";
-const LABEL =
-  "text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-faint";
+const LABEL = "text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-faint";
 
 function lineId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -142,7 +173,11 @@ function spokenLine(raw: string) {
 }
 
 function sameLine(a: string, b: string) {
-  const norm = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  const norm = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, " ")
+      .trim();
   return norm(a) === norm(b);
 }
 
@@ -159,8 +194,7 @@ export function PersonaPanel({ status }: { status: string }) {
         <CardBody>
           <Stack gap={12}>
             <Text tone="tertiary">
-              Saved on this device and in backups. The line generator reads
-              all of it.
+              Saved on this device and in backups. The line generator reads all of it.
             </Text>
             {BIO_FIELDS.map((f) => (
               <label key={f.id} className="flex flex-col gap-1">
@@ -219,7 +253,12 @@ function VoiceCard({ bio, status }: { bio: Bio; status: string }) {
       .join("\n\n");
     try {
       let text = spokenLine(
-        await generateText(settings, systemPrompt(bio, status), prompt, controller.signal),
+        await generateText(
+          settings,
+          systemPrompt(bio, status),
+          prompt,
+          controller.signal,
+        ),
       );
       if (recent.some((line) => sameLine(line, text))) {
         text = spokenLine(
@@ -276,8 +315,8 @@ function VoiceCard({ bio, status }: { bio: Bio; status: string }) {
       <CardBody>
         <Stack gap={12}>
           <Text tone="tertiary">
-            Describe the moment if you have one, then tap a button. The box
-            can stay empty. Another asks for a new line of the same kind.
+            Describe the moment if you have one, then tap a button. The box can stay
+            empty. Another asks for a new line of the same kind.
           </Text>
           <label className="flex flex-col gap-1">
             <span className={LABEL}>What’s happening? (optional)</span>
@@ -395,7 +434,10 @@ function VoiceCard({ bio, status }: { bio: Bio; status: string }) {
             <ol className="m-0 flex h-40 list-none flex-col gap-1.5 overflow-y-auto rounded-lg border border-line bg-well/30 p-2">
               {log.length > 1 ? (
                 log.slice(1).map((line) => (
-                  <li key={line.id} className="shrink-0 text-[0.85rem] leading-snug text-muted">
+                  <li
+                    key={line.id}
+                    className="shrink-0 text-[0.85rem] leading-snug text-muted"
+                  >
                     <span className="mr-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-faint">
                       {line.label}
                     </span>
@@ -437,9 +479,7 @@ function AiSettingsForm({
   initial: AiSettings | null;
   onSave: (next: AiSettings | null) => void;
 }) {
-  const [provider, setProvider] = useState<AiProvider>(
-    initial?.provider ?? "groq",
-  );
+  const [provider, setProvider] = useState<AiProvider>(initial?.provider ?? "groq");
   const [apiKey, setApiKey] = useState(initial?.apiKey ?? "");
   const [baseUrl, setBaseUrl] = useState(initial?.baseUrl ?? "");
   const [model, setModel] = useState(
@@ -467,15 +507,14 @@ function AiSettingsForm({
 
   const trimmedKey = apiKey.trim();
   const canSave =
-    !!model.trim() &&
-    (provider === "compatible" ? !!baseUrl.trim() : !!trimmedKey);
+    !!model.trim() && (provider === "compatible" ? !!baseUrl.trim() : !!trimmedKey);
 
   return (
     <Stack gap={14}>
       <Text tone="secondary">
-        Groq is free and does not ask for a card. Sign in at console.groq.com
-        with Google, GitHub, or email, leave the plan on Free, create a key,
-        and paste it here. The key stays in this browser.
+        Groq is free and does not ask for a card. Sign in at console.groq.com with Google,
+        GitHub, or email, leave the plan on Free, create a key, and paste it here. The key
+        stays in this browser.
       </Text>
 
       <label className="flex flex-col gap-1">
@@ -544,10 +583,7 @@ function AiSettingsForm({
       <Button
         variant="secondary"
         icon={checking ? LoaderCircle : Check}
-        disabled={
-          checking ||
-          (provider === "compatible" ? !baseUrl.trim() : !trimmedKey)
-        }
+        disabled={checking || (provider === "compatible" ? !baseUrl.trim() : !trimmedKey)}
         onClick={() => void checkKey()}
       >
         Check key & load models
@@ -574,13 +610,13 @@ function AiSettingsForm({
                 a.localeCompare(b, undefined, { sensitivity: "base", numeric: true }),
               )
               .map((id) => (
-              <option key={id} value={id}>
-                {id}
-                {provider === "groq" && id === "openai/gpt-oss-120b"
-                  ? " — recommended"
-                  : ""}
-              </option>
-            ))}
+                <option key={id} value={id}>
+                  {id}
+                  {provider === "groq" && id === "openai/gpt-oss-120b"
+                    ? " — recommended"
+                    : ""}
+                </option>
+              ))}
           </select>
         ) : (
           <input

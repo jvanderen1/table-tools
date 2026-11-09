@@ -197,7 +197,8 @@ export function computeConditionEffects(
   if (on("deafened")) checkAutoFail.push(r("Deafened", "checks that need hearing"));
 
   const initAdv: Reason[] = on("invisible") ? [r("Invisible")] : [];
-  const initDis: Reason[] = cantAct.length > 0 ? [r(cantAct[0].label, "Incapacitated")] : [];
+  const blocking = cantAct[0];
+  const initDis: Reason[] = blocking ? [r(blocking.label, "Incapacitated")] : [];
 
   const strDexAutoFail: Reason[] = [];
   for (const id of ["paralyzed", "petrified", "stunned", "unconscious"] as const) {
@@ -265,7 +266,9 @@ export function computeConditionEffects(
     notes.push("Concentration broken and can’t speak (Incapacitated)");
   }
   if (on("charmed")) {
-    notes.push("Charmed: can’t attack or target the charmer; it has Advantage on social checks vs. you");
+    notes.push(
+      "Charmed: can’t attack or target the charmer; it has Advantage on social checks vs. you",
+    );
   }
   if (on("unconscious")) notes.push("Unconscious: drop what you’re holding");
   if (on("petrified") && on("poisoned")) {

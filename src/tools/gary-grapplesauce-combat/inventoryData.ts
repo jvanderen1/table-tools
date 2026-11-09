@@ -111,12 +111,36 @@ export const MAGIC_ITEMS: {
   effects: ItemEffect[];
 }[] = [
   { name: "Amulet of Health", attune: true, effects: [{ target: "set:con", value: 19 }] },
-  { name: "Belt of Hill Giant Strength", attune: true, effects: [{ target: "set:str", value: 21 }] },
-  { name: "Belt of Stone Giant Strength", attune: true, effects: [{ target: "set:str", value: 23 }] },
-  { name: "Belt of Frost Giant Strength", attune: true, effects: [{ target: "set:str", value: 23 }] },
-  { name: "Belt of Fire Giant Strength", attune: true, effects: [{ target: "set:str", value: 25 }] },
-  { name: "Belt of Cloud Giant Strength", attune: true, effects: [{ target: "set:str", value: 27 }] },
-  { name: "Belt of Storm Giant Strength", attune: true, effects: [{ target: "set:str", value: 29 }] },
+  {
+    name: "Belt of Hill Giant Strength",
+    attune: true,
+    effects: [{ target: "set:str", value: 21 }],
+  },
+  {
+    name: "Belt of Stone Giant Strength",
+    attune: true,
+    effects: [{ target: "set:str", value: 23 }],
+  },
+  {
+    name: "Belt of Frost Giant Strength",
+    attune: true,
+    effects: [{ target: "set:str", value: 23 }],
+  },
+  {
+    name: "Belt of Fire Giant Strength",
+    attune: true,
+    effects: [{ target: "set:str", value: 25 }],
+  },
+  {
+    name: "Belt of Cloud Giant Strength",
+    attune: true,
+    effects: [{ target: "set:str", value: 27 }],
+  },
+  {
+    name: "Belt of Storm Giant Strength",
+    attune: true,
+    effects: [{ target: "set:str", value: 29 }],
+  },
   { name: "Bracers of Defense", attune: true, effects: [{ target: "ac", value: 2 }] },
   {
     name: "Cloak of Protection",
@@ -126,12 +150,36 @@ export const MAGIC_ITEMS: {
       { target: "saves", value: 1 },
     ],
   },
-  { name: "Gauntlets of Ogre Power", attune: true, effects: [{ target: "set:str", value: 19 }] },
-  { name: "Headband of Intellect", attune: true, effects: [{ target: "set:int", value: 19 }] },
-  { name: "Ioun Stone of Agility", attune: true, effects: [{ target: "add:dex", value: 2 }] },
-  { name: "Ioun Stone of Fortitude", attune: true, effects: [{ target: "add:con", value: 2 }] },
-  { name: "Ioun Stone of Protection", attune: true, effects: [{ target: "ac", value: 1 }] },
-  { name: "Ioun Stone of Strength", attune: true, effects: [{ target: "add:str", value: 2 }] },
+  {
+    name: "Gauntlets of Ogre Power",
+    attune: true,
+    effects: [{ target: "set:str", value: 19 }],
+  },
+  {
+    name: "Headband of Intellect",
+    attune: true,
+    effects: [{ target: "set:int", value: 19 }],
+  },
+  {
+    name: "Ioun Stone of Agility",
+    attune: true,
+    effects: [{ target: "add:dex", value: 2 }],
+  },
+  {
+    name: "Ioun Stone of Fortitude",
+    attune: true,
+    effects: [{ target: "add:con", value: 2 }],
+  },
+  {
+    name: "Ioun Stone of Protection",
+    attune: true,
+    effects: [{ target: "ac", value: 1 }],
+  },
+  {
+    name: "Ioun Stone of Strength",
+    attune: true,
+    effects: [{ target: "add:str", value: 2 }],
+  },
   {
     name: "Ring of Protection",
     attune: true,
@@ -268,10 +316,12 @@ export function describeInventory(prev: Inventory, next: Inventory): Change {
   const before = new Map(prev.items.map((i) => [i.id, i]));
   const after = new Map(next.items.map((i) => [i.id, i]));
   for (const item of next.items) {
-    if (!before.has(item.id)) return { label: `Added ${item.name}`, key: `add:${item.id}` };
+    if (!before.has(item.id))
+      return { label: `Added ${item.name}`, key: `add:${item.id}` };
   }
   for (const item of prev.items) {
-    if (!after.has(item.id)) return { label: `Removed ${item.name}`, key: `remove:${item.id}` };
+    if (!after.has(item.id))
+      return { label: `Removed ${item.name}`, key: `remove:${item.id}` };
   }
   for (const item of next.items) {
     const old = before.get(item.id);

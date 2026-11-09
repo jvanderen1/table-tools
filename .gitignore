@@ -26,5 +26,11 @@ dist-ssr
 # Build
 dist
 
+# Tests
+coverage
+playwright-report
+test-results
+blob-report
+
 # Jujutsu (colocated with git — local only)
 .jj/

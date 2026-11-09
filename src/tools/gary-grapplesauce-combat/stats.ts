@@ -71,7 +71,10 @@ const mod = (score: number) => Math.floor((score - 10) / 2);
 
 export function computeGary(items: InventoryItem[]): GaryStats {
   const sources: GaryStats["sources"] = {};
-  const bonus: Record<"ac" | "attack" | "damage" | "saves" | "checks" | "speed" | "initiative", number> = {
+  const bonus: Record<
+    "ac" | "attack" | "damage" | "saves" | "checks" | "speed" | "initiative",
+    number
+  > = {
     ac: 0,
     attack: 0,
     damage: 0,
@@ -137,7 +140,8 @@ export function computeGary(items: InventoryItem[]): GaryStats {
   const fisticuffsBonus = mods.str + bonus.damage;
   const hpMax = Math.max(1, BASE.hpBeforeCon + mods.con * BASE.level);
 
-  if (mods.con !== mod(BASE.scores.con)) note("hpMax", `Con ${signedNum(mods.con)} × ${BASE.level} levels`);
+  if (mods.con !== mod(BASE.scores.con))
+    note("hpMax", `Con ${signedNum(mods.con)} × ${BASE.level} levels`);
 
   return {
     level: BASE.level,
@@ -146,7 +150,7 @@ export function computeGary(items: InventoryItem[]): GaryStats {
     attack: mods.str + prof + bonus.attack,
     damage: `${diceText(BASE.fisticuffsDie, fisticuffsBonus)} bludgeoning`,
     ac: BASE.ironChin + mods.con + bonus.ac,
-    athletics: skills[0].bonus,
+    athletics: skills.find((skill) => skill.id === "athletics")?.bonus ?? 0,
     initiative: mods.dex + bonus.initiative + bonus.checks,
     speed: Math.max(0, BASE.speed + bonus.speed),
     saves,

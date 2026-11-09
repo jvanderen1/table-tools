@@ -80,9 +80,7 @@ export function useUndoableState<T>(
     (s: Store<T>, a: Action<T>): Store<T> => {
       if (a.type === "set") {
         const next = normalize(
-          typeof a.next === "function"
-            ? (a.next as (prev: T) => T)(s.value)
-            : a.next,
+          typeof a.next === "function" ? (a.next as (prev: T) => T)(s.value) : a.next,
         );
         if (same(next, s.value)) return s;
         const change = describe(s.value, next);
@@ -95,9 +93,7 @@ export function useUndoableState<T>(
           return {
             value: next,
             future: [],
-            past: merged
-              ? [...past, { ...last, at: a.at, label: merged.label }]
-              : past,
+            past: merged ? [...past, { ...last, at: a.at, label: merged.label }] : past,
           };
         }
         return {
@@ -119,14 +115,16 @@ export function useUndoableState<T>(
       if (a.type === "undo") {
         for (let i = 0; i < a.steps && past.length > 0; i++) {
           const entry = past[past.length - 1];
+          if (!entry) break;
           past = past.slice(0, -1);
           future = [{ ...entry, state: value }, ...future];
           value = normalize(entry.state);
         }
       } else {
         for (let i = 0; i < a.steps && future.length > 0; i++) {
-          const [entry, ...rest] = future;
-          future = rest;
+          const entry = future[0];
+          if (!entry) break;
+          future = future.slice(1);
           past = [...past, { ...entry, state: value }];
           value = normalize(entry.state);
         }

@@ -62,10 +62,7 @@ export function Grid({
 }) {
   return (
     <div
-      className={cx(
-        "grid grid-cols-1",
-        columns === 3 && "sm:grid-cols-3",
-      )}
+      className={cx("grid grid-cols-1", columns === 3 && "sm:grid-cols-3")}
       style={{ gap }}
     >
       {children}
@@ -194,10 +191,8 @@ export function Pill({
 const BUTTON_VARIANTS = {
   primary:
     "border-gold/70 bg-gradient-to-b from-gold-soft to-gold text-void shadow-[0_6px_18px_-8px_rgba(197,160,89,0.7)] hover:from-gold-soft hover:to-gold-soft",
-  secondary:
-    "border-line bg-raised/70 text-ink hover:border-gold/50 hover:bg-raised",
-  ghost:
-    "border-transparent bg-transparent text-muted hover:bg-raised/50 hover:text-ink",
+  secondary: "border-line bg-raised/70 text-ink hover:border-gold/50 hover:bg-raised",
+  ghost: "border-transparent bg-transparent text-muted hover:bg-raised/50 hover:text-ink",
   danger:
     "border-crimson/70 bg-crimson/85 text-ink shadow-[0_6px_18px_-8px_rgba(155,35,53,0.8)] hover:bg-crimson",
 } as const;

@@ -27,6 +27,19 @@ npm install
 npm run dev
 ```
 
+Checks run on every push and pull request (`.github/workflows/ci.yml`):
+
+```bash
+npm run lint          # oxlint
+npm run format:check  # prettier
+npx tsc -b            # strict TypeScript
+npm test              # vitest unit tests
+npm run test:e2e      # playwright use-case tests
+npm run check         # lint, format, types, and unit tests
+```
+
+The first end-to-end run needs `npx playwright install chromium`.
+
 This repo is **colocated Jujutsu + Git**. Prefer `jj` for day-to-day changes (`jj describe`, `jj new`, `jj git push`). See [AGENTS.md](./AGENTS.md).
 
 ```bash

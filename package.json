@@ -7,6 +7,11 @@
     "dev": "node scripts/run-vite.mjs",
     "build": "tsc -b && node scripts/run-vite.mjs build",
     "lint": "oxlint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "check": "npm run lint && npm run format:check && tsc -b && npm test",
     "preview": "node scripts/run-vite.mjs preview",
     "new-tool": "node scripts/new-tool.mjs"
   },
@@ -26,13 +31,16 @@
     }
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
     "@types/node": "^24.19.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
     "oxlint": "^1.90.0",
+    "prettier": "^3.9.10",
     "typescript": "~7.0.2",
     "vite": "^8.3.6",
-    "vite-plugin-pwa": "^2.0.0"
+    "vite-plugin-pwa": "^2.0.0",
+    "vitest": "^5.1.0"
   }
 }

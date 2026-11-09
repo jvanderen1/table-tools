@@ -52,7 +52,8 @@ export const PLAYBOOKS: PlaybookDef[] = [
   {
     id: "lock-down",
     title: "Lock them down",
-    blurb: "Put them on the mat and keep the hug. Compression Lock ticks at the start of your turn.",
+    blurb:
+      "Put them on the mat and keep the hug. Compression Lock ticks at the start of your turn.",
     gym: "Sit Down. Still Hugging.",
     when: "turn",
     tag: "Control",
@@ -61,7 +62,8 @@ export const PLAYBOOKS: PlaybookDef[] = [
   {
     id: "stay-standing",
     title: "Stay standing",
-    blurb: "Temp HP now. Dig Deep if the hits are weapon damage. Bloodied is the reaction later.",
+    blurb:
+      "Temp HP now. Dig Deep if the hits are weapon damage. Bloodied is the reaction later.",
     gym: "Flex. Leg Day.",
     when: "turn",
     tag: "Survive",
@@ -97,7 +99,8 @@ export const PLAYBOOKS: PlaybookDef[] = [
   {
     id: "react-meat-shield",
     title: "Meat Shield",
-    blurb: "Someone you are not grappling missed you. Half cover was already on. This spends 1 Moxie to redirect the attack.",
+    blurb:
+      "Someone you are not grappling missed you. Half cover was already on. This spends 1 Moxie to redirect the attack.",
     gym: "Hug the problem.",
     when: "reaction",
     tag: "Reaction",
@@ -133,7 +136,8 @@ export const PLAYBOOKS: PlaybookDef[] = [
   {
     id: "failed-roll",
     title: "Failed roll",
-    blurb: "Swagger is a Str, Dex, Con, or Cha check. Guarded Mind is an Int, Wis, or Cha save.",
+    blurb:
+      "Swagger is a Str, Dex, Con, or Cha check. Guarded Mind is an Int, Wis, or Cha save.",
     gym: "One more rep.",
     when: "check",
     tag: "Check",

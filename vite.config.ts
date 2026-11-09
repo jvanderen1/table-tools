@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
@@ -18,10 +18,7 @@ export default defineConfig({
       registerType: "prompt",
       injectRegister: false,
       workbox: {
-        globPatterns: [
-          "**/*.{js,css,html,ico,png,jpg,webmanifest}",
-          "**/*latin*.woff2",
-        ],
+        globPatterns: ["**/*.{js,css,html,ico,png,jpg,webmanifest}", "**/*latin*.woff2"],
         navigateFallback: "index.html",
         cleanupOutdatedCaches: true,
         // Prompt mode waits for SKIP_WAITING. Claiming clients lets the
@@ -38,4 +35,8 @@ export default defineConfig({
     }),
   ],
   base,
+  test: {
+    environment: "node",
+    include: ["src/**/*.test.ts"],
+  },
 });

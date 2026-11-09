@@ -112,16 +112,8 @@ import {
 import { GLOSSARY } from "./glossary";
 import { GlossaryList, Tip } from "./Tip";
 import { ActionBrowser, ActionCatalog } from "./Catalog";
-import {
-  ACTIONS,
-  PART_LABEL,
-  actionAvailable,
-  type CustomAction,
-} from "./actions";
-import {
-  PLAYBOOKS,
-  type CustomPlaybook,
-} from "./playbooks";
+import { ACTIONS, PART_LABEL, actionAvailable, type CustomAction } from "./actions";
+import { PLAYBOOKS, type CustomPlaybook } from "./playbooks";
 import { InventoryPanel } from "./Inventory";
 import {
   DEFAULT_INVENTORY,
@@ -151,13 +143,7 @@ import {
 const FIELD_INPUT =
   "w-full appearance-none rounded-lg border border-line bg-well px-3 py-2.5 text-ink outline-none transition-colors focus:border-gold/70";
 
-function FieldLabel({
-  icon: Icon,
-  children,
-}: {
-  icon: LucideIcon;
-  children: ReactNode;
-}) {
+function FieldLabel({ icon: Icon, children }: { icon: LucideIcon; children: ReactNode }) {
   return (
     <span className="inline-flex items-center gap-1.5 text-[0.72rem] font-semibold uppercase tracking-[0.12em] text-muted">
       <Icon className="size-3.5 text-gold/80" aria-hidden />
@@ -166,10 +152,7 @@ function FieldLabel({
   );
 }
 
-function Select({
-  className,
-  ...props
-}: SelectHTMLAttributes<HTMLSelectElement>) {
+function Select({ className, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <div className="relative">
       <select className={cx(FIELD_INPUT, "pr-9", className)} {...props} />
@@ -190,13 +173,7 @@ const RESOURCE_NOTE = "block text-xs text-faint";
 type Phase = "timing" | "reaction" | "goal" | "result";
 type Timing = "turn" | "reaction" | "check-fail";
 type ReactionKind = "bloodied" | "mage-cast" | "opportunity" | "other";
-type Goal =
-  | "damage"
-  | "control"
-  | "survive"
-  | "reposition"
-  | "mage"
-  | "unsure";
+type Goal = "damage" | "control" | "survive" | "reposition" | "mage" | "unsure";
 
 type PlanApply =
   | "moxie"
@@ -275,9 +252,7 @@ const HIT_DICE_MAX = 9;
 const SWAGGER_ABILITIES = new Set<Ability>(["str", "dex", "con", "cha"]);
 
 function emptyConditions(): ConditionFlags {
-  return Object.fromEntries(
-    CONDITION_DEFS.map((c) => [c.id, false]),
-  ) as ConditionFlags;
+  return Object.fromEntries(CONDITION_DEFS.map((c) => [c.id, false])) as ConditionFlags;
 }
 
 const DEFAULT_SHEET: Sheet = {
@@ -372,7 +347,6 @@ function describeSheetChange(prev: Sheet, next: Sheet): Change {
       : parts.join(", ");
   return { label, key: keys.join("|") };
 }
-
 
 type PlaySnap = { id: string; before: Sheet; after: Sheet };
 
@@ -477,9 +451,7 @@ const ROLL_SHORT = {
 } as const;
 
 function reasonText(reasons: Reason[]) {
-  return reasons
-    .map((x) => (x.note ? `${x.label} (${x.note})` : x.label))
-    .join(", ");
+  return reasons.map((x) => (x.note ? `${x.label} (${x.note})` : x.label)).join(", ");
 }
 
 type GoalOption = {
@@ -577,8 +549,7 @@ function planFor(goal: Goal, sheet: Sheet, gary: GaryStats): Plan {
       if (canSpend) {
         return {
           title: "Stay standing",
-          action:
-            "Attack only if safe. Prefer holding position or Disengaging later.",
+          action: "Attack only if safe. Prefer holding position or Disengaging later.",
           bonus: `The button below spends 1 Moxie, rolls ${braceDice(gary)} temp HP, and applies it.`,
           reaction: sheet.bloodiedUnbowed
             ? "If bloodied and you take damage: Bloodied But Unbowed still available."
@@ -604,10 +575,8 @@ function planFor(goal: Goal, sheet: Sheet, gary: GaryStats): Plan {
       if (sheet.digDeep) {
         return {
           title: "Stay standing — Dig Deep",
-          action:
-            "Attack only if safe. Hold position behind allies if possible.",
-          bonus:
-            "No Moxie for Brace Up. Dig Deep is the free resistance.",
+          action: "Attack only if safe. Hold position behind allies if possible.",
+          bonus: "No Moxie for Brace Up. Dig Deep is the free resistance.",
           cost: 0,
           costLabel: "Dig Deep",
           why: "No Brace Up without Moxie. Burn Dig Deep if the fight is brutal.",
@@ -618,7 +587,8 @@ function planFor(goal: Goal, sheet: Sheet, gary: GaryStats): Plan {
               id: "dig-deep",
               label: "Dig Deep",
               part: "Bonus Action",
-              detail: "For 10 minutes, resist bludgeoning, piercing, and slashing, and ignore Exhaustion below 6.",
+              detail:
+                "For 10 minutes, resist bludgeoning, piercing, and slashing, and ignore Exhaustion below 6.",
               cost: 0,
               apply: "dig-deep",
             },
@@ -629,8 +599,7 @@ function planFor(goal: Goal, sheet: Sheet, gary: GaryStats): Plan {
         const next = sheet.exhaustion + 1;
         return {
           title: "Stay standing — Dig Deep again",
-          action:
-            "Attack only if safe. Hold position behind allies if possible.",
+          action: "Attack only if safe. Hold position behind allies if possible.",
           bonus: `No free Dig Deep left. Another use costs 1 Exhaustion (${sheet.exhaustion} → ${next}).`,
           cost: 0,
           costLabel: "+1 Exhaustion",
@@ -654,8 +623,7 @@ function planFor(goal: Goal, sheet: Sheet, gary: GaryStats): Plan {
       }
       return {
         title: "Stay standing (no tools left)",
-        action:
-          "Attack only if safe. Hold position behind allies if possible.",
+        action: "Attack only if safe. Hold position behind allies if possible.",
         bonus: `Brace Up locked (no Moxie). Dig Deep already used — ${digDeepAgainNote(sheet.exhaustion)} ${
           sheet.bloodiedUnbowed
             ? "Hope for Bloodied But Unbowed or cover."
@@ -741,8 +709,7 @@ function planFor(goal: Goal, sheet: Sheet, gary: GaryStats): Plan {
     default:
       return {
         title: "Default loop",
-        action:
-          "Attack → Unarmed. Heavy Hitter on hit (damage + Grapple or Shove).",
+        action: "Attack → Unarmed. Heavy Hitter on hit (damage + Grapple or Shove).",
         bonus: "Fisticuffs free Unarmed Strike. Save Moxie for a bad turn.",
         cost: 0,
         costLabel: "0",
@@ -771,7 +738,8 @@ function reactionPlan(kind: ReactionKind, gary: GaryStats): Plan {
             id: "unbowed",
             label: "Bloodied But Unbowed",
             part: "Reaction",
-            detail: "Regain all expended Moxie. If you are bloodied, also gain 36 temporary hit points until a short rest.",
+            detail:
+              "Regain all expended Moxie. If you are bloodied, also gain 36 temporary hit points until a short rest.",
             cost: 0,
             apply: "bloodied-unbowed",
           },
@@ -782,8 +750,7 @@ function reactionPlan(kind: ReactionKind, gary: GaryStats): Plan {
         title: "Mage Slayer interrupt",
         action: "No Action — this is a Reaction.",
         bonus: "—",
-        reaction:
-          `Creature within 5 ft casts with a spell slot → Reaction Unarmed Strike (${signed(gary.attack)} / ${unarmedDice(gary)}). Next turn, stay adjacent.`,
+        reaction: `Creature within 5 ft casts with a spell slot → Reaction Unarmed Strike (${signed(gary.attack)} / ${unarmedDice(gary)}). Next turn, stay adjacent.`,
         cost: 0,
         costLabel: "0",
         why: "Interrupt first. Follow up by grappling them so they can't walk off.",
@@ -887,9 +854,7 @@ type DamageOutcome = {
 };
 
 function isWeaponPhysical(type: DamageType) {
-  return (
-    type === "bludgeoning" || type === "piercing" || type === "slashing"
-  );
+  return type === "bludgeoning" || type === "piercing" || type === "slashing";
 }
 
 /** Dig Deep covers all bludgeoning, piercing, and slashing. Petrified covers everything. */
@@ -913,10 +878,7 @@ function resolveEffectiveness(
   return autoResistReason(sheet, type, magical) ? "resistant" : "normal";
 }
 
-function modifyDamage(
-  raw: number,
-  eff: Exclude<Effectiveness, "auto">,
-): number {
+function modifyDamage(raw: number, eff: Exclude<Effectiveness, "auto">): number {
   if (eff === "immune") return 0;
   if (eff === "resistant") return Math.floor(raw / 2);
   if (eff === "vulnerable") return raw * 2;
@@ -1102,12 +1064,7 @@ function DamageAdjuster({
   const physical = isWeaponPhysical(ui.type);
   const magical = physical && ui.magical === true;
   const typeLabel = magical ? `magical ${ui.type}` : ui.type;
-  const resolved = resolveEffectiveness(
-    ui.type,
-    sheet,
-    ui.effectiveness,
-    magical,
-  );
+  const resolved = resolveEffectiveness(ui.type, sheet, ui.effectiveness, magical);
   const autoReason = autoResistReason(sheet, ui.type, magical);
   const preview = modifyDamage(raw, resolved);
   const intent: HpIntent = ui.intent === "heal" ? "heal" : "hit";
@@ -1271,7 +1228,11 @@ function DamageAdjuster({
 
   return (
     <Stack gap={14}>
-      <div className="grid grid-cols-2 gap-1 rounded-xl border border-line bg-well/80 p-1" role="tablist" aria-label="Hit points">
+      <div
+        className="grid grid-cols-2 gap-1 rounded-xl border border-line bg-well/80 p-1"
+        role="tablist"
+        aria-label="Hit points"
+      >
         <button
           type="button"
           role="tab"
@@ -1375,7 +1336,11 @@ function DamageAdjuster({
 
           <div className="flex flex-col gap-1.5">
             <FieldLabel icon={ShieldHalf}>How this hit lands</FieldLabel>
-            <div className="grid grid-cols-5 gap-1" role="group" aria-label="How this hit lands">
+            <div
+              className="grid grid-cols-5 gap-1"
+              role="group"
+              aria-label="How this hit lands"
+            >
               {HIT_MODES.map((mode) => (
                 <button
                   key={mode.id}
@@ -1419,62 +1384,62 @@ function DamageAdjuster({
         </>
       ) : (
         <>
-        {sheet.hp <= 0 || sheet.deathFailures >= 3 ? (
-          <DeathSaves
-            sheet={sheet}
-            setSheet={setSheet}
-            amount={raw}
-            hpMax={gary.hpMax}
-            onNote={setOutcome}
-          />
-        ) : null}
-        <div className="flex flex-col gap-2 rounded-lg border border-line bg-well/40 p-3">
-          <div className="flex h-7 items-center justify-between gap-2">
-            <span className="inline-flex items-center gap-1.5 text-sm text-muted">
-              <Shield className="size-4 text-gold/80" aria-hidden />
-              Temp HP
-            </span>
-            <span className="text-lg leading-none font-semibold tabular-nums text-ink">
-              {sheet.tempHp}
-            </span>
+          {sheet.hp <= 0 || sheet.deathFailures >= 3 ? (
+            <DeathSaves
+              sheet={sheet}
+              setSheet={setSheet}
+              amount={raw}
+              hpMax={gary.hpMax}
+              onNote={setOutcome}
+            />
+          ) : null}
+          <div className="flex flex-col gap-2 rounded-lg border border-line bg-well/40 p-3">
+            <div className="flex h-7 items-center justify-between gap-2">
+              <span className="inline-flex items-center gap-1.5 text-sm text-muted">
+                <Shield className="size-4 text-gold/80" aria-hidden />
+                Temp HP
+              </span>
+              <span className="text-lg leading-none font-semibold tabular-nums text-ink">
+                {sheet.tempHp}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                icon={ShieldPlus}
+                disabled={raw <= 0}
+                onClick={() => {
+                  const next = sheet.tempHp + raw;
+                  setSheet((s) => ({ ...s, tempHp: s.tempHp + raw }));
+                  setOutcome({
+                    tone: "info",
+                    title: "Temporary hit points",
+                    detail: `Temp ${sheet.tempHp} → ${next}.`,
+                  });
+                }}
+              >
+                Add amount
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                icon={ShieldOff}
+                disabled={sheet.tempHp <= 0}
+                onClick={() => {
+                  const before = sheet.tempHp;
+                  setSheet((s) => ({ ...s, tempHp: 0 }));
+                  setOutcome({
+                    tone: "info",
+                    title: "Temporary hit points cleared",
+                    detail: `Temp ${before} → 0.`,
+                  });
+                }}
+              >
+                Clear
+              </Button>
+            </div>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              size="sm"
-              variant="secondary"
-              icon={ShieldPlus}
-              disabled={raw <= 0}
-              onClick={() => {
-                const next = sheet.tempHp + raw;
-                setSheet((s) => ({ ...s, tempHp: s.tempHp + raw }));
-                setOutcome({
-                  tone: "info",
-                  title: "Temporary hit points",
-                  detail: `Temp ${sheet.tempHp} → ${next}.`,
-                });
-              }}
-            >
-              Add amount
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              icon={ShieldOff}
-              disabled={sheet.tempHp <= 0}
-              onClick={() => {
-                const before = sheet.tempHp;
-                setSheet((s) => ({ ...s, tempHp: 0 }));
-                setOutcome({
-                  tone: "info",
-                  title: "Temporary hit points cleared",
-                  detail: `Temp ${before} → 0.`,
-                });
-              }}
-            >
-              Clear
-            </Button>
-          </div>
-        </div>
         </>
       )}
 
@@ -1483,8 +1448,8 @@ function DamageAdjuster({
         <span>
           {intent === "hit" ? (
             <>
-              {raw} → <strong className="text-ink">{preview}</strong> {typeLabel} ({effHint})
-              {sheet.tempHp > 0 ? ` · temp ${sheet.tempHp} first` : ""}
+              {raw} → <strong className="text-ink">{preview}</strong> {typeLabel} (
+              {effHint}){sheet.tempHp > 0 ? ` · temp ${sheet.tempHp} first` : ""}
             </>
           ) : (
             <>
@@ -1585,11 +1550,15 @@ function PlanTips({ plan }: { plan: Plan }) {
         <Lightbulb className="size-3.5 text-gold/80" aria-hidden />
         Tips:
       </span>
-      {unique.map((id) => (
-        <Tip key={id} id={id}>
-          {GLOSSARY[id].label}
-        </Tip>
-      ))}
+      {unique.map((id) => {
+        const entry = GLOSSARY[id];
+        if (!entry) return null;
+        return (
+          <Tip key={id} id={id}>
+            {entry.label}
+          </Tip>
+        );
+      })}
     </Row>
   );
 }
@@ -1641,10 +1610,7 @@ function effectChips(
     chips.push({ text: "Melee hits crit you", tone: "bad" });
   } else if (e.againstNear.roll === "advantage") {
     chips.push({
-      text:
-        e.againstFar.roll === "advantage"
-          ? "Foes have Adv"
-          : "Foes in 5 ft have Adv",
+      text: e.againstFar.roll === "advantage" ? "Foes have Adv" : "Foes in 5 ft have Adv",
       tone: "bad",
     });
   } else if (
@@ -1698,7 +1664,12 @@ function ReadyTile({
         )}
         aria-hidden
       />
-      <span className={cx("min-w-0 flex-1", state === "used" && "line-through decoration-faint/60")}>
+      <span
+        className={cx(
+          "min-w-0 flex-1",
+          state === "used" && "line-through decoration-faint/60",
+        )}
+      >
         <Tip id={tip} fill icon={false}>
           {children}
           <span className="sr-only"> ({READY_WORD[state]})</span>
@@ -1792,13 +1763,7 @@ function SlotGrid({
   );
 }
 
-function StatusPanels({
-  sheet,
-  onDetails,
-}: {
-  sheet: Sheet;
-  onDetails: () => void;
-}) {
+function StatusPanels({ sheet, onDetails }: { sheet: Sheet; onDetails: () => void }) {
   const gary = useGary();
   const now: ReactNode[] = [];
   if (isBloodied(sheet.hp, gary)) {
@@ -1837,9 +1802,7 @@ function StatusPanels({
   }
 
   const effects = [
-    ...(sheet.holdingGrapple
-      ? [{ text: "Half cover +2", tone: "good" as const }]
-      : []),
+    ...(sheet.holdingGrapple ? [{ text: "Half cover +2", tone: "good" as const }] : []),
     ...(sheet.digDeepActive &&
     (sheet.exhaustion ?? 0) > 0 &&
     (sheet.exhaustion ?? 0) < EXHAUSTION_DEATH
@@ -1853,11 +1816,7 @@ function StatusPanels({
         : "Exhaustion 6 — Gary is dead",
     ),
   ].map((c) => (
-    <span
-      key={c.text}
-      className={cx(SLOT_CHIP, TONE_CHIP[c.tone])}
-      title={c.text}
-    >
+    <span key={c.text} className={cx(SLOT_CHIP, TONE_CHIP[c.tone])} title={c.text}>
       <span className="min-w-0 truncate">{c.text}</span>
     </span>
   ));
@@ -1878,10 +1837,7 @@ function StatusPanels({
           >
             Unbowed
           </ReadyTile>
-          <ReadyTile
-            state={sheet.swagger ? "ready" : "used"}
-            tip="swagger-streak"
-          >
+          <ReadyTile state={sheet.swagger ? "ready" : "used"} tip="swagger-streak">
             Swagger
           </ReadyTile>
           <ReadyTile state={digDeep} tip="dig-deep">
@@ -1890,12 +1846,7 @@ function StatusPanels({
         </div>
       </StatusSection>
       <StatusSection icon={CircleDot} label="Now">
-        <SlotGrid
-          items={now}
-          columns={3}
-          empty="Nothing active"
-          onMore={onDetails}
-        />
+        <SlotGrid items={now} columns={3} empty="Nothing active" onMore={onDetails} />
       </StatusSection>
       <StatusSection
         icon={Activity}
@@ -1911,12 +1862,7 @@ function StatusPanels({
           </button>
         }
       >
-        <SlotGrid
-          items={effects}
-          columns={2}
-          empty="Normal numbers"
-          onMore={onDetails}
-        />
+        <SlotGrid items={effects} columns={2} empty="Normal numbers" onMore={onDetails} />
       </StatusSection>
     </>
   );
@@ -2043,7 +1989,9 @@ function ConditionEffectsCard({ sheet }: { sheet: Sheet }) {
           e.checkAutoFail.length > 0
             ? `Auto-fail: ${reasonText(e.checkAutoFail)}`
             : undefined,
-          e.checks.roll !== "normal" || pen > 0 ? "applies to all ability checks" : undefined,
+          e.checks.roll !== "normal" || pen > 0
+            ? "applies to all ability checks"
+            : undefined,
         )}
       />
       <div className={EFFECT_ROW}>
@@ -2156,12 +2104,7 @@ function ConditionEffectsCard({ sheet }: { sheet: Sheet }) {
         />
       ) : null}
       {e.notes.length > 0 ? (
-        <EffectRow
-          label="Also"
-          icon={Info}
-          value=""
-          detail={e.notes.join(" · ")}
-        />
+        <EffectRow label="Also" icon={Info} value="" detail={e.notes.join(" · ")} />
       ) : null}
     </div>
   );
@@ -2217,9 +2160,7 @@ function StatusBar({
             <div
               className={cx(
                 "h-full rounded-full bg-gradient-to-r transition-[width] duration-150",
-                bloodied
-                  ? "from-crimson to-crimson-soft"
-                  : "from-gold-deep to-gold-soft",
+                bloodied ? "from-crimson to-crimson-soft" : "from-gold-deep to-gold-soft",
               )}
               style={{ width: `${Math.round((sheet.hp / gary.hpMax) * 100)}%` }}
             />
@@ -2248,9 +2189,7 @@ function StatusBar({
                     ? "border-gold bg-gradient-to-b from-gold-soft to-gold shadow-[0_0_10px_-2px_rgba(197,160,89,0.8)]"
                     : "border-line bg-well hover:border-gold/50",
                 )}
-                onClick={() =>
-                  setSheet((s) => ({ ...s, moxie: i + 1 }))
-                }
+                onClick={() => setSheet((s) => ({ ...s, moxie: i + 1 }))}
               />
             ))}
           </Row>
@@ -2265,9 +2204,7 @@ function StatusBar({
               ? "border-gold/60 bg-gold/10 text-gold-soft"
               : "border-line bg-well/60 text-muted hover:border-gold/40",
           )}
-          onClick={() =>
-            setSheet((s) => ({ ...s, holdingGrapple: !s.holdingGrapple }))
-          }
+          onClick={() => setSheet((s) => ({ ...s, holdingGrapple: !s.holdingGrapple }))}
         >
           <span
             className={cx(
@@ -2352,7 +2289,11 @@ function ConditionsPanel({
                 type="button"
                 aria-pressed={on}
                 aria-label={
-                  dead ? "Exhaustion 6, death" : level === 0 ? "No exhaustion" : `Exhaustion ${level}`
+                  dead
+                    ? "Exhaustion 6, death"
+                    : level === 0
+                      ? "No exhaustion"
+                      : `Exhaustion ${level}`
                 }
                 className={cx(
                   "inline-flex min-h-10 cursor-pointer items-center justify-center gap-1 rounded-lg text-sm font-medium tabular-nums transition-colors",
@@ -2579,9 +2520,7 @@ function RestPanel({
             variant="secondary"
             icon={Pickaxe}
             disabled={
-              sheet.digDeep ||
-              sheet.digDeepActive ||
-              !canDigDeepAgain(sheet.exhaustion)
+              sheet.digDeep || sheet.digDeepActive || !canDigDeepAgain(sheet.exhaustion)
             }
             onClick={() =>
               setSheet((s) =>
@@ -2679,10 +2618,10 @@ function RestPanel({
         {armReset
           ? "Tap Reset sheet again. Full HP, Moxie, uses, no conditions, no exhaustion, and death saves cleared. Gear and biography stay. Undo can take it back."
           : diedOf(sheet) === "saves"
-          ? "Gary is dead from three failed death saves. Brought back is on Heal. Reset sheet restores the fresh sheet."
-          : sheet.exhaustion >= EXHAUSTION_DEATH
-          ? "Gary is dead at Exhaustion 6 — no long rest. Reset sheet restores the fresh sheet, including Exhaustion 0."
-          : "Spend hit dice during a short rest, then tap Short rest. Short restores Moxie, Bloodied, Swagger, and Guarded Mind. Long restores HP, hit dice, and uses, clears conditions, and reduces Exhaustion by 1. Reset sheet puts everything back to the start."}
+            ? "Gary is dead from three failed death saves. Brought back is on Heal. Reset sheet restores the fresh sheet."
+            : sheet.exhaustion >= EXHAUSTION_DEATH
+              ? "Gary is dead at Exhaustion 6 — no long rest. Reset sheet restores the fresh sheet, including Exhaustion 0."
+              : "Spend hit dice during a short rest, then tap Short rest. Short restores Moxie, Bloodied, Swagger, and Guarded Mind. Long restores HP, hit dice, and uses, clears conditions, and reduces Exhaustion by 1. Reset sheet puts everything back to the start."}
       </Text>
     </Stack>
   );
@@ -2716,14 +2655,14 @@ type ShownRoll =
       swaggerDie?: number;
       swaggerCall?: "pending" | "failed" | "succeeded";
     }
-      | {
+  | {
       kind: "damage";
       dice: number[];
       bonus: number;
       total: number;
       crit: boolean;
     }
-      | {
+  | {
       kind: "brace";
       die: number;
       bonus: number;
@@ -2735,7 +2674,7 @@ type ShownRoll =
 function rollDie(sides: number) {
   const buf = new Uint32Array(1);
   crypto.getRandomValues(buf);
-  return (buf[0] % sides) + 1;
+  return ((buf[0] ?? 0) % sides) + 1;
 }
 
 /** Tavern Brawler: an Unarmed Strike damage die that shows 1 is rerolled once. */
@@ -2783,13 +2722,7 @@ function d20LogEntry({
     breakdown: withModifier(faces, bonus),
     total: kept + bonus,
     result: autoFail ? "Fail" : miss ? "Miss" : undefined,
-    flag: autoFail
-      ? "fail"
-      : miss
-        ? "miss"
-        : attack && kept === 20
-          ? "crit"
-          : undefined,
+    flag: autoFail ? "fail" : miss ? "miss" : attack && kept === 20 ? "crit" : undefined,
   };
 }
 
@@ -2890,38 +2823,38 @@ function RollButtons({
   onRoll: (spec: D20Spec) => void;
 }) {
   const buttons = specs.map((spec) => {
-        const caption = rollCaption(spec);
-        const tone =
-          spec.autoFail.length > 0 || spec.effect.roll === "disadvantage"
-            ? "bad"
-            : spec.effect.roll === "advantage"
-              ? "good"
-              : "";
-        const Icon = specIcon(spec);
-        return (
-          <button
-            key={spec.id}
-            type="button"
-            className={ROLL_TILE}
-            disabled={disabled}
-            onClick={() => onRoll(spec)}
-          >
-            <span className="inline-flex items-center gap-1.5 text-[0.85rem]">
-              <Icon className="size-3.5 text-gold/80" aria-hidden />
-              {spec.label}
-            </span>
-            <span
-              className={cx(
-                "text-base font-semibold tabular-nums",
-                tone === "bad" && "text-crimson-soft",
-                tone === "good" && "text-verdant",
-                !tone && "text-ink",
-              )}
-            >
-              {caption}
-            </span>
-          </button>
-        );
+    const caption = rollCaption(spec);
+    const tone =
+      spec.autoFail.length > 0 || spec.effect.roll === "disadvantage"
+        ? "bad"
+        : spec.effect.roll === "advantage"
+          ? "good"
+          : "";
+    const Icon = specIcon(spec);
+    return (
+      <button
+        key={spec.id}
+        type="button"
+        className={ROLL_TILE}
+        disabled={disabled}
+        onClick={() => onRoll(spec)}
+      >
+        <span className="inline-flex items-center gap-1.5 text-[0.85rem]">
+          <Icon className="size-3.5 text-gold/80" aria-hidden />
+          {spec.label}
+        </span>
+        <span
+          className={cx(
+            "text-base font-semibold tabular-nums",
+            tone === "bad" && "text-crimson-soft",
+            tone === "good" && "text-verdant",
+            !tone && "text-ink",
+          )}
+        >
+          {caption}
+        </span>
+      </button>
+    );
   });
   if (bare) return <>{buttons}</>;
   return <div className={ROLL_GRID}>{buttons}</div>;
@@ -2967,10 +2900,7 @@ function RollPanel({
   const saves: D20Spec[] = ABILITIES.map(({ id, label }) => ({
     id: `save-${id}`,
     label: `${label} save`,
-    bonus:
-      gary.saves[id] -
-      penalty +
-      (id === "dex" && sheet.holdingGrapple ? 2 : 0),
+    bonus: gary.saves[id] - penalty + (id === "dex" && sheet.holdingGrapple ? 2 : 0),
     effect: effects.saves[id].effect,
     autoFail: effects.saves[id].autoFail,
     swagger: false,
@@ -3044,8 +2974,7 @@ function RollPanel({
       bonus: spec.bonus,
       total: kept + spec.bonus,
       mode,
-      autoFail:
-        spec.autoFail.length > 0 ? reasonText(spec.autoFail) : null,
+      autoFail: spec.autoFail.length > 0 ? reasonText(spec.autoFail) : null,
       notes: d20Notes(spec.effect, penalty),
       attack: Boolean(spec.attack),
       swagger: spec.swagger,
@@ -3116,9 +3045,7 @@ function RollPanel({
     );
   }
 
-  const attackNote = cantAct
-    ? `Can’t attack: ${reasonText(effects.cantAct)}.`
-    : null;
+  const attackNote = cantAct ? `Can’t attack: ${reasonText(effects.cantAct)}.` : null;
 
   return (
     <Stack gap={16}>
@@ -3146,8 +3073,8 @@ function RollPanel({
         <RollButtons specs={checks} onRoll={rollD20} />
         {effects.checkAutoFail.length > 0 ? (
           <Text tone="tertiary">
-            {reasonText(effects.checkAutoFail)} — those checks fail on their
-            own, so don’t trust a roll that needed sight or hearing.
+            {reasonText(effects.checkAutoFail)} — those checks fail on their own, so don’t
+            trust a roll that needed sight or hearing.
           </Text>
         ) : null}
       </div>
@@ -3155,12 +3082,7 @@ function RollPanel({
       <div className="flex flex-col gap-1.5">
         <FieldLabel icon={Swords}>Attack</FieldLabel>
         <div className="grid grid-cols-3 gap-1.5">
-          <RollButtons
-            bare
-            specs={[attack]}
-            disabled={cantAct}
-            onRoll={rollD20}
-          />
+          <RollButtons bare specs={[attack]} disabled={cantAct} onRoll={rollD20} />
           <button
             type="button"
             className={ROLL_TILE}
@@ -3184,9 +3106,8 @@ function RollPanel({
         </div>
         {attackNote ? <Text tone="tertiary">{attackNote}</Text> : null}
         <Text tone="tertiary">
-          A natural 20 turns Crit on; the next damage roll doubles its dice and
-          turns it off. Tap Crit to set it yourself. Every roll lands in the
-          Dice log.
+          A natural 20 turns Crit on; the next damage roll doubles its dice and turns it
+          off. Tap Crit to set it yourself. Every roll lands in the Dice log.
         </Text>
       </div>
     </Stack>
@@ -3378,9 +3299,7 @@ function ActionRolls({
       }),
     );
     const shown =
-      diceRoll.length === 1
-        ? `d20 ${kept}`
-        : `${diceRoll[0]} & ${diceRoll[1]} → ${kept}`;
+      diceRoll.length === 1 ? `d20 ${kept}` : `${diceRoll[0]} & ${diceRoll[1]} → ${kept}`;
     setLine(
       isMiss
         ? `To hit ${shown} · natural 1, miss`
@@ -3414,7 +3333,9 @@ function ActionRolls({
     });
     setLine(
       `Brace Up d${gary.fisticuffsDie} ${die} + ${gary.braceBonus} = ${total} temp${
-        next === sheet.tempHp ? ` · kept ${sheet.tempHp}` : ` · temp ${sheet.tempHp} → ${next}`
+        next === sheet.tempHp
+          ? ` · kept ${sheet.tempHp}`
+          : ` · temp ${sheet.tempHp} → ${next}`
       }`,
     );
   }
@@ -3442,9 +3363,13 @@ function ActionRolls({
         moxie: clamp(s.moxie + 1, 0, MOXIE_MAX),
         swagger: false,
       }));
-      setLine(`Swagger +${swaggerDie ?? 0}. Still failed: Moxie is back, and Swagger is used.`);
+      setLine(
+        `Swagger +${swaggerDie ?? 0}. Still failed: Moxie is back, and Swagger is used.`,
+      );
     } else {
-      setLine(`Swagger +${swaggerDie ?? 0}. Succeeded: the Moxie stays spent, and Swagger is still ready.`);
+      setLine(
+        `Swagger +${swaggerDie ?? 0}. Succeeded: the Moxie stays spent, and Swagger is still ready.`,
+      );
     }
     setSwaggerCall(kind);
   }
@@ -3574,14 +3499,8 @@ function withModifier(text: string, modifier: number) {
   return `${text} ${modifier > 0 ? "+" : "−"} ${Math.abs(modifier)}`;
 }
 
-function diceExpression(
-  groups: { sides: number; count: number }[],
-  modifier: number,
-) {
-  return withModifier(
-    groups.map((g) => `${g.count}d${g.sides}`).join(" + "),
-    modifier,
-  );
+function diceExpression(groups: { sides: number; count: number }[], modifier: number) {
+  return withModifier(groups.map((g) => `${g.count}d${g.sides}`).join(" + "), modifier);
 }
 
 const FLAG_TONE: Record<NonNullable<RollLogEntry["flag"]>, string> = {
@@ -3628,10 +3547,8 @@ function DiceRoller() {
       faces: Array.from({ length: g.count }, () => rollDie(g.sides)),
     }));
     const total =
-      rolled.reduce(
-        (sum, g) => sum + g.faces.reduce((s, face) => s + face, 0),
-        0,
-      ) + modifier;
+      rolled.reduce((sum, g) => sum + g.faces.reduce((s, face) => s + face, 0), 0) +
+      modifier;
     record({
       label: "Dice tray",
       expression,
@@ -3711,9 +3628,7 @@ function DiceRoller() {
 
           <div className="flex h-9 shrink-0 flex-nowrap items-center gap-1.5 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {groups.length === 0 ? (
-              <span className="text-xs text-faint">
-                Tap dice above to build a roll.
-              </span>
+              <span className="text-xs text-faint">Tap dice above to build a roll.</span>
             ) : (
               groups.map((g) => (
                 <span
@@ -3805,8 +3720,7 @@ function DiceRoller() {
                   {latest.result ?? latest.total}
                 </div>
                 <div className="mt-1 line-clamp-2 h-8 w-full text-[0.72rem] leading-4 tabular-nums text-faint">
-                  <span className="text-muted">{latest.label}</span> ·{" "}
-                  {latest.breakdown}
+                  <span className="text-muted">{latest.label}</span> · {latest.breakdown}
                 </div>
               </div>
             ) : (
@@ -3839,9 +3753,7 @@ function DiceRoller() {
                   title={`${entry.label} · ${clockTime(entry.at)}`}
                   className={cx(
                     "flex h-11 shrink-0 items-center gap-2 rounded-lg border px-2 tabular-nums",
-                    i === 0
-                      ? "border-gold/45 bg-gold/[0.07]"
-                      : "border-transparent",
+                    i === 0 ? "border-gold/45 bg-gold/[0.07]" : "border-transparent",
                   )}
                 >
                   <div className="min-w-0 flex-1">
@@ -3945,10 +3857,7 @@ export function GaryCombatTool() {
       coalesceMs: 4000,
     },
   );
-  const gary = useMemo(
-    () => computeGary(inventory.value.items),
-    [inventory.value.items],
-  );
+  const gary = useMemo(() => computeGary(inventory.value.items), [inventory.value.items]);
   const hpMax = gary.hpMax;
   const sheetRaw = sheetHistory.value;
   const setSheetRaw = sheetHistory.set;
@@ -3983,9 +3892,9 @@ export function GaryCombatTool() {
     [],
   );
   const [receipt, setReceipt] = useState<string | null>(null);
-  const [haymakerCall, setHaymakerCall] = useState<
-    "pending" | "hit" | "miss" | null
-  >(null);
+  const [haymakerCall, setHaymakerCall] = useState<"pending" | "hit" | "miss" | null>(
+    null,
+  );
   const [swaggerCall, setSwaggerCall] = useState<
     "pending" | "failed" | "succeeded" | null
   >(null);
@@ -3993,19 +3902,13 @@ export function GaryCombatTool() {
     "gary-grapplesauce-combat:roll-log",
     [],
   );
-  const [crit, setCrit] = usePersistentState(
-    "gary-grapplesauce-combat:crit",
-    false,
-  );
+  const [crit, setCrit] = usePersistentState("gary-grapplesauce-combat:crit", false);
   const rollApi = useMemo<RollLogApi>(
     () => ({
       log: rollLog,
       record: (roll) =>
         setRollLog((prev) =>
-          [{ ...roll, id: rollId(), at: Date.now() }, ...prev].slice(
-            0,
-            ROLL_LOG_MAX,
-          ),
+          [{ ...roll, id: rollId(), at: Date.now() }, ...prev].slice(0, ROLL_LOG_MAX),
         ),
       clear: () => setRollLog([]),
       crit,
@@ -4018,12 +3921,8 @@ export function GaryCombatTool() {
   useEffect(() => {
     try {
       localStorage.removeItem("table-tools:gary-grapplesauce-combat:dice-hidden");
-      const legacy = localStorage.getItem(
-        "table-tools:gary-grapplesauce-combat:moxie",
-      );
-      const hasSheet = localStorage.getItem(
-        "table-tools:gary-grapplesauce-combat:sheet",
-      );
+      const legacy = localStorage.getItem("table-tools:gary-grapplesauce-combat:moxie");
+      const hasSheet = localStorage.getItem("table-tools:gary-grapplesauce-combat:sheet");
       if (legacy != null && hasSheet == null) {
         const moxie = clamp(JSON.parse(legacy) as number, 0, MOXIE_MAX);
         setSheet((s) => ({ ...s, moxie }));
@@ -4224,12 +4123,18 @@ export function GaryCombatTool() {
 
   function commitChoice(choice: PlanChoice) {
     if (usedIds.includes(choice.id)) return;
-    if (choice.group && usedIds.some((id) => plan?.choices?.find((c) => c.id === id)?.group === choice.group)) {
+    if (
+      choice.group &&
+      usedIds.some(
+        (id) => plan?.choices?.find((c) => c.id === id)?.group === choice.group,
+      )
+    ) {
       return;
     }
     if (choice.apply === "moxie" && sheet.moxie < choice.cost) return;
     if (choice.apply === "dig-deep" && !sheet.digDeep) return;
-    if (choice.apply === "dig-deep-exhaustion" && !canDigDeepAgain(sheet.exhaustion)) return;
+    if (choice.apply === "dig-deep-exhaustion" && !canDigDeepAgain(sheet.exhaustion))
+      return;
     if (choice.apply === "swagger" && (!sheet.swagger || sheet.moxie < 1)) return;
     if (choice.apply === "bloodied-unbowed" && !sheet.bloodiedUnbowed) return;
     if (choice.apply === "guarded-mind" && !sheet.guardedMind) return;
@@ -4250,7 +4155,9 @@ export function GaryCombatTool() {
       const total = die + gary.braceBonus;
       nextTemp = Math.max(tempBefore, total);
       rolled = `Rolled d${gary.fisticuffsDie} ${die} + ${gary.braceBonus} = ${total} temp HP${
-        nextTemp === tempBefore ? ` (kept ${tempBefore})` : ` (${tempBefore} → ${nextTemp})`
+        nextTemp === tempBefore
+          ? ` (kept ${tempBefore})`
+          : ` (${tempBefore} → ${nextTemp})`
       }.`;
       rollApi.record({
         label: "Brace Up (temp HP)",
@@ -4282,7 +4189,9 @@ export function GaryCombatTool() {
             ...sheet,
             moxie: MOXIE_MAX,
             bloodiedUnbowed: false,
-            tempHp: isBloodied(sheet.hp, gary) ? Math.max(sheet.tempHp, 36) : sheet.tempHp,
+            tempHp: isBloodied(sheet.hp, gary)
+              ? Math.max(sheet.tempHp, 36)
+              : sheet.tempHp,
           };
         case "dig-deep":
           return { ...sheet, digDeep: false, digDeepActive: true };
@@ -4305,7 +4214,11 @@ export function GaryCombatTool() {
       { id: choice.id, before: sheet, after: nextSheet },
     ]);
 
-    const moxieAfter = clamp(moxieBefore - Math.max(choice.cost, choice.apply === "swagger" ? 1 : 0), 0, MOXIE_MAX);
+    const moxieAfter = clamp(
+      moxieBefore - Math.max(choice.cost, choice.apply === "swagger" ? 1 : 0),
+      0,
+      MOXIE_MAX,
+    );
     const bloodiedNow = isBloodied(sheet.hp, gary);
     const paid =
       choice.id === "haymaker"
@@ -4341,7 +4254,9 @@ export function GaryCombatTool() {
       setSnaps((list) =>
         list.map((snap) => (snap.id === "haymaker" ? { ...snap, after: next } : snap)),
       );
-      setReceipt("Haymaker hit. The Moxie point is back, and that attack deals maximum damage.");
+      setReceipt(
+        "Haymaker hit. The Moxie point is back, and that attack deals maximum damage.",
+      );
     } else {
       setReceipt("Haymaker missed. The Moxie point stays spent.");
     }
@@ -4360,9 +4275,13 @@ export function GaryCombatTool() {
       setSnaps((list) =>
         list.map((snap) => (snap.id === "swagger" ? { ...snap, after: next } : snap)),
       );
-      setReceipt("The check still failed. The Moxie point is back, and Swagger is used until a rest.");
+      setReceipt(
+        "The check still failed. The Moxie point is back, and Swagger is used until a rest.",
+      );
     } else {
-      setReceipt("The check succeeded. The Moxie point stays spent, and Swagger is still ready.");
+      setReceipt(
+        "The check succeeded. The Moxie point stays spent, and Swagger is still ready.",
+      );
     }
     setSwaggerCall(kind);
   }
@@ -4377,9 +4296,7 @@ export function GaryCombatTool() {
   const penalty = effects.d20Penalty;
   const attackMode = ROLL_SHORT[effects.attack.roll];
 
-  const [reference, setReference] = useState<"cheat" | "glossary" | null>(
-    null,
-  );
+  const [reference, setReference] = useState<"cheat" | "glossary" | null>(null);
   const attackTone =
     cantAct || penalty > 0 || effects.attack.roll === "disadvantage"
       ? "bad"
@@ -4389,728 +4306,752 @@ export function GaryCombatTool() {
 
   return (
     <GaryContext.Provider value={gary}>
-    <RollLogContext.Provider value={rollApi}>
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:items-start lg:gap-6">
-      <Stack gap={14} className="lg:sticky lg:top-4">
-        <header className="flex flex-col gap-3">
-          <div>
-            <div className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-faint">
-              Pugilist 9 · Squared Circle
-            </div>
-            <h1 className="text-[1.9rem] leading-tight font-semibold text-gold-soft sm:text-4xl">
-              Gary Grapplesauce
-            </h1>
-          </div>
-          <div className="relative">
-            {effects.dead ? (
-              <div className="absolute inset-0 z-10 flex animate-pop-in items-center justify-center gap-2 rounded-lg border border-crimson/60 bg-void/85 text-sm font-semibold text-crimson-soft backdrop-blur-[2px]">
-                <Skull className="size-4" aria-hidden />
-                {diedOf(sheet) === "saves" ? "Dead · three failed saves" : "Dead · Exhaustion 6"}
-              </div>
-            ) : null}
-            <div className={cx("flex flex-col gap-1.5", effects.dead && "opacity-30")} aria-hidden={effects.dead || undefined}>
-              <div className="grid grid-cols-3 gap-1.5">
-                <Stat
-                  icon={ShieldHalf}
-                  label="AC"
-                  value={
-                    <span
-                      key={`${gary.ac}-${sheet.holdingGrapple}`}
-                      className="inline-block animate-pop-in"
-                    >
-                      {gary.ac + (sheet.holdingGrapple ? 2 : 0)}
-                    </span>
-                  }
-                />
-                <Stat
-                  icon={Zap}
-                  label="Init"
-                  tone={penalty > 0 ? "bad" : "normal"}
-                  value={
-                    <span
-                      key={`${gary.initiative}-${penalty}`}
-                      className="inline-block animate-pop-in"
-                    >
-                      {signed(gary.initiative - penalty)}
-                    </span>
-                  }
-                />
-                <Stat
-                  icon={Footprints}
-                  label="Speed"
-                  tone={effects.speed.value !== gary.speed ? "bad" : "normal"}
-                  value={
-                    <span
-                      key={effects.speed.value}
-                      className="inline-block animate-pop-in"
-                    >
-                      {effects.speed.value} ft
-                    </span>
-                  }
-                />
-              </div>
-              <Accordion title="Attack" icon={Swords}>
-                <div className="grid grid-cols-3 gap-1.5">
-                  <Stat
-                    icon={Swords}
-                    label="Attack"
-                    tone={attackTone}
-                    value={
-                      <span
-                        key={cantAct ? "cant" : `${gary.attack}-${penalty}-${attackMode}`}
-                        className="inline-block animate-pop-in"
-                      >
-                        {cantAct
-                          ? "Can’t act"
-                          : `${signed(gary.attack - penalty)}${attackMode ? ` ${attackMode}` : ""}`}
-                      </span>
-                    }
-                  />
-                  <Stat
-                    icon={Sword}
-                    label="Damage"
-                    value={
-                      <span key={gary.damage} className="inline-block animate-pop-in">
-                        {gary.damage.split(" ")[0]}
-                      </span>
-                    }
-                  />
-                  <Stat
-                    icon={BicepsFlexed}
-                    label="Athletics"
-                    tone={penalty > 0 ? "bad" : "normal"}
-                    value={
-                      <span
-                        key={`${gary.athletics}-${penalty}`}
-                        className="inline-block animate-pop-in"
-                      >
-                        {signed(gary.athletics - penalty)}
-                      </span>
-                    }
-                  />
+      <RollLogContext.Provider value={rollApi}>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:items-start lg:gap-6">
+          <Stack gap={14} className="lg:sticky lg:top-4">
+            <header className="flex flex-col gap-3">
+              <div>
+                <div className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-faint">
+                  Pugilist 9 · Squared Circle
                 </div>
-              </Accordion>
-            </div>
-          </div>
-        </header>
-
-        <StatusBar
-          sheet={sheet}
-          setSheet={setSheet}
-          onEffectsDetails={() => {
-            setTab("conds");
-            requestAnimationFrame(() =>
-              document
-                .getElementById(EFFECTS_CARD_ID)
-                ?.scrollIntoView({ behavior: "smooth", block: "start" }),
-            );
-          }}
-        />
-      </Stack>
-
-      <Stack gap={14} className="min-w-0">
-        <div
-          className="grid grid-cols-7 gap-1 rounded-xl border border-line bg-well/80 p-1"
-          role="tablist"
-          aria-label="Main mode"
-        >
-          {MAIN_TABS.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={tab === id}
-              className={cx(
-                "flex min-h-12 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-lg text-[0.78rem] font-semibold transition-colors sm:flex-row sm:gap-1.5 sm:text-sm",
-                tab === id
-                  ? "bg-surface text-gold-soft shadow-[inset_0_-2px_0_0_var(--color-gold)]"
-                  : "text-muted hover:bg-surface/60 hover:text-ink",
-              )}
-              onClick={() => {
-                if (id === "play" && tab === "play") resetDecision();
-                else setTab(id);
-              }}
-            >
-              <Icon className="size-4" aria-hidden />
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {(effects.dead && tab !== "conds" && tab !== "gear" && tab !== "bio") ||
-        (tab === "play" && cantAct) ? (
-          <Callout
-            title={
-              diedOf(sheet) === "saves"
-                ? "Gary is dead — three failed death saves"
-                : effects.dead
-                  ? "Gary is dead — Exhaustion 6"
-                  : "Gary can’t act"
-            }
-            tone="warning"
-            icon={effects.dead ? Skull : Ban}
-          >
-            {diedOf(sheet) === "saves"
-              ? "Three failures. The decision tree is off. If a spell restores him to life, use Brought back on Heal."
-              : effects.dead
-              ? "Exhaustion 6 is instant death (no death saves). The decision tree is off. If the DM revives him, lower Exhaustion on the Conds tab."
-              : `${reasonText(effects.cantAct)}: no Action, Bonus Action, or Reaction — Moxie options are off until this ends.`}
-          </Callout>
-        ) : null}
-
-        {tab === "play" ? (
-          <Stack gap={12}>
-            {!effects.dead && phase !== "timing" ? (
-              <div
-                className={cx(
-                  "sticky top-0 z-20 grid gap-2 rounded-xl border border-line bg-void/95 p-1.5 backdrop-blur",
-                  phase === "result" ? "grid-cols-3" : "grid-cols-2",
-                )}
-              >
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  icon={ArrowLeft}
-                  className="w-full px-2"
-                  onClick={goBack}
-                >
-                  Back
-                </Button>
-                {phase === "result" ? (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    icon={Undo2}
-                    className="w-full px-2"
-                    disabled={snaps.length === 0}
-                    onClick={undoLastMove}
-                  >
-                    Undo
-                  </Button>
-                ) : null}
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  icon={RotateCcw}
-                  className="w-full px-2"
-                  onClick={resetDecision}
-                >
-                  Start over
-                </Button>
+                <h1 className="text-[1.9rem] leading-tight font-semibold text-gold-soft sm:text-4xl">
+                  Gary Grapplesauce
+                </h1>
               </div>
-            ) : null}
-            {!effects.dead && phase === "timing" && (
-              <Card>
-                <CardHeader icon={Compass}>What just happened?</CardHeader>
-                <CardBody>
-                  <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-3">
-                    <Button
-                      variant="primary"
-                      icon={Swords}
-                      onClick={() => pickTiming("turn")}
-                    >
-                      My turn
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      icon={Zap}
-                      onClick={() => pickTiming("reaction")}
-                    >
-                      Reaction
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      icon={RotateCcw}
-                      onClick={() => pickTiming("check-fail")}
-                    >
-                      Failed check
-                    </Button>
+              <div className="relative">
+                {effects.dead ? (
+                  <div className="absolute inset-0 z-10 flex animate-pop-in items-center justify-center gap-2 rounded-lg border border-crimson/60 bg-void/85 text-sm font-semibold text-crimson-soft backdrop-blur-[2px]">
+                    <Skull className="size-4" aria-hidden />
+                    {diedOf(sheet) === "saves"
+                      ? "Dead · three failed saves"
+                      : "Dead · Exhaustion 6"}
                   </div>
-                </CardBody>
-              </Card>
-            )}
-
-            {!effects.dead && phase === "timing" ? (
-              <ActionBrowser customActions={customActions} />
-            ) : null}
-
-            {!effects.dead && phase === "reaction" && (
-              <Card>
-                <CardHeader icon={Zap}>Reaction</CardHeader>
-                <CardBody>
-                  <Stack gap={12}>
-                    <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
-                      <Button
-                        variant="primary"
-                        icon={Droplet}
-                        disabled={cantAct || !sheet.bloodiedUnbowed}
-                        onClick={() => pickPlaybook("react-bloodied")}
-                      >
-                        Bloodied + damage
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        icon={Grab}
-                        disabled={cantAct}
-                        onClick={() => pickPlaybook("react-meat-shield")}
-                      >
-                        Meat Shield
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        icon={WandSparkles}
-                        onClick={() => pickPlaybook("react-mage")}
-                      >
-                        Spell within 5 ft
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        icon={Footprints}
-                        disabled={cantAct}
-                        onClick={() => pickPlaybook("react-opportunity")}
-                      >
-                        Left my reach
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        icon={Hand}
-                        onClick={() => pickReaction("other")}
-                      >
-                        Hold reaction
-                      </Button>
-                    </div>
-                    {bloodiedBlockedReason ? (
-                      <Text tone="tertiary" className="inline-flex items-center gap-1.5">
-                        <Lock className="size-3.5 shrink-0" aria-hidden />
-                        Bloodied locked: {bloodiedBlockedReason}
-                      </Text>
-                    ) : null}
-                  </Stack>
-                </CardBody>
-              </Card>
-            )}
-
-            {!effects.dead && phase === "goal" && (
-              <Card>
-                <CardHeader icon={Target}>This turn</CardHeader>
-                <CardBody>
-                  <Stack gap={12}>
-                    <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
-                      {[
-                        ...customPlaybooks.filter((book) => book.when === "turn"),
-                        ...PLAYBOOKS.filter((book) => book.when === "turn"),
-                      ].map((book) => (
-                        <Button
-                          key={book.id}
-                          variant={book.id === "deal-damage" ? "primary" : "secondary"}
-                          icon={Target}
-                          onClick={() => pickPlaybook(book.id)}
-                        >
-                          {book.title}
-                        </Button>
-                      ))}
-                    </div>
-                    <Button
-                      variant="ghost"
-                      icon={BookOpen}
-                      className="w-fit"
-                      onClick={() => setCatalogOpen(true)}
-                    >
-                      All actions
-                    </Button>
-                  </Stack>
-                </CardBody>
-              </Card>
-            )}
-
-            {!effects.dead && phase === "result" && plan && (
-              <Card>
-                <CardHeader
-                  icon={ScrollText}
-                  trailing={
-                    <Pill active>
-                      <Flame className="size-3" aria-hidden />
-                      {plan.costLabel}
-                    </Pill>
-                  }
+                ) : null}
+                <div
+                  className={cx("flex flex-col gap-1.5", effects.dead && "opacity-30")}
+                  aria-hidden={effects.dead || undefined}
                 >
-                  {plan.title}
-                </CardHeader>
-                <CardBody>
-                  <Stack gap={14}>
-                    {planSections(plan).map((section, index) => {
-                      const Icon = SECTION_ICONS[section.heading] ?? Swords;
-                      const choices = (plan.choices ?? []).filter(
-                        (choice) => choice.part === section.heading,
-                      );
-                      const sectionUsed = choices.some((choice) => usedIds.includes(choice.id));
-                      if (!section.text && section.dice.length === 0 && choices.length === 0) {
-                        return null;
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <Stat
+                      icon={ShieldHalf}
+                      label="AC"
+                      value={
+                        <span
+                          key={`${gary.ac}-${sheet.holdingGrapple}`}
+                          className="inline-block animate-pop-in"
+                        >
+                          {gary.ac + (sheet.holdingGrapple ? 2 : 0)}
+                        </span>
                       }
-                      return (
-                        <Stack key={section.heading} gap={6}>
-                          {index > 0 ? <Divider /> : null}
-                          <h3 className="inline-flex items-center gap-1.5 text-[0.78rem] font-semibold uppercase tracking-[0.14em] text-gold-soft">
-                            <Icon className="size-3.5 text-gold" aria-hidden />
-                            {section.heading}
-                          </h3>
-                          {section.text ? <Text>{section.text}</Text> : null}
-                          {section.dice.length > 0 ? (
-                            <ActionRolls
-                              dice={section.dice}
-                              sheet={sheet}
-                              setSheet={setSheet}
-                            />
-                          ) : null}
-                          {choices.map((choice) => {
-                            const used = usedIds.includes(choice.id);
-                            const groupTaken =
-                              !!choice.group &&
-                              choices.some(
-                                (other) =>
-                                  other.group === choice.group &&
-                                  other.id !== choice.id &&
-                                  usedIds.includes(other.id),
-                              );
-                            const cantAfford = choice.apply === "moxie" && sheet.moxie < choice.cost;
-                            return (
-                              <div
-                                key={choice.id}
-                                className={cx(
-                                  "flex flex-col gap-1 rounded-lg border px-3 py-2.5",
-                                  used
-                                    ? "border-gold/50 bg-gold/[0.07]"
-                                    : "border-line bg-well/40",
-                                )}
-                              >
-                                <Button
-                                  variant={used ? "primary" : "secondary"}
-                                  icon={used ? CircleCheck : choice.cost > 0 ? Flame : Check}
-                                  className="w-full"
-                                  disabled={
-                                    used ||
-                                    groupTaken ||
-                                    cantAfford ||
-                                    (choice.apply === "dig-deep" && !sheet.digDeep) ||
-                                    (choice.apply === "dig-deep-exhaustion" &&
-                                      !canDigDeepAgain(sheet.exhaustion)) ||
-                                    (choice.apply === "swagger" && (!sheet.swagger || sheet.moxie < 1)) ||
-                                    (choice.apply === "bloodied-unbowed" &&
-                                      !sheet.bloodiedUnbowed) ||
-                                    (choice.apply === "guarded-mind" && !sheet.guardedMind) ||
-                                    (choice.apply === "down-but-not-out" &&
-                                      (!sheet.downButNotOut || !isBloodied(sheet.hp, gary)))
-                                  }
-                                  onClick={() => commitChoice(choice)}
-                                >
-                                  {used
-                                    ? `${choice.label} · done`
-                                    : choice.cost > 0
-                                      ? `${choice.label} · ${choice.cost} Moxie`
-                                      : choice.label}
-                                </Button>
-                                <Text tone="tertiary">{choice.detail}</Text>
-                                {choice.id === "haymaker" ? (
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <Button
-                                      variant="secondary"
-                                      disabled={!used || haymakerCall !== "pending"}
-                                      onClick={() => settleHaymaker(true)}
-                                    >
-                                      Hit
-                                    </Button>
-                                    <Button
-                                      variant="secondary"
-                                      disabled={!used || haymakerCall !== "pending"}
-                                      onClick={() => settleHaymaker(false)}
-                                    >
-                                      Miss
-                                    </Button>
-                                  </div>
-                                ) : null}
-                                {choice.id === "swagger" ? (
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <Button
-                                      variant="secondary"
-                                      disabled={!used || swaggerCall !== "pending"}
-                                      onClick={() => settleSwagger("failed")}
-                                    >
-                                      Still failed
-                                    </Button>
-                                    <Button
-                                      variant="secondary"
-                                      disabled={!used || swaggerCall !== "pending"}
-                                      onClick={() => settleSwagger("succeeded")}
-                                    >
-                                      Succeeded
-                                    </Button>
-                                  </div>
-                                ) : null}
-                                {choice.dice ? (
-                                  <ActionRolls
-                                    dice={choice.dice}
-                                    sheet={sheet}
-                                    setSheet={setSheet}
-                                  />
-                                ) : null}
-                              </div>
-                            );
-                          })}
-                          {section.heading === "Bonus Action" &&
-                          selectedGoal === "survive" &&
-                          plan.apply === "moxie" ? (
-                            <Button
-                              variant="secondary"
-                              icon={sheet.digDeep ? Pickaxe : CircleCheck}
-                              disabled={!sheet.digDeep}
-                              onClick={() => {
-                                setSheet((s) => ({
-                                  ...s,
-                                  digDeep: false,
-                                  digDeepActive: true,
-                                }));
-                                setReceipt((current) =>
-                                  current
-                                    ? `${current} Dig Deep is also on.`
-                                    : "Dig Deep is on: bludgeoning, piercing, and slashing are resisted.",
-                                );
-                              }}
-                            >
-                              {sheet.digDeep ? "Also Dig Deep" : "Dig Deep used"}
-                            </Button>
-                          ) : null}
-                          {choices.length > 0 ? (
-                            <div
-                              className={cx(
-                                "flex min-h-11 items-center rounded-lg border px-3 py-2 text-sm",
-                                sectionUsed && receipt
-                                  ? "border-gold/30 bg-gold/[0.06] text-gold-soft"
-                                  : "border-dashed border-line text-faint",
-                              )}
-                              aria-live="polite"
-                            >
-                              {sectionUsed && receipt
-                                ? receipt
-                                : "Tap a move. The cost comes off immediately and the result shows here."}
-                            </div>
-                          ) : null}
-                        </Stack>
-                      );
-                    })}
-                    <div className="rounded-lg border-l-2 border-gold/60 bg-well/50 px-3 py-2 text-sm text-muted italic">
-                      {plan.gym}
+                    />
+                    <Stat
+                      icon={Zap}
+                      label="Init"
+                      tone={penalty > 0 ? "bad" : "normal"}
+                      value={
+                        <span
+                          key={`${gary.initiative}-${penalty}`}
+                          className="inline-block animate-pop-in"
+                        >
+                          {signed(gary.initiative - penalty)}
+                        </span>
+                      }
+                    />
+                    <Stat
+                      icon={Footprints}
+                      label="Speed"
+                      tone={effects.speed.value !== gary.speed ? "bad" : "normal"}
+                      value={
+                        <span
+                          key={effects.speed.value}
+                          className="inline-block animate-pop-in"
+                        >
+                          {effects.speed.value} ft
+                        </span>
+                      }
+                    />
+                  </div>
+                  <Accordion title="Attack" icon={Swords}>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <Stat
+                        icon={Swords}
+                        label="Attack"
+                        tone={attackTone}
+                        value={
+                          <span
+                            key={
+                              cantAct ? "cant" : `${gary.attack}-${penalty}-${attackMode}`
+                            }
+                            className="inline-block animate-pop-in"
+                          >
+                            {cantAct
+                              ? "Can’t act"
+                              : `${signed(gary.attack - penalty)}${attackMode ? ` ${attackMode}` : ""}`}
+                          </span>
+                        }
+                      />
+                      <Stat
+                        icon={Sword}
+                        label="Damage"
+                        value={
+                          <span key={gary.damage} className="inline-block animate-pop-in">
+                            {gary.damage.split(" ")[0]}
+                          </span>
+                        }
+                      />
+                      <Stat
+                        icon={BicepsFlexed}
+                        label="Athletics"
+                        tone={penalty > 0 ? "bad" : "normal"}
+                        value={
+                          <span
+                            key={`${gary.athletics}-${penalty}`}
+                            className="inline-block animate-pop-in"
+                          >
+                            {signed(gary.athletics - penalty)}
+                          </span>
+                        }
+                      />
                     </div>
-                    <PlanTips plan={plan} />
-                  </Stack>
-                </CardBody>
-              </Card>
-            )}
+                  </Accordion>
+                </div>
+              </div>
+            </header>
 
-            {!effects.dead &&
-            !cantAct &&
-            sheet.exhaustion === EXHAUSTION_DEATH - 1 ? (
+            <StatusBar
+              sheet={sheet}
+              setSheet={setSheet}
+              onEffectsDetails={() => {
+                setTab("conds");
+                requestAnimationFrame(() =>
+                  document
+                    .getElementById(EFFECTS_CARD_ID)
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" }),
+                );
+              }}
+            />
+          </Stack>
+
+          <Stack gap={14} className="min-w-0">
+            <div
+              className="grid grid-cols-7 gap-1 rounded-xl border border-line bg-well/80 p-1"
+              role="tablist"
+              aria-label="Main mode"
+            >
+              {MAIN_TABS.map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === id}
+                  className={cx(
+                    "flex min-h-12 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-lg text-[0.78rem] font-semibold transition-colors sm:flex-row sm:gap-1.5 sm:text-sm",
+                    tab === id
+                      ? "bg-surface text-gold-soft shadow-[inset_0_-2px_0_0_var(--color-gold)]"
+                      : "text-muted hover:bg-surface/60 hover:text-ink",
+                  )}
+                  onClick={() => {
+                    if (id === "play" && tab === "play") resetDecision();
+                    else setTab(id);
+                  }}
+                >
+                  <Icon className="size-4" aria-hidden />
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {(effects.dead && tab !== "conds" && tab !== "gear" && tab !== "bio") ||
+            (tab === "play" && cantAct) ? (
               <Callout
-                title="Exhaustion 5 — one level from death"
+                title={
+                  diedOf(sheet) === "saves"
+                    ? "Gary is dead — three failed death saves"
+                    : effects.dead
+                      ? "Gary is dead — Exhaustion 6"
+                      : "Gary can’t act"
+                }
                 tone="warning"
-                icon={TriangleAlert}
-                className="animate-pop-in"
+                icon={effects.dead ? Skull : Ban}
               >
-                Don’t Dig Deep again or take anything else that adds Exhaustion.
-                A long rest drops it to 4.
+                {diedOf(sheet) === "saves"
+                  ? "Three failures. The decision tree is off. If a spell restores him to life, use Brought back on Heal."
+                  : effects.dead
+                    ? "Exhaustion 6 is instant death (no death saves). The decision tree is off. If the DM revives him, lower Exhaustion on the Conds tab."
+                    : `${reasonText(effects.cantAct)}: no Action, Bonus Action, or Reaction — Moxie options are off until this ends.`}
               </Callout>
             ) : null}
 
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                variant="secondary"
-                icon={ListOrdered}
-                onClick={() => setReference("cheat")}
-              >
-                Priority cheat sheet
-              </Button>
-              <Button
-                variant="secondary"
-                icon={BookOpen}
-                onClick={() => setReference("glossary")}
-              >
-                Rules glossary
-              </Button>
-            </div>
-          </Stack>
-        ) : null}
+            {tab === "play" ? (
+              <Stack gap={12}>
+                {!effects.dead && phase !== "timing" ? (
+                  <div
+                    className={cx(
+                      "sticky top-0 z-20 grid gap-2 rounded-xl border border-line bg-void/95 p-1.5 backdrop-blur",
+                      phase === "result" ? "grid-cols-3" : "grid-cols-2",
+                    )}
+                  >
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      icon={ArrowLeft}
+                      className="w-full px-2"
+                      onClick={goBack}
+                    >
+                      Back
+                    </Button>
+                    {phase === "result" ? (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        icon={Undo2}
+                        className="w-full px-2"
+                        disabled={snaps.length === 0}
+                        onClick={undoLastMove}
+                      >
+                        Undo
+                      </Button>
+                    ) : null}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      icon={RotateCcw}
+                      className="w-full px-2"
+                      onClick={resetDecision}
+                    >
+                      Start over
+                    </Button>
+                  </div>
+                ) : null}
+                {!effects.dead && phase === "timing" && (
+                  <Card>
+                    <CardHeader icon={Compass}>What just happened?</CardHeader>
+                    <CardBody>
+                      <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-3">
+                        <Button
+                          variant="primary"
+                          icon={Swords}
+                          onClick={() => pickTiming("turn")}
+                        >
+                          My turn
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          icon={Zap}
+                          onClick={() => pickTiming("reaction")}
+                        >
+                          Reaction
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          icon={RotateCcw}
+                          onClick={() => pickTiming("check-fail")}
+                        >
+                          Failed check
+                        </Button>
+                      </div>
+                    </CardBody>
+                  </Card>
+                )}
 
-        {tab === "hit" ? (
-          <Card>
-            <CardHeader icon={HeartCrack}>Hit points</CardHeader>
-            <CardBody>
-              <DamageAdjuster sheet={sheet} setSheet={setSheet} />
-            </CardBody>
-          </Card>
-        ) : null}
+                {!effects.dead && phase === "timing" ? (
+                  <ActionBrowser customActions={customActions} />
+                ) : null}
 
-        {tab === "roll" ? (
-          <Card>
-            <CardHeader icon={Dices}>Roll</CardHeader>
-            <CardBody>
-              <RollPanel sheet={sheet} setSheet={setSheet} />
-            </CardBody>
-          </Card>
-        ) : null}
+                {!effects.dead && phase === "reaction" && (
+                  <Card>
+                    <CardHeader icon={Zap}>Reaction</CardHeader>
+                    <CardBody>
+                      <Stack gap={12}>
+                        <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
+                          <Button
+                            variant="primary"
+                            icon={Droplet}
+                            disabled={cantAct || !sheet.bloodiedUnbowed}
+                            onClick={() => pickPlaybook("react-bloodied")}
+                          >
+                            Bloodied + damage
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            icon={Grab}
+                            disabled={cantAct}
+                            onClick={() => pickPlaybook("react-meat-shield")}
+                          >
+                            Meat Shield
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            icon={WandSparkles}
+                            onClick={() => pickPlaybook("react-mage")}
+                          >
+                            Spell within 5 ft
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            icon={Footprints}
+                            disabled={cantAct}
+                            onClick={() => pickPlaybook("react-opportunity")}
+                          >
+                            Left my reach
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            icon={Hand}
+                            onClick={() => pickReaction("other")}
+                          >
+                            Hold reaction
+                          </Button>
+                        </div>
+                        {bloodiedBlockedReason ? (
+                          <Text
+                            tone="tertiary"
+                            className="inline-flex items-center gap-1.5"
+                          >
+                            <Lock className="size-3.5 shrink-0" aria-hidden />
+                            Bloodied locked: {bloodiedBlockedReason}
+                          </Text>
+                        ) : null}
+                      </Stack>
+                    </CardBody>
+                  </Card>
+                )}
 
-        {tab === "conds" ? (
-          <Stack gap={12}>
-            <Card>
-              <CardHeader icon={ShieldAlert}>Conditions</CardHeader>
-              <CardBody>
-                <ConditionsPanel sheet={sheet} setSheet={setSheet} />
-              </CardBody>
-            </Card>
-            <div id={EFFECTS_CARD_ID} className="scroll-mt-4">
+                {!effects.dead && phase === "goal" && (
+                  <Card>
+                    <CardHeader icon={Target}>This turn</CardHeader>
+                    <CardBody>
+                      <Stack gap={12}>
+                        <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
+                          {[
+                            ...customPlaybooks.filter((book) => book.when === "turn"),
+                            ...PLAYBOOKS.filter((book) => book.when === "turn"),
+                          ].map((book) => (
+                            <Button
+                              key={book.id}
+                              variant={
+                                book.id === "deal-damage" ? "primary" : "secondary"
+                              }
+                              icon={Target}
+                              onClick={() => pickPlaybook(book.id)}
+                            >
+                              {book.title}
+                            </Button>
+                          ))}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          icon={BookOpen}
+                          className="w-fit"
+                          onClick={() => setCatalogOpen(true)}
+                        >
+                          All actions
+                        </Button>
+                      </Stack>
+                    </CardBody>
+                  </Card>
+                )}
+
+                {!effects.dead && phase === "result" && plan && (
+                  <Card>
+                    <CardHeader
+                      icon={ScrollText}
+                      trailing={
+                        <Pill active>
+                          <Flame className="size-3" aria-hidden />
+                          {plan.costLabel}
+                        </Pill>
+                      }
+                    >
+                      {plan.title}
+                    </CardHeader>
+                    <CardBody>
+                      <Stack gap={14}>
+                        {planSections(plan).map((section, index) => {
+                          const Icon = SECTION_ICONS[section.heading] ?? Swords;
+                          const choices = (plan.choices ?? []).filter(
+                            (choice) => choice.part === section.heading,
+                          );
+                          const sectionUsed = choices.some((choice) =>
+                            usedIds.includes(choice.id),
+                          );
+                          if (
+                            !section.text &&
+                            section.dice.length === 0 &&
+                            choices.length === 0
+                          ) {
+                            return null;
+                          }
+                          return (
+                            <Stack key={section.heading} gap={6}>
+                              {index > 0 ? <Divider /> : null}
+                              <h3 className="inline-flex items-center gap-1.5 text-[0.78rem] font-semibold uppercase tracking-[0.14em] text-gold-soft">
+                                <Icon className="size-3.5 text-gold" aria-hidden />
+                                {section.heading}
+                              </h3>
+                              {section.text ? <Text>{section.text}</Text> : null}
+                              {section.dice.length > 0 ? (
+                                <ActionRolls
+                                  dice={section.dice}
+                                  sheet={sheet}
+                                  setSheet={setSheet}
+                                />
+                              ) : null}
+                              {choices.map((choice) => {
+                                const used = usedIds.includes(choice.id);
+                                const groupTaken =
+                                  !!choice.group &&
+                                  choices.some(
+                                    (other) =>
+                                      other.group === choice.group &&
+                                      other.id !== choice.id &&
+                                      usedIds.includes(other.id),
+                                  );
+                                const cantAfford =
+                                  choice.apply === "moxie" && sheet.moxie < choice.cost;
+                                return (
+                                  <div
+                                    key={choice.id}
+                                    className={cx(
+                                      "flex flex-col gap-1 rounded-lg border px-3 py-2.5",
+                                      used
+                                        ? "border-gold/50 bg-gold/[0.07]"
+                                        : "border-line bg-well/40",
+                                    )}
+                                  >
+                                    <Button
+                                      variant={used ? "primary" : "secondary"}
+                                      icon={
+                                        used
+                                          ? CircleCheck
+                                          : choice.cost > 0
+                                            ? Flame
+                                            : Check
+                                      }
+                                      className="w-full"
+                                      disabled={
+                                        used ||
+                                        groupTaken ||
+                                        cantAfford ||
+                                        (choice.apply === "dig-deep" && !sheet.digDeep) ||
+                                        (choice.apply === "dig-deep-exhaustion" &&
+                                          !canDigDeepAgain(sheet.exhaustion)) ||
+                                        (choice.apply === "swagger" &&
+                                          (!sheet.swagger || sheet.moxie < 1)) ||
+                                        (choice.apply === "bloodied-unbowed" &&
+                                          !sheet.bloodiedUnbowed) ||
+                                        (choice.apply === "guarded-mind" &&
+                                          !sheet.guardedMind) ||
+                                        (choice.apply === "down-but-not-out" &&
+                                          (!sheet.downButNotOut ||
+                                            !isBloodied(sheet.hp, gary)))
+                                      }
+                                      onClick={() => commitChoice(choice)}
+                                    >
+                                      {used
+                                        ? `${choice.label} · done`
+                                        : choice.cost > 0
+                                          ? `${choice.label} · ${choice.cost} Moxie`
+                                          : choice.label}
+                                    </Button>
+                                    <Text tone="tertiary">{choice.detail}</Text>
+                                    {choice.id === "haymaker" ? (
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <Button
+                                          variant="secondary"
+                                          disabled={!used || haymakerCall !== "pending"}
+                                          onClick={() => settleHaymaker(true)}
+                                        >
+                                          Hit
+                                        </Button>
+                                        <Button
+                                          variant="secondary"
+                                          disabled={!used || haymakerCall !== "pending"}
+                                          onClick={() => settleHaymaker(false)}
+                                        >
+                                          Miss
+                                        </Button>
+                                      </div>
+                                    ) : null}
+                                    {choice.id === "swagger" ? (
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <Button
+                                          variant="secondary"
+                                          disabled={!used || swaggerCall !== "pending"}
+                                          onClick={() => settleSwagger("failed")}
+                                        >
+                                          Still failed
+                                        </Button>
+                                        <Button
+                                          variant="secondary"
+                                          disabled={!used || swaggerCall !== "pending"}
+                                          onClick={() => settleSwagger("succeeded")}
+                                        >
+                                          Succeeded
+                                        </Button>
+                                      </div>
+                                    ) : null}
+                                    {choice.dice ? (
+                                      <ActionRolls
+                                        dice={choice.dice}
+                                        sheet={sheet}
+                                        setSheet={setSheet}
+                                      />
+                                    ) : null}
+                                  </div>
+                                );
+                              })}
+                              {section.heading === "Bonus Action" &&
+                              selectedGoal === "survive" &&
+                              plan.apply === "moxie" ? (
+                                <Button
+                                  variant="secondary"
+                                  icon={sheet.digDeep ? Pickaxe : CircleCheck}
+                                  disabled={!sheet.digDeep}
+                                  onClick={() => {
+                                    setSheet((s) => ({
+                                      ...s,
+                                      digDeep: false,
+                                      digDeepActive: true,
+                                    }));
+                                    setReceipt((current) =>
+                                      current
+                                        ? `${current} Dig Deep is also on.`
+                                        : "Dig Deep is on: bludgeoning, piercing, and slashing are resisted.",
+                                    );
+                                  }}
+                                >
+                                  {sheet.digDeep ? "Also Dig Deep" : "Dig Deep used"}
+                                </Button>
+                              ) : null}
+                              {choices.length > 0 ? (
+                                <div
+                                  className={cx(
+                                    "flex min-h-11 items-center rounded-lg border px-3 py-2 text-sm",
+                                    sectionUsed && receipt
+                                      ? "border-gold/30 bg-gold/[0.06] text-gold-soft"
+                                      : "border-dashed border-line text-faint",
+                                  )}
+                                  aria-live="polite"
+                                >
+                                  {sectionUsed && receipt
+                                    ? receipt
+                                    : "Tap a move. The cost comes off immediately and the result shows here."}
+                                </div>
+                              ) : null}
+                            </Stack>
+                          );
+                        })}
+                        <div className="rounded-lg border-l-2 border-gold/60 bg-well/50 px-3 py-2 text-sm text-muted italic">
+                          {plan.gym}
+                        </div>
+                        <PlanTips plan={plan} />
+                      </Stack>
+                    </CardBody>
+                  </Card>
+                )}
+
+                {!effects.dead &&
+                !cantAct &&
+                sheet.exhaustion === EXHAUSTION_DEATH - 1 ? (
+                  <Callout
+                    title="Exhaustion 5 — one level from death"
+                    tone="warning"
+                    icon={TriangleAlert}
+                    className="animate-pop-in"
+                  >
+                    Don’t Dig Deep again or take anything else that adds Exhaustion. A
+                    long rest drops it to 4.
+                  </Callout>
+                ) : null}
+
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="secondary"
+                    icon={ListOrdered}
+                    onClick={() => setReference("cheat")}
+                  >
+                    Priority cheat sheet
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    icon={BookOpen}
+                    onClick={() => setReference("glossary")}
+                  >
+                    Rules glossary
+                  </Button>
+                </div>
+              </Stack>
+            ) : null}
+
+            {tab === "hit" ? (
               <Card>
-                <CardHeader icon={Activity}>Effects on Gary right now</CardHeader>
+                <CardHeader icon={HeartCrack}>Hit points</CardHeader>
                 <CardBody>
-                  <ConditionEffectsCard sheet={sheet} />
+                  <DamageAdjuster sheet={sheet} setSheet={setSheet} />
                 </CardBody>
               </Card>
-            </div>
-          </Stack>
-        ) : null}
+            ) : null}
 
-        {tab === "rest" ? (
-          <Card>
-            <CardHeader icon={Tent}>Rests & limited uses</CardHeader>
-            <CardBody>
-              <RestPanel
-                sheet={sheet}
-                setSheet={setSheet}
-                onResetSheet={() => {
-                  setSheet({
-                    ...DEFAULT_SHEET,
-                    hp: gary.hpMax,
-                    conditions: emptyConditions(),
-                  });
-                  resetDecision();
-                }}
-              />
-            </CardBody>
-          </Card>
-        ) : null}
+            {tab === "roll" ? (
+              <Card>
+                <CardHeader icon={Dices}>Roll</CardHeader>
+                <CardBody>
+                  <RollPanel sheet={sheet} setSheet={setSheet} />
+                </CardBody>
+              </Card>
+            ) : null}
 
-        {tab === "gear" ? (
-          <InventoryPanel
-            inventory={inventory.value}
-            setInventory={inventory.set}
-          />
-        ) : null}
+            {tab === "conds" ? (
+              <Stack gap={12}>
+                <Card>
+                  <CardHeader icon={ShieldAlert}>Conditions</CardHeader>
+                  <CardBody>
+                    <ConditionsPanel sheet={sheet} setSheet={setSheet} />
+                  </CardBody>
+                </Card>
+                <div id={EFFECTS_CARD_ID} className="scroll-mt-4">
+                  <Card>
+                    <CardHeader icon={Activity}>Effects on Gary right now</CardHeader>
+                    <CardBody>
+                      <ConditionEffectsCard sheet={sheet} />
+                    </CardBody>
+                  </Card>
+                </div>
+              </Stack>
+            ) : null}
 
-        {tab === "bio" ? <PersonaPanel status={personaStatus(sheet, gary)} /> : null}
+            {tab === "rest" ? (
+              <Card>
+                <CardHeader icon={Tent}>Rests & limited uses</CardHeader>
+                <CardBody>
+                  <RestPanel
+                    sheet={sheet}
+                    setSheet={setSheet}
+                    onResetSheet={() => {
+                      setSheet({
+                        ...DEFAULT_SHEET,
+                        hp: gary.hpMax,
+                        conditions: emptyConditions(),
+                      });
+                      resetDecision();
+                    }}
+                  />
+                </CardBody>
+              </Card>
+            ) : null}
 
-        <footer className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-1 text-[0.8rem] text-faint">
-          <span className="inline-flex items-center gap-1.5">
-            <ScrollText className="size-3.5 text-gold/70" aria-hidden />
-            Rules:
-          </span>
-          <a
-            className="inline-flex items-center gap-1"
-            href={PUGILIST_POST_URL}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Pugilist class on D&D Beyond
-            <ExternalLink className="size-3" aria-hidden />
-          </a>
-          <a
-            className="inline-flex items-center gap-1"
-            href={RULES_GLOSSARY_URL}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Conditions (2024 Rules Glossary)
-            <ExternalLink className="size-3" aria-hidden />
-          </a>
-        </footer>
-      </Stack>
+            {tab === "gear" ? (
+              <InventoryPanel inventory={inventory.value} setInventory={inventory.set} />
+            ) : null}
 
-      <Drawer
-        open={reference === "cheat"}
-        onClose={() => setReference(null)}
-        title="Priority cheat sheet"
-        icon={ListOrdered}
-      >
-        <ol className="m-0 flex list-none flex-col gap-1.5 p-0">
-          {[
-            "1. Bloodied But Unbowed if eligible.",
-            "2. Mage Slayer if they cast within 5 ft.",
-            "3. Live? Brace Up or Dig Deep.",
-            "4. Move? Stick and Move.",
-            "5. Else: Attack → Heavy Hitter → free punch.",
-            "6. Lockdown: Stop and Drop → Compression Lock.",
-            "7. Burst with One-Two when Moxie allows.",
-          ].map((line) => {
-            const [num, ...rest] = line.split(". ");
-            return (
-              <li
-                key={line}
-                className="flex items-start gap-3 rounded-lg border border-line bg-well/60 px-3 py-2.5"
+            {tab === "bio" ? <PersonaPanel status={personaStatus(sheet, gary)} /> : null}
+
+            <footer className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-1 text-[0.8rem] text-faint">
+              <span className="inline-flex items-center gap-1.5">
+                <ScrollText className="size-3.5 text-gold/70" aria-hidden />
+                Rules:
+              </span>
+              <a
+                className="inline-flex items-center gap-1"
+                href={PUGILIST_POST_URL}
+                target="_blank"
+                rel="noreferrer"
               >
-                <span className="grid size-6 shrink-0 place-items-center rounded-full border border-gold/50 font-display text-xs font-semibold text-gold-soft">
-                  {num}
-                </span>
-                <span className="text-[0.92rem]">{rest.join(". ")}</span>
-              </li>
-            );
-          })}
-        </ol>
-      </Drawer>
+                Pugilist class on D&D Beyond
+                <ExternalLink className="size-3" aria-hidden />
+              </a>
+              <a
+                className="inline-flex items-center gap-1"
+                href={RULES_GLOSSARY_URL}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Conditions (2024 Rules Glossary)
+                <ExternalLink className="size-3" aria-hidden />
+              </a>
+            </footer>
+          </Stack>
 
-      <Drawer
-        open={reference === "glossary"}
-        onClose={() => setReference(null)}
-        title="Rules glossary (Pugilist)"
-        icon={BookOpen}
-      >
-        <Stack gap={10}>
-          <Text tone="tertiary">
-            Summaries from the Sterling Vermin Pugilist 2024 write-up, with
-            Gary’s level-9 numbers where useful. Tap any ⓘ in the UI for the
-            same blurbs.{" "}
-            <a
-              className="inline-flex items-center gap-1"
-              href={PUGILIST_POST_URL}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Pugilist on D&D Beyond
-              <ExternalLink className="size-3" aria-hidden />
-            </a>
-          </Text>
-          <GlossaryList />
-        </Stack>
-      </Drawer>
+          <Drawer
+            open={reference === "cheat"}
+            onClose={() => setReference(null)}
+            title="Priority cheat sheet"
+            icon={ListOrdered}
+          >
+            <ol className="m-0 flex list-none flex-col gap-1.5 p-0">
+              {[
+                "1. Bloodied But Unbowed if eligible.",
+                "2. Mage Slayer if they cast within 5 ft.",
+                "3. Live? Brace Up or Dig Deep.",
+                "4. Move? Stick and Move.",
+                "5. Else: Attack → Heavy Hitter → free punch.",
+                "6. Lockdown: Stop and Drop → Compression Lock.",
+                "7. Burst with One-Two when Moxie allows.",
+              ].map((line) => {
+                const [num, ...rest] = line.split(". ");
+                return (
+                  <li
+                    key={line}
+                    className="flex items-start gap-3 rounded-lg border border-line bg-well/60 px-3 py-2.5"
+                  >
+                    <span className="grid size-6 shrink-0 place-items-center rounded-full border border-gold/50 font-display text-xs font-semibold text-gold-soft">
+                      {num}
+                    </span>
+                    <span className="text-[0.92rem]">{rest.join(". ")}</span>
+                  </li>
+                );
+              })}
+            </ol>
+          </Drawer>
 
-      <ActionCatalog
-        open={catalogOpen}
-        onClose={() => setCatalogOpen(false)}
-        customActions={customActions}
-        setCustomActions={setCustomActions}
-        customPlaybooks={customPlaybooks}
-        setCustomPlaybooks={setCustomPlaybooks}
-      />
-      <DiceRoller />
-      <UndoBar
-        tracks={[
-          { name: "Sheet", timeline: sheetHistory },
-          { name: "Gear", timeline: inventory },
-        ]}
-        onTravel={() => {
-          setUsedIds([]);
-          setReceipt(null);
-          setHaymakerCall(null);
-          setSwaggerCall(null);
-        }}
-      />
-    </div>
-    </RollLogContext.Provider>
+          <Drawer
+            open={reference === "glossary"}
+            onClose={() => setReference(null)}
+            title="Rules glossary (Pugilist)"
+            icon={BookOpen}
+          >
+            <Stack gap={10}>
+              <Text tone="tertiary">
+                Summaries from the Sterling Vermin Pugilist 2024 write-up, with Gary’s
+                level-9 numbers where useful. Tap any ⓘ in the UI for the same blurbs.{" "}
+                <a
+                  className="inline-flex items-center gap-1"
+                  href={PUGILIST_POST_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Pugilist on D&D Beyond
+                  <ExternalLink className="size-3" aria-hidden />
+                </a>
+              </Text>
+              <GlossaryList />
+            </Stack>
+          </Drawer>
+
+          <ActionCatalog
+            open={catalogOpen}
+            onClose={() => setCatalogOpen(false)}
+            customActions={customActions}
+            setCustomActions={setCustomActions}
+            customPlaybooks={customPlaybooks}
+            setCustomPlaybooks={setCustomPlaybooks}
+          />
+          <DiceRoller />
+          <UndoBar
+            tracks={[
+              { name: "Sheet", timeline: sheetHistory },
+              { name: "Gear", timeline: inventory },
+            ]}
+            onTravel={() => {
+              setUsedIds([]);
+              setReceipt(null);
+              setHaymakerCall(null);
+              setSwaggerCall(null);
+            }}
+          />
+        </div>
+      </RollLogContext.Provider>
     </GaryContext.Provider>
   );
 }

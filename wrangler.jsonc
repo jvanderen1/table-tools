@@ -5,9 +5,9 @@
   "name": "table-tools",
   "compatibility_date": "2026-11-01",
   "build": {
-    "command": "BASE_PATH=/ npm run build"
+    "command": "BASE_PATH=/ npm run build",
   },
   "assets": {
-    "directory": "./dist"
-  }
+    "directory": "./dist",
+  },
 }

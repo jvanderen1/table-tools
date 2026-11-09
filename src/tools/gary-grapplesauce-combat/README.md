@@ -16,23 +16,23 @@ Phone-friendly play aid for **Gary Grapplesauce** at the table. Live on GitHub P
 
 These are computed, not typed in: `stats.ts` builds them from base stats (Str 8, Dex 16, Con 17, Int 10, Wis 14, Cha 12; proficiency +4; Str/Con save proficiency; Athletics expertise; Iron Chin 12 + Con; HP 76 + 9 × Con) plus whatever is equipped in the Gear tab. With the belt, wraps, and towel on, they come out to:
 
-| | |
-|---|---|
-| Str / Dex / Con / Int / Wis / Cha | **21** / 16 / 17 / 10 / 14 / 12 |
-| HP | **103** |
-| AC | **18** (Iron Chin 15 + Wrist Wraps +2 + Towel +1) |
-| Unarmed | **+9 / 1d10+5** (Fisticuffs d10) |
-| Athletics | **+13** (expertise) |
-| Saves | Str **+10**, Con **+8**, others include Cloak +1 |
-| Moxie | **5** (short rest) |
+|                                   |                                                   |
+| --------------------------------- | ------------------------------------------------- |
+| Str / Dex / Con / Int / Wis / Cha | **21** / 16 / 17 / 10 / 14 / 12                   |
+| HP                                | **103**                                           |
+| AC                                | **18** (Iron Chin 15 + Wrist Wraps +2 + Towel +1) |
+| Unarmed                           | **+9 / 1d10+5** (Fisticuffs d10)                  |
+| Athletics                         | **+13** (expertise)                               |
+| Saves                             | Str **+10**, Con **+8**, others include Cloak +1  |
+| Moxie                             | **5** (short rest)                                |
 
 ### Attuned items (3/3)
 
-| Item | Rename | Effect |
-|---|---|---|
-| Belt of Hill Giant Strength | Lifting Belt | Str → 21 |
-| Bracers of Defense | Wrist Wraps | +2 AC (no armor/shield) |
-| Cloak of Protection | The Towel | +1 AC and saves |
+| Item                        | Rename       | Effect                  |
+| --------------------------- | ------------ | ----------------------- |
+| Belt of Hill Giant Strength | Lifting Belt | Str → 21                |
+| Bracers of Defense          | Wrist Wraps  | +2 AC (no armor/shield) |
+| Cloak of Protection         | The Towel    | +1 AC and saves         |
 
 Inventory flavor (no attunement): Pull-up Bar (Immovable Rod), Brass Knuckles, Water Bottle.
 
@@ -42,15 +42,15 @@ Point-buy joke: **Str 8 without the belt.**
 
 Three tabs so the screen isn’t a wall of controls:
 
-| Tab | Job |
-|---|---|
-| **Play** | Combat decision tree (timing → goal/reaction → Action / BA / Reaction) |
-| **Hit** | Hit points, split into Damage and Heal |
-| **Roll** | Saves, checks, unarmed attack, and hit dice — bonuses include conditions |
-| **Conds** | Effects on Gary (auto-calculated) + 2024 conditions + Exhaustion 0–6 |
-| **Rest** | Once-per-rest toggles + Short / Long rest |
-| **Gear** | Gary’s numbers from gear, plus inventory (`Inventory.tsx`): coins, items with quantity, nickname → real item, effects, equip switch, attunement (max 3) |
-| **Bio** | Personality & biography, plus optional AI “Say it like Gary” lines (`Persona.tsx`) |
+| Tab       | Job                                                                                                                                                     |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Play**  | Combat decision tree (timing → goal/reaction → Action / BA / Reaction)                                                                                  |
+| **Hit**   | Hit points, split into Damage and Heal                                                                                                                  |
+| **Roll**  | Saves, checks, unarmed attack, and hit dice — bonuses include conditions                                                                                |
+| **Conds** | Effects on Gary (auto-calculated) + 2024 conditions + Exhaustion 0–6                                                                                    |
+| **Rest**  | Once-per-rest toggles + Short / Long rest                                                                                                               |
+| **Gear**  | Gary’s numbers from gear, plus inventory (`Inventory.tsx`): coins, items with quantity, nickname → real item, effects, equip switch, attunement (max 3) |
+| **Bio**   | Personality & biography, plus optional AI “Say it like Gary” lines (`Persona.tsx`)                                                                      |
 
 ### Bio tab behavior (`Persona.tsx`)
 
@@ -129,13 +129,13 @@ The sheet and the inventory use `useUndoableState` (`src/lib/useUndoableState.ts
 
 Buttons use the same condition math as the effects card (Exhaustion −2 per level, Advantage / Disadvantage, auto-fail saves). Each button shows the bonus you’ll actually roll.
 
-| Button | Bonus before Exhaustion |
-|---|---|
-| Saves | Str +10, Dex +4, Con +8, Int +1, Wis +3, Cha +2 (Towel included) |
-| Ability checks | Str +5, Dex +3, Con +3, Int +0, Wis +2, Cha +1 |
-| Skills | Athletics +13, Perception +6, Insight +6 |
-| Initiative | +3 |
-| Unarmed | +9 to hit (nat 20 crit, nat 1 miss), with Damage 1d10+5 beside it (2d10+5 after a crit) |
+| Button         | Bonus before Exhaustion                                                                 |
+| -------------- | --------------------------------------------------------------------------------------- |
+| Saves          | Str +10, Dex +4, Con +8, Int +1, Wis +3, Cha +2 (Towel included)                        |
+| Ability checks | Str +5, Dex +3, Con +3, Int +0, Wis +2, Cha +1                                          |
+| Skills         | Athletics +13, Perception +6, Insight +6                                                |
+| Initiative     | +3                                                                                      |
+| Unarmed        | +9 to hit (nat 20 crit, nat 1 miss), with Damage 1d10+5 beside it (2d10+5 after a crit) |
 
 A **Dice** button floats in the bottom-right corner. Tap dice to build a mixed pool (up to 20 of each of d4, d6, d8, d10, d12, d20, and d100), set a modifier, and roll. The tray has a fixed height: the pool scrolls sideways and only the log scrolls, so nothing moves while you build or roll. **Reset** empties the pool and **Clear log** empties the history. It does not change HP.
 
@@ -151,12 +151,12 @@ The status card shows short “Effects” chips. Under Gary’s name the glance 
 
 ## Limited uses (track in Rest)
 
-| Feature | Cadence | Notes |
-|---|---|---|
-| Moxie | Short rest | Pool of 5 |
-| Bloodied But Unbowed | 1 / short or long rest | Reaction when you take damage → refill Moxie. Temp HP 36 only if bloodied |
-| Swagger Streak | until a still-failed check | Spend 1 Moxie to add 1d10 to a failed Str/Dex/Con/Cha check. Refund and lock only if it still fails |
-| Dig Deep | 1 / long rest | BA → resist B/P/S and ignore Exhaustion below 6 for 10 min. Restoring the use is no action and costs 1 Exhaustion (never to 6) |
+| Feature              | Cadence                    | Notes                                                                                                                          |
+| -------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Moxie                | Short rest                 | Pool of 5                                                                                                                      |
+| Bloodied But Unbowed | 1 / short or long rest     | Reaction when you take damage → refill Moxie. Temp HP 36 only if bloodied                                                      |
+| Swagger Streak       | until a still-failed check | Spend 1 Moxie to add 1d10 to a failed Str/Dex/Con/Cha check. Refund and lock only if it still fails                            |
+| Dig Deep             | 1 / long rest              | BA → resist B/P/S and ignore Exhaustion below 6 for 10 min. Restoring the use is no action and costs 1 Exhaustion (never to 6) |
 
 Short rest: Moxie full, Bloodied + Swagger ready, clear Dig Deep active + temp HP (conditions stay).  
 Long rest: full HP/uses reset, clear conditions, Exhaustion −1 (2024-style).

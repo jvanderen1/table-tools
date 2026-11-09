@@ -7,7 +7,10 @@
 export const ACTION_PARTS = ["action", "bonus", "reaction", "free"] as const;
 export type ActionPart = (typeof ACTION_PARTS)[number];
 
-export const PART_LABEL: Record<ActionPart, "Action" | "Bonus Action" | "Reaction" | "No action"> = {
+export const PART_LABEL: Record<
+  ActionPart,
+  "Action" | "Bonus Action" | "Reaction" | "No action"
+> = {
   action: "Action",
   bonus: "Bonus Action",
   reaction: "Reaction",
@@ -117,7 +120,8 @@ export const ACTIONS: GameAction[] = [
     id: "stick-and-move",
     name: "Stick and Move",
     part: "bonus",
-    summary: "Bonus Action. Expend 1 Moxie, make one Unarmed Strike, and take the Dash or Disengage action.",
+    summary:
+      "Bonus Action. Expend 1 Moxie, make one Unarmed Strike, and take the Dash or Disengage action.",
     moxie: 1,
     apply: "moxie",
     dice: ["attack", "damage"],
@@ -191,7 +195,8 @@ export const ACTIONS: GameAction[] = [
     id: "opportunity",
     name: "Opportunity attack",
     part: "reaction",
-    summary: "Reaction when a creature you can see leaves your reach. One Unarmed Strike.",
+    summary:
+      "Reaction when a creature you can see leaves your reach. One Unarmed Strike.",
     moxie: 0,
     apply: "moxie",
     dice: ["attack", "damage"],

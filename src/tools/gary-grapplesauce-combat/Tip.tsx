@@ -1,10 +1,4 @@
-import {
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { BookOpen, ChevronDown, ExternalLink, Info, X } from "lucide-react";
 import { cx } from "../../lib/cx";
@@ -36,10 +30,7 @@ export function Tip({
     if (!open || !triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
     const width = Math.min(BUBBLE_WIDTH, window.innerWidth - 16);
-    const left = Math.max(
-      8,
-      Math.min(rect.left, window.innerWidth - width - 8),
-    );
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
     setPos({ top: rect.bottom + GAP, left });
   }, [open]);
 
@@ -49,8 +40,7 @@ export function Tip({
       const target = e.target as Node | null;
       if (
         target &&
-        (triggerRef.current?.contains(target) ||
-          bubbleRef.current?.contains(target))
+        (triggerRef.current?.contains(target) || bubbleRef.current?.contains(target))
       ) {
         return;
       }
@@ -142,13 +132,7 @@ export function Tip({
   );
 }
 
-export function SourceLine({
-  source,
-  href,
-}: {
-  source?: string;
-  href?: string;
-}) {
+export function SourceLine({ source, href }: { source?: string; href?: string }) {
   if (!source) return null;
   if (!href) return <div className="text-xs text-faint">{source}</div>;
   return (
@@ -193,11 +177,7 @@ export function GlossaryItem({
   );
 }
 
-export function GlossaryList({
-  kind = "feature",
-}: {
-  kind?: "feature" | "condition";
-}) {
+export function GlossaryList({ kind = "feature" }: { kind?: "feature" | "condition" }) {
   const entries = Object.values(GLOSSARY).filter((e) => e.kind === kind);
   return (
     <div className="flex flex-col gap-1.5">

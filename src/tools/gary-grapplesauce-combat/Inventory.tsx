@@ -34,8 +34,7 @@ const FIELD =
   "w-full appearance-none rounded-lg border border-line bg-well px-3 py-2 text-sm text-ink outline-none transition-colors placeholder:text-faint focus:border-gold/70";
 const STEP =
   "grid size-7 shrink-0 cursor-pointer place-items-center rounded-md border border-line bg-well/70 text-ink hover:border-gold/50 disabled:cursor-not-allowed disabled:opacity-40";
-const LABEL =
-  "text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-faint";
+const LABEL = "text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-faint";
 const CHECK_ROW =
   "flex min-h-10 items-center gap-2 rounded-lg border border-line bg-well/60 px-3 text-sm";
 
@@ -69,7 +68,12 @@ const SCORE_TILES: Tile[] = ABILITIES.map(({ id, label }) => ({
 
 const COMBAT_TILES: Tile[] = [
   { from: ["ac", "con"], label: "AC", value: (g) => `${g.ac}`, delta: (g) => g.ac },
-  { from: ["attack", "str"], label: "To hit", value: (g) => signed(g.attack), delta: (g) => g.attack },
+  {
+    from: ["attack", "str"],
+    label: "To hit",
+    value: (g) => signed(g.attack),
+    delta: (g) => g.attack,
+  },
   {
     from: ["damage", "str"],
     label: "Damage",
@@ -94,8 +98,18 @@ const COMBAT_TILES: Tile[] = [
     value: (g) => signed(g.initiative),
     delta: (g) => g.initiative,
   },
-  { from: ["speed"], label: "Speed", value: (g) => `${g.speed} ft`, delta: (g) => g.speed },
-  { from: ["hpMax", "con"], label: "Max HP", value: (g) => `${g.hpMax}`, delta: (g) => g.hpMax },
+  {
+    from: ["speed"],
+    label: "Speed",
+    value: (g) => `${g.speed} ft`,
+    delta: (g) => g.speed,
+  },
+  {
+    from: ["hpMax", "con"],
+    label: "Max HP",
+    value: (g) => `${g.hpMax}`,
+    delta: (g) => g.hpMax,
+  },
 ];
 
 function StatTile({ tile, gary }: { tile: Tile; gary: GaryStats }) {
@@ -150,9 +164,9 @@ function GearStats() {
             ))}
           </div>
           <Text tone="tertiary">
-            Flip a switch on an item to wear it or take it off. Gold tiles are
-            above Gary’s base (Str 8, Con 17, proficiency +4). Header, rolls,
-            and plans all follow these.
+            Flip a switch on an item to wear it or take it off. Gold tiles are above
+            Gary’s base (Str 8, Con 17, proficiency +4). Header, rolls, and plans all
+            follow these.
           </Text>
         </Stack>
       </CardBody>
@@ -198,9 +212,7 @@ export function InventoryPanel({
     setInventory((inv) => ({
       ...inv,
       items: inv.items.map((i) =>
-        i.id === id
-          ? { ...i, qty: Math.min(QTY_MAX, Math.max(0, i.qty + delta)) }
-          : i,
+        i.id === id ? { ...i, qty: Math.min(QTY_MAX, Math.max(0, i.qty + delta)) } : i,
       ),
     }));
   }
@@ -470,10 +482,10 @@ export function InventoryPanel({
             </ul>
 
             <Text tone="tertiary">
-              Flip the switch to equip or take off an item; equipped items
-              with effects change Gary’s numbers everywhere (attunement items
-              also need to be attuned). Tap an item to edit its effects, notes,
-              or attunement. Mistake? Undo (bottom left).
+              Flip the switch to equip or take off an item; equipped items with effects
+              change Gary’s numbers everywhere (attunement items also need to be attuned).
+              Tap an item to edit its effects, notes, or attunement. Mistake? Undo (bottom
+              left).
             </Text>
           </Stack>
         </CardBody>

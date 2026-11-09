@@ -8,13 +8,13 @@ Cursor canvases do **not** deploy here. Port interactive tools into React under 
 
 This checkout is **colocated** `jj` + `git` (`.jj` next to `.git`). Prefer **`jj`** for feature work and fixes.
 
-| Task | Command |
-|---|---|
-| See state | `jj status` / `jj log` |
-| Describe current change | `jj describe -m "..."` |
-| Start new work on top | `jj new` |
-| Fetch / push | `jj git fetch` / `jj git push` |
-| Bookmark (branch) | `main` tracks `main@origin` |
+| Task                    | Command                        |
+| ----------------------- | ------------------------------ |
+| See state               | `jj status` / `jj log`         |
+| Describe current change | `jj describe -m "..."`         |
+| Start new work on top   | `jj new`                       |
+| Fetch / push            | `jj git fetch` / `jj git push` |
+| Bookmark (branch)       | `main` tracks `main@origin`    |
 
 After finishing a meaningful change, **describe, move `main` to `@`, and `jj git push --bookmark main`** without waiting to be asked. Avoid mutating `git` commands that detach HEAD (`git commit`, `git checkout`, `git rebase`) — they fight colocated jj. Read-only `git` / `gh` is fine.
 
@@ -42,12 +42,12 @@ Then implement `Tool.tsx`. Prefer:
 
 ## Conventions
 
-| Piece | Rule |
-|---|---|
-| `id` | kebab-case, stable URL slug |
-| Home card | filled from `meta` only |
-| Routing | automatic via registry + `/#/tools/<id>` |
-| Persistence keys | `table-tools:<tool-id>:<name>` |
+| Piece            | Rule                                     |
+| ---------------- | ---------------------------------------- |
+| `id`             | kebab-case, stable URL slug              |
+| Home card        | filled from `meta` only                  |
+| Routing          | automatic via registry + `/#/tools/<id>` |
+| Persistence keys | `table-tools:<tool-id>:<name>`           |
 
 ## No layout jumps
 

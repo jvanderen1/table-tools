@@ -11,9 +11,7 @@ function Home() {
     <Stack gap={20}>
       <Stack gap={6}>
         <h1 className="text-3xl font-semibold text-gold-soft">Table Tools</h1>
-        <Text tone="secondary">
-          Phone-friendly play aids for the table.
-        </Text>
+        <Text tone="secondary">Phone-friendly play aids for the table.</Text>
       </Stack>
       <div className="grid grid-cols-1 gap-3">
         {tools.map(({ meta }) => (

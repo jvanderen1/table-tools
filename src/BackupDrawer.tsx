@@ -26,20 +26,9 @@ import { Button, Callout, Divider, Drawer, Stack, Text } from "./ui";
 
 type Notice = { tone: "info" | "warning"; title: string; detail: string };
 
-export function BackupDrawer({
-  open,
-  onClose,
-}: {
-  open: boolean;
-  onClose: () => void;
-}) {
+export function BackupDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
-    <Drawer
-      open={open}
-      onClose={onClose}
-      title="Backup & restore"
-      icon={DatabaseBackup}
-    >
+    <Drawer open={open} onClose={onClose} title="Backup & restore" icon={DatabaseBackup}>
       <BackupPanel />
     </Drawer>
   );
@@ -155,9 +144,8 @@ function BackupPanel() {
   return (
     <Stack gap={16}>
       <Text tone="secondary">
-        Everything (HP, Moxie, conditions, settings) lives only in this
-        browser. A backup file lets you recover it on a new phone or after
-        the browser clears data.
+        Everything (HP, Moxie, conditions, settings) lives only in this browser. A backup
+        file lets you recover it on a new phone or after the browser clears data.
       </Text>
 
       <div className="flex items-start gap-3 rounded-xl border border-line bg-well/60 px-3.5 py-3">
@@ -195,9 +183,7 @@ function BackupPanel() {
       <Stack gap={8}>
         <Text tone="tertiary">
           {count} saved {count === 1 ? "item" : "items"} ·{" "}
-          {lastBackup
-            ? `last backup ${lastBackup.toLocaleString()}`
-            : "never backed up"}
+          {lastBackup ? `last backup ${lastBackup.toLocaleString()}` : "never backed up"}
         </Text>
         <div className="grid grid-cols-2 gap-2">
           <Button variant="primary" icon={Download} onClick={saveFile}>

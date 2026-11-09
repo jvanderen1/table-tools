@@ -54,8 +54,7 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
   "one-two": {
     id: "one-two",
     label: "One-Two (Old One-Two)",
-    summary:
-      "Bonus Action: expend 1 Moxie and make two Unarmed Strikes.",
+    summary: "Bonus Action: expend 1 Moxie and make two Unarmed Strikes.",
     source: "Pugilist 2024 · Moxie / DDB post",
   },
   "stick-and-move": {

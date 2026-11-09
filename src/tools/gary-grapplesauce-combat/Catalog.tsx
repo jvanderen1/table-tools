@@ -8,11 +8,7 @@ import {
   type CustomAction,
   type GameAction,
 } from "./actions";
-import {
-  PLAYBOOKS,
-  type CustomPlaybook,
-  type PlaybookWhen,
-} from "./playbooks";
+import { PLAYBOOKS, type CustomPlaybook, type PlaybookWhen } from "./playbooks";
 import { Button, Card, CardBody, CardHeader, Drawer, Stack, Text } from "../../ui";
 
 const FIELD =
@@ -48,7 +44,10 @@ export function ActionBrowser({ customActions }: { customActions: CustomAction[]
       <CardHeader icon={BookOpen}>What you can do</CardHeader>
       <CardBody>
         <Stack gap={10}>
-          <div className="grid grid-cols-4 gap-1 rounded-lg border border-line bg-well/70 p-1" role="tablist">
+          <div
+            className="grid grid-cols-4 gap-1 rounded-lg border border-line bg-well/70 p-1"
+            role="tablist"
+          >
             {BROWSER_PARTS.map((item) => (
               <button
                 key={item.id}
@@ -113,7 +112,9 @@ export function ActionCatalog({
   open: boolean;
   onClose: () => void;
   customActions: CustomAction[];
-  setCustomActions: (next: CustomAction[] | ((prev: CustomAction[]) => CustomAction[])) => void;
+  setCustomActions: (
+    next: CustomAction[] | ((prev: CustomAction[]) => CustomAction[]),
+  ) => void;
   customPlaybooks: CustomPlaybook[];
   setCustomPlaybooks: (
     next: CustomPlaybook[] | ((prev: CustomPlaybook[]) => CustomPlaybook[]),
@@ -146,7 +147,10 @@ export function ActionCatalog({
   function removeAction(id: string) {
     setCustomActions((prev) => prev.filter((action) => action.id !== id));
     setCustomPlaybooks((prev) =>
-      prev.map((book) => ({ ...book, actionIds: book.actionIds.filter((x) => x !== id) })),
+      prev.map((book) => ({
+        ...book,
+        actionIds: book.actionIds.filter((x) => x !== id),
+      })),
     );
     setBookIds((ids) => ids.filter((x) => x !== id));
   }
@@ -173,8 +177,8 @@ export function ActionCatalog({
     <Drawer open={open} onClose={onClose} title="Actions" icon={BookOpen}>
       <Stack gap={16}>
         <Text tone="secondary">
-          Every move Gary can make lives here. Playbooks only point at this list.
-          Add your own when the sheet grows.
+          Every move Gary can make lives here. Playbooks only point at this list. Add your
+          own when the sheet grows.
         </Text>
 
         <div className="flex flex-col gap-1.5">
@@ -214,7 +218,12 @@ export function ActionCatalog({
             value={summary}
             onChange={(e) => setSummary(e.target.value)}
           />
-          <Button variant="primary" icon={Plus} disabled={name.trim() === ""} onClick={addAction}>
+          <Button
+            variant="primary"
+            icon={Plus}
+            disabled={name.trim() === ""}
+            onClick={addAction}
+          >
             Add action
           </Button>
         </div>
@@ -228,14 +237,18 @@ export function ActionCatalog({
                 className="flex min-h-12 shrink-0 items-start gap-2 rounded-lg border border-line bg-surface/80 px-2 py-1.5"
               >
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium text-ink">{action.name}</div>
+                  <div className="truncate text-sm font-medium text-ink">
+                    {action.name}
+                  </div>
                   <div className="text-xs text-faint">
                     {PART_LABEL[action.part]}
                     {action.moxie > 0 ? ` · ${action.moxie} Moxie` : ""}
                     {custom ? " · yours" : ""}
                   </div>
                   {action.summary ? (
-                    <p className="mt-0.5 text-xs leading-snug text-muted">{action.summary}</p>
+                    <p className="mt-0.5 text-xs leading-snug text-muted">
+                      {action.summary}
+                    </p>
                   ) : null}
                 </div>
                 <button
@@ -284,7 +297,10 @@ export function ActionCatalog({
             {all.map((action) => {
               const on = bookIds.includes(action.id);
               return (
-                <label key={action.id} className="flex min-h-8 cursor-pointer items-center gap-2 text-sm">
+                <label
+                  key={action.id}
+                  className="flex min-h-8 cursor-pointer items-center gap-2 text-sm"
+                >
                   <input
                     type="checkbox"
                     className="size-4 accent-gold"
@@ -330,7 +346,9 @@ export function ActionCatalog({
                   aria-label={`Remove ${book.title}`}
                   disabled={!custom}
                   onClick={() =>
-                    setCustomPlaybooks((prev) => prev.filter((item) => item.id !== book.id))
+                    setCustomPlaybooks((prev) =>
+                      prev.filter((item) => item.id !== book.id),
+                    )
                   }
                 >
                   <Trash2 className="size-3.5" aria-hidden />

@@ -183,16 +183,11 @@ export function UndoBar({
         document.body,
       )}
 
-      <Drawer
-        open={open}
-        onClose={() => setOpen(false)}
-        title="History"
-        icon={History}
-      >
+      <Drawer open={open} onClose={() => setOpen(false)} title="History" icon={History}>
         <Stack gap={14}>
           <Text tone="secondary">
-            Every change is kept here. Go back to undo a change and everything
-            after it; you can always redo. Shortcut: ⌘Z / ⇧⌘Z.
+            Every change is kept here. Go back to undo a change and everything after it;
+            you can always redo. Shortcut: ⌘Z / ⇧⌘Z.
           </Text>
 
           {future.length > 0 ? (
@@ -211,7 +206,12 @@ export function UndoBar({
                       <time title={clockTime(step.at)}>{timeAgo(step.at, now)}</time>
                     </div>
                   </div>
-                  <Button size="sm" variant="ghost" icon={Redo2} onClick={() => redoTo(step)}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    icon={Redo2}
+                    onClick={() => redoTo(step)}
+                  >
                     Redo
                   </Button>
                 </li>

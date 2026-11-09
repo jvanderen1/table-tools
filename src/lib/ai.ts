@@ -4,12 +4,7 @@
  */
 
 export type AiProvider =
-  | "anthropic"
-  | "openai"
-  | "gemini"
-  | "grok"
-  | "groq"
-  | "compatible";
+  "anthropic" | "openai" | "gemini" | "grok" | "groq" | "compatible";
 
 export type AiSettings = {
   provider: AiProvider;
@@ -118,10 +113,7 @@ export const PROVIDER_ORDER: AiProvider[] = [
 const PROVIDER_IDS = Object.keys(PROVIDERS) as AiProvider[];
 
 /** Groq moved these off the free plan. A saved key should not keep calling them. */
-const RETIRED_GROQ_MODELS = new Set([
-  "llama-3.1-8b-instant",
-  "llama-3.3-70b-versatile",
-]);
+const RETIRED_GROQ_MODELS = new Set(["llama-3.1-8b-instant", "llama-3.3-70b-versatile"]);
 
 function isProvider(value: unknown): value is AiProvider {
   return typeof value === "string" && PROVIDER_IDS.includes(value as AiProvider);
@@ -202,7 +194,7 @@ function bearerHeaders(apiKey: string) {
   const headers: Record<string, string> = {
     "content-type": "application/json",
   };
-  if (apiKey) headers.authorization = `Bearer ${apiKey}`;
+  if (apiKey) headers["authorization"] = `Bearer ${apiKey}`;
   return headers;
 }
 

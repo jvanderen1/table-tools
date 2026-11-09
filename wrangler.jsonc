@@ -1,0 +1,9 @@
+// Cloudflare Workers static-assets mirror of the GitHub Pages site.
+// Build with BASE_PATH=/ so asset URLs resolve from the domain root.
+{
+  "name": "table-tools",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./dist"
+  }
+}

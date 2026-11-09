@@ -62,11 +62,11 @@ BASE_PATH=/your-repo-name/ npm run build
 
 ## Mirror on Cloudflare Pages (backup URL)
 
-Optional second host, deployed from the same `main` pushes. One-time setup in the Cloudflare dashboard:
+Optional second host, deployed from the same `main` pushes as a Worker with static assets (`wrangler.jsonc`). One-time setup in the Cloudflare dashboard:
 
-1. **Workers & Pages → Create → Pages → Connect to Git**, pick this repo.
-2. Production branch `main`, framework preset **None**, build command `npm run build`, output directory `dist`.
-3. Environment variable `BASE_PATH` = `/` (the site lives at the domain root there). Node comes from `.node-version`.
+1. **Workers & Pages → Create → Import a repository**, pick this repo.
+2. Project name `table-tools` (must match `name` in `wrangler.jsonc`).
+3. Build command `BASE_PATH=/ npm run build` (the site lives at the domain root there), deploy command `npx wrangler deploy`, preview command left as the default. Node comes from `.node-version`.
 
 Each origin has its own `localStorage`, so use **Backup → Save backup file** on one and **Restore from file** on the other to move state.
 

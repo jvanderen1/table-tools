@@ -21,6 +21,13 @@ npm install
 npm run dev
 ```
 
+This repo is **colocated Jujutsu + Git**. Prefer `jj` for day-to-day changes (`jj describe`, `jj new`, `jj git push`). See [AGENTS.md](./AGENTS.md).
+
+```bash
+# first clone only — if you already have the git repo:
+jj git init --colocate
+```
+
 ## Add another Cursor-generated tool
 
 ```bash

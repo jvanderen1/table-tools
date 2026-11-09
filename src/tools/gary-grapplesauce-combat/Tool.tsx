@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import { usePersistentState } from "../../lib/usePersistentState";
 import {
   Button,
@@ -326,6 +332,420 @@ function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
 
+const DAMAGE_TYPES = [
+  "bludgeoning",
+  "piercing",
+  "slashing",
+  "acid",
+  "cold",
+  "fire",
+  "force",
+  "lightning",
+  "necrotic",
+  "poison",
+  "psychic",
+  "radiant",
+  "thunder",
+] as const;
+
+type DamageType = (typeof DAMAGE_TYPES)[number];
+type Effectiveness = "auto" | "normal" | "resistant" | "immune" | "vulnerable";
+
+type DamageUi = {
+  amount: string;
+  type: DamageType;
+  effectiveness: Effectiveness;
+  increments: number[];
+  customIncrement: string;
+};
+
+const DEFAULT_DAMAGE_UI: DamageUi = {
+  amount: "0",
+  type: "bludgeoning",
+  effectiveness: "auto",
+  increments: [1, 5, 10, 20],
+  customIncrement: "15",
+};
+
+type DamageOutcome = {
+  tone: "info" | "warning";
+  title: string;
+  detail: string;
+};
+
+function isWeaponPhysical(type: DamageType) {
+  return (
+    type === "bludgeoning" || type === "piercing" || type === "slashing"
+  );
+}
+
+function resolveEffectiveness(
+  type: DamageType,
+  digDeepActive: boolean,
+  mode: Effectiveness,
+): Exclude<Effectiveness, "auto"> {
+  if (mode !== "auto") return mode;
+  if (digDeepActive && isWeaponPhysical(type)) return "resistant";
+  return "normal";
+}
+
+function modifyDamage(
+  raw: number,
+  eff: Exclude<Effectiveness, "auto">,
+): number {
+  if (eff === "immune") return 0;
+  if (eff === "resistant") return Math.floor(raw / 2);
+  if (eff === "vulnerable") return raw * 2;
+  return raw;
+}
+
+function applyIncomingDamage(
+  hp: number,
+  tempHp: number,
+  finalDamage: number,
+): { hp: number; tempHp: number; absorbedByTemp: number; toHp: number } {
+  let remaining = finalDamage;
+  let nextTemp = tempHp;
+  let absorbedByTemp = 0;
+  if (nextTemp > 0 && remaining > 0) {
+    absorbedByTemp = Math.min(nextTemp, remaining);
+    nextTemp -= absorbedByTemp;
+    remaining -= absorbedByTemp;
+  }
+  return {
+    hp: clamp(hp - remaining, 0, HP_MAX),
+    tempHp: nextTemp,
+    absorbedByTemp,
+    toHp: remaining,
+  };
+}
+
+function DamageAdjuster({
+  sheet,
+  setSheet,
+}: {
+  sheet: Sheet;
+  setSheet: (next: Sheet | ((prev: Sheet) => Sheet)) => void;
+}) {
+  const [ui, setUi] = usePersistentState<DamageUi>(
+    "gary-grapplesauce-combat:damage-ui",
+    DEFAULT_DAMAGE_UI,
+  );
+  const [outcome, setOutcome] = useState<DamageOutcome | null>(null);
+  const amountRef = useRef<HTMLInputElement>(null);
+
+  const raw = Math.max(0, Number.parseInt(ui.amount || "0", 10) || 0);
+  const resolved = resolveEffectiveness(
+    ui.type,
+    sheet.digDeepActive,
+    ui.effectiveness,
+  );
+  const preview = modifyDamage(raw, resolved);
+
+  function setAmount(next: string) {
+    const cleaned = next.replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+    setUi((u) => ({ ...u, amount: cleaned === "" ? "0" : cleaned }));
+  }
+
+  function bump(delta: number) {
+    setAmount(String(Math.max(0, raw + delta)));
+  }
+
+  function appendDigit(d: string) {
+    if (ui.amount === "0") setAmount(d);
+    else setAmount(ui.amount + d);
+  }
+
+  function onAmountKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Backspace" || e.key === "Delete") return;
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      bump(1);
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      bump(-1);
+      return;
+    }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      takeDamage();
+      return;
+    }
+    if (e.key.length === 1 && !/\d/.test(e.key) && !e.metaKey && !e.ctrlKey) {
+      e.preventDefault();
+    }
+  }
+
+  function addIncrementPreset() {
+    const n = Number.parseInt(ui.customIncrement || "0", 10);
+    if (!n || n <= 0) return;
+    setUi((u) => ({
+      ...u,
+      increments: [...new Set([...u.increments, n])].sort((a, b) => a - b),
+    }));
+  }
+
+  function takeDamage() {
+    const finalDamage = preview;
+    const before = { hp: sheet.hp, tempHp: sheet.tempHp };
+    const after = applyIncomingDamage(sheet.hp, sheet.tempHp, finalDamage);
+    setSheet((s) => ({ ...s, hp: after.hp, tempHp: after.tempHp }));
+
+    let title = "Damage applied";
+    let tone: "info" | "warning" = "info";
+    if (resolved === "immune") {
+      title = "Immune — no damage";
+      tone = "warning";
+    } else if (resolved === "resistant") {
+      title = "Resistant — half damage";
+      tone = "info";
+    } else if (resolved === "vulnerable") {
+      title = "Vulnerable — double damage";
+      tone = "warning";
+    }
+
+    const bits = [
+      `${raw} ${ui.type}`,
+      resolved !== "normal" ? `${resolved} → ${finalDamage}` : `${finalDamage} taken`,
+    ];
+    if (after.absorbedByTemp > 0) {
+      bits.push(`${after.absorbedByTemp} absorbed by temp HP`);
+    }
+    if (after.toHp > 0) {
+      bits.push(`${after.toHp} to HP (${before.hp} → ${after.hp})`);
+    } else if (finalDamage > 0 && after.absorbedByTemp > 0) {
+      bits.push(`HP unchanged at ${after.hp}`);
+    }
+    if (isBloodied(after.hp) && !isBloodied(before.hp)) {
+      bits.push(`now bloodied (≤${BLOODIED_AT})`);
+    }
+    if (sheet.digDeepActive && isWeaponPhysical(ui.type) && ui.effectiveness === "auto") {
+      bits.push("Dig Deep resistance applied");
+    }
+
+    setOutcome({ tone, title, detail: bits.join(" · ") });
+  }
+
+  function heal() {
+    if (raw <= 0) {
+      setOutcome({
+        tone: "warning",
+        title: "Nothing to heal",
+        detail: "Enter an amount greater than 0.",
+      });
+      return;
+    }
+    const next = clamp(sheet.hp + raw, 0, HP_MAX);
+    setSheet((s) => ({ ...s, hp: next }));
+    setOutcome({
+      tone: "info",
+      title: "Healed",
+      detail: `+${raw} HP (${sheet.hp} → ${next}). Damage type ignored for healing.`,
+    });
+  }
+
+  const effHint =
+    ui.effectiveness === "auto"
+      ? sheet.digDeepActive && isWeaponPhysical(ui.type)
+        ? "Auto: resistant (Dig Deep)"
+        : "Auto: normal"
+      : `Manual: ${ui.effectiveness}`;
+
+  return (
+    <Stack gap={10}>
+      <Row gap={8} wrap>
+        <Text>HP</Text>
+        {isBloodied(sheet.hp) ? <Pill active>Bloodied</Pill> : null}
+        {sheet.digDeepActive ? <Pill active>Dig Deep on</Pill> : null}
+        <Spacer />
+        <Text tone="tertiary">Saved in this browser</Text>
+      </Row>
+      <div
+        className="hp-bar"
+        role="meter"
+        aria-valuemin={0}
+        aria-valuemax={HP_MAX}
+        aria-valuenow={sheet.hp}
+        aria-label="Hit points"
+      >
+        <div
+          className="hp-bar-fill"
+          style={{ width: `${Math.round((sheet.hp / HP_MAX) * 100)}%` }}
+        />
+      </div>
+
+      <label className="field">
+        <span className="field-label">Amount</span>
+        <input
+          ref={amountRef}
+          className="field-input amount-input"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          value={ui.amount}
+          onChange={(e) => setAmount(e.target.value)}
+          onKeyDown={onAmountKeyDown}
+          aria-label="Damage or heal amount"
+        />
+      </label>
+
+      <Row gap={8} wrap>
+        <Text tone="secondary">Quick adjust</Text>
+        {ui.increments.map((n) => (
+          <Button key={n} variant="secondary" onClick={() => bump(n)}>
+            +{n}
+          </Button>
+        ))}
+        {ui.increments.map((n) => (
+          <Button key={`m${n}`} variant="ghost" onClick={() => bump(-n)}>
+            −{n}
+          </Button>
+        ))}
+      </Row>
+
+      <Row gap={8} wrap align="center">
+        <Text tone="secondary">Custom step</Text>
+        <input
+          className="field-input step-input"
+          inputMode="numeric"
+          value={ui.customIncrement}
+          onChange={(e) =>
+            setUi((u) => ({
+              ...u,
+              customIncrement: e.target.value.replace(/\D/g, ""),
+            }))
+          }
+          aria-label="Custom increment value"
+        />
+        <Button
+          variant="secondary"
+          onClick={() =>
+            bump(Number.parseInt(ui.customIncrement || "0", 10) || 0)
+          }
+        >
+          +step
+        </Button>
+        <Button
+          variant="ghost"
+          onClick={() =>
+            bump(-(Number.parseInt(ui.customIncrement || "0", 10) || 0))
+          }
+        >
+          −step
+        </Button>
+        <Button variant="ghost" onClick={addIncrementPreset}>
+          Save step
+        </Button>
+      </Row>
+
+      <div className="numpad" role="group" aria-label="Number pad">
+        {["1", "2", "3", "4", "5", "6", "7", "8", "9", "C", "0", "⌫"].map(
+          (key) => (
+            <button
+              key={key}
+              type="button"
+              className="numpad-key"
+              onClick={() => {
+                if (key === "C") setAmount("0");
+                else if (key === "⌫")
+                  setAmount(ui.amount.length <= 1 ? "0" : ui.amount.slice(0, -1));
+                else appendDigit(key);
+                amountRef.current?.focus();
+              }}
+            >
+              {key}
+            </button>
+          ),
+        )}
+      </div>
+
+      <label className="field">
+        <span className="field-label">Damage type</span>
+        <select
+          className="field-input"
+          value={ui.type}
+          onChange={(e) =>
+            setUi((u) => ({ ...u, type: e.target.value as DamageType }))
+          }
+        >
+          {DAMAGE_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="field">
+        <span className="field-label">vs Gary</span>
+        <select
+          className="field-input"
+          value={ui.effectiveness}
+          onChange={(e) =>
+            setUi((u) => ({
+              ...u,
+              effectiveness: e.target.value as Effectiveness,
+            }))
+          }
+        >
+          <option value="auto">Auto (Dig Deep if B/P/S)</option>
+          <option value="normal">Normal</option>
+          <option value="resistant">Resistant (½)</option>
+          <option value="immune">Immune (0)</option>
+          <option value="vulnerable">Vulnerable (×2)</option>
+        </select>
+      </label>
+      <Text tone="tertiary">
+        {effHint}. Preview: {raw} → {preview} {ui.type}
+        {sheet.tempHp > 0 ? ` · temp HP ${sheet.tempHp} absorbs first` : ""}
+      </Text>
+
+      <Row gap={8} wrap>
+        <Button variant="primary" onClick={takeDamage}>
+          Take damage
+        </Button>
+        <Button variant="secondary" onClick={heal}>
+          Heal
+        </Button>
+        <Button
+          variant="ghost"
+          onClick={() =>
+            setSheet((s) => ({ ...s, hp: HP_MAX, tempHp: 0 }))
+          }
+        >
+          Full HP
+        </Button>
+      </Row>
+
+      <Row gap={8} wrap>
+        <Text tone="secondary">Temp HP: {sheet.tempHp}</Text>
+        <Button
+          variant="ghost"
+          onClick={() =>
+            setSheet((s) => ({ ...s, tempHp: s.tempHp + raw }))
+          }
+        >
+          Add amount as temp
+        </Button>
+        <Button
+          variant="ghost"
+          disabled={sheet.tempHp <= 0}
+          onClick={() => setSheet((s) => ({ ...s, tempHp: 0 }))}
+        >
+          Clear temp
+        </Button>
+      </Row>
+
+      {outcome ? (
+        <Callout tone={outcome.tone} title={outcome.title}>
+          {outcome.detail}
+        </Callout>
+      ) : null}
+    </Stack>
+  );
+}
+
 function ResourcePanel({
   sheet,
   setSheet,
@@ -333,9 +753,6 @@ function ResourcePanel({
   sheet: Sheet;
   setSheet: (next: Sheet | ((prev: Sheet) => Sheet)) => void;
 }) {
-  const bloodied = isBloodied(sheet.hp);
-  const hpPct = Math.round((sheet.hp / HP_MAX) * 100);
-
   function patch(partial: Partial<Sheet>) {
     setSheet((s) => ({ ...s, ...partial }));
   }
@@ -376,82 +793,7 @@ function ResourcePanel({
       </CardHeader>
       <CardBody>
         <Stack gap={16}>
-          <Stack gap={8}>
-            <Row gap={8} wrap>
-              <Text>HP</Text>
-              {bloodied ? <Pill active>Bloodied</Pill> : null}
-              {sheet.digDeepActive ? <Pill active>Dig Deep on</Pill> : null}
-              <Spacer />
-              <Text tone="tertiary">Saved in this browser</Text>
-            </Row>
-            <div
-              className="hp-bar"
-              role="meter"
-              aria-valuemin={0}
-              aria-valuemax={HP_MAX}
-              aria-valuenow={sheet.hp}
-              aria-label="Hit points"
-            >
-              <div className="hp-bar-fill" style={{ width: `${hpPct}%` }} />
-            </div>
-            <Row gap={8} wrap>
-              <Button
-                variant="secondary"
-                onClick={() => patch({ hp: clamp(sheet.hp - 5, 0, HP_MAX) })}
-              >
-                −5
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => patch({ hp: clamp(sheet.hp - 1, 0, HP_MAX) })}
-              >
-                −1
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => patch({ hp: clamp(sheet.hp + 1, 0, HP_MAX) })}
-              >
-                +1
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => patch({ hp: clamp(sheet.hp + 5, 0, HP_MAX) })}
-              >
-                +5
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => patch({ hp: HP_MAX, tempHp: 0 })}
-              >
-                Full HP
-              </Button>
-            </Row>
-            <Row gap={8} wrap>
-              <Text tone="secondary">
-                Temp HP: {sheet.tempHp}
-              </Text>
-              <Button
-                variant="ghost"
-                disabled={sheet.tempHp <= 0}
-                onClick={() => patch({ tempHp: clamp(sheet.tempHp - 1, 0, 99) })}
-              >
-                Temp −1
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => patch({ tempHp: sheet.tempHp + 1 })}
-              >
-                Temp +1
-              </Button>
-              <Button
-                variant="ghost"
-                disabled={sheet.tempHp <= 0}
-                onClick={() => patch({ tempHp: 0 })}
-              >
-                Clear temp
-              </Button>
-            </Row>
-          </Stack>
+          <DamageAdjuster sheet={sheet} setSheet={setSheet} />
 
           <Divider />
 

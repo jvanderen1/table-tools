@@ -25,3 +25,6 @@ dist-ssr
 
 # Build
 dist
+
+# Jujutsu (colocated with git — local only)
+.jj/

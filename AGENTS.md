@@ -4,6 +4,22 @@ This repo hosts **multiple phone-friendly play aids** (combat trees, trackers, c
 
 Cursor canvases do **not** deploy here. Port interactive tools into React under `src/tools/<id>/`.
 
+## Version control (Jujutsu)
+
+This checkout is **colocated** `jj` + `git` (`.jj` next to `.git`). Prefer **`jj`** for feature work and fixes.
+
+| Task | Command |
+|---|---|
+| See state | `jj status` / `jj log` |
+| Describe current change | `jj describe -m "..."` |
+| Start new work on top | `jj new` |
+| Fetch / push | `jj git fetch` / `jj git push` |
+| Bookmark (branch) | `main` tracks `main@origin` |
+
+Do **not** move or push the local `main` bookmark unless asked. Avoid mutating `git` commands that detach HEAD (`git commit`, `git checkout`, `git rebase`) — they fight colocated jj. Read-only `git` / `gh` is fine.
+
+On this Mac, `jj` is `/opt/homebrew/bin/jj`.
+
 ## Add a new tool (fast path)
 
 ```bash

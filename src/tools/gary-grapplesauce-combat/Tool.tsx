@@ -26,7 +26,6 @@ import {
   Circle,
   CircleCheck,
   CircleDot,
-  CircleHelp,
   Coffee,
   Compass,
   Dices,
@@ -114,6 +113,17 @@ import {
 } from "./conditions";
 import { GLOSSARY } from "./glossary";
 import { GlossaryItem, GlossaryList, Tip } from "./Tip";
+import { ActionCatalog } from "./Catalog";
+import {
+  ACTIONS,
+  PART_LABEL,
+  actionAvailable,
+  type CustomAction,
+} from "./actions";
+import {
+  PLAYBOOKS,
+  type CustomPlaybook,
+} from "./playbooks";
 import { InventoryPanel } from "./Inventory";
 import {
   DEFAULT_INVENTORY,
@@ -196,9 +206,11 @@ type PlanApply =
   | "dig-deep"
   | "dig-deep-exhaustion"
   | "swagger"
+  | "guarded-mind"
+  | "down-but-not-out"
   | "none";
 
-type PlanPart = "Action" | "Bonus Action" | "Reaction";
+type PlanPart = "Action" | "Bonus Action" | "Reaction" | "No action";
 
 /** A button on a plan. Tapping it spends the cost and shows the payoff. */
 type PlanChoice = {
@@ -210,6 +222,8 @@ type PlanChoice = {
   /** Moxie spent. 0 for Dig Deep, Swagger, and Bloodied But Unbowed. */
   cost: number;
   apply: Exclude<PlanApply, "none">;
+  /** Only one choice in a group can be used from this playbook. */
+  group?: "bonus" | "reaction";
   dice?: ("attack" | "damage" | "brace" | "swagger")[];
   /** Rolled and applied in the same tap, instead of a separate dice button. */
   auto?: "brace" | "swagger";
@@ -238,6 +252,10 @@ type Sheet = {
   digDeepActive: boolean;
   bloodiedUnbowed: boolean;
   swagger: boolean;
+  /** Mage Slayer: turn a failed Int/Wis/Cha save into a success. True = still available. */
+  guardedMind: boolean;
+  /** Once per long rest, after Bloodied But Unbowed while bloodied. */
+  downButNotOut: boolean;
   conditions: ConditionFlags;
   /** 0 = none, 1–6 = Exhaustion level */
   exhaustion: number;
@@ -265,6 +283,8 @@ const DEFAULT_SHEET: Sheet = {
   digDeepActive: false,
   bloodiedUnbowed: true,
   swagger: true,
+  guardedMind: true,
+  downButNotOut: true,
   conditions: emptyConditions(),
   exhaustion: 0,
   hitDice: HIT_DICE_MAX,
@@ -280,6 +300,8 @@ function normalizeSheet(raw: Sheet): Sheet {
     ...raw,
     conditions: { ...emptyConditions(), ...(raw.conditions ?? {}) },
     exhaustion: clamp(raw.exhaustion ?? 0, 0, 6),
+    guardedMind: raw.guardedMind ?? true,
+    downButNotOut: raw.downButNotOut ?? true,
     hitDice: clamp(raw.hitDice ?? HIT_DICE_MAX, 0, HIT_DICE_MAX),
   };
 }
@@ -300,6 +322,8 @@ const SHEET_FLAGS: [keyof Sheet, string, on: string, off: string][] = [
   ["digDeepActive", "Dig Deep", "on", "off"],
   ["bloodiedUnbowed", "Unbowed", "ready", "used"],
   ["swagger", "Swagger", "ready", "used"],
+  ["guardedMind", "Guarded Mind", "ready", "used"],
+  ["downButNotOut", "Down But Not Out", "ready", "used"],
 ];
 
 /** Plain-language summary of one sheet change, for the undo timeline. */
@@ -724,43 +748,6 @@ function lineDice(text: string): LineDie[] {
   if (/brace up/i.test(text) && !/locked/i.test(text)) dice.push("brace");
   if (/add 1d10/i.test(text)) dice.push("swagger");
   return dice;
-}
-
-function checkFailPlan(swaggerAvailable: boolean): Plan {
-  if (!swaggerAvailable) {
-    return {
-      title: "Swagger Streak already used",
-      action: "No Action — Swagger Streak is spent until a short rest.",
-      bonus: "—",
-      cost: 0,
-      costLabel: "0",
-      why: "Take the fail, or hope for Help / advantage from an ally.",
-      gym: "Shake it off.",
-      apply: "none",
-    };
-  }
-  return {
-    title: "Swagger Streak",
-    action: "No Action — after you fail a Str, Dex, Con, or Cha check.",
-    bonus: "—",
-    reaction: "Tap it to roll the d10 and mark the use spent.",
-    cost: 0,
-    costLabel: "1/short rest",
-    why: "Use on Athletics grapples/shoves or key Str/Dex/Con/Cha checks you can't afford to miss.",
-    gym: "One more rep.",
-    apply: "swagger",
-    choices: [
-      {
-        id: "swagger",
-        label: "Add 1d10",
-        part: "Reaction",
-        detail: "Rolled and added to the failed Str, Dex, Con, or Cha check.",
-        cost: 0,
-        apply: "swagger",
-        auto: "swagger",
-      },
-    ],
-  };
 }
 
 const DAMAGE_TYPES = [
@@ -2152,6 +2139,7 @@ function RestPanel({
               moxie: MOXIE_MAX,
               bloodiedUnbowed: true,
               swagger: true,
+              guardedMind: true,
               digDeepActive: false,
               tempHp: 0,
             }))
@@ -2176,7 +2164,7 @@ function RestPanel({
       <Text tone="tertiary">
         {sheet.exhaustion >= EXHAUSTION_DEATH
           ? "Gary is dead at Exhaustion 6 — no long rest. If the DM revives him, set Exhaustion on the Conds tab."
-          : "Short restores Moxie, Bloodied, Swagger. Long restores HP, hit dice, and uses, clears conditions, and reduces Exhaustion by 1."}
+          : "Short restores Moxie, Bloodied, Swagger, and Guarded Mind. Long restores HP, hit dice, and uses, clears conditions, and reduces Exhaustion by 1."}
       </Text>
     </Stack>
   );
@@ -2916,6 +2904,9 @@ function planSections(plan: Plan) {
       dice: lineDice(plan.reaction ?? ""),
     });
   }
+  if (plan.choices?.some((choice) => choice.part === "No action")) {
+    sections.push({ heading: "No action", text: "", dice: [] });
+  }
   return sections;
 }
 
@@ -3332,7 +3323,17 @@ export function GaryCombatTool() {
     "gary-grapplesauce-combat:tab",
     "play",
   );
-  const [committed, setCommitted] = useState<string | null>(null);
+  const [usedIds, setUsedIds] = useState<string[]>([]);
+  const [playbookId, setPlaybookId] = useState<string | null>(null);
+  const [catalogOpen, setCatalogOpen] = useState(false);
+  const [customActions, setCustomActions] = usePersistentState<CustomAction[]>(
+    "gary-grapplesauce-combat:custom-actions",
+    [],
+  );
+  const [customPlaybooks, setCustomPlaybooks] = usePersistentState<CustomPlaybook[]>(
+    "gary-grapplesauce-combat:custom-playbooks",
+    [],
+  );
   const [receipt, setReceipt] = useState<string | null>(null);
   const [rollLog, setRollLog] = usePersistentState<RollLogEntry[]>(
     "gary-grapplesauce-combat:roll-log",
@@ -3379,40 +3380,90 @@ export function GaryCombatTool() {
     }
   }, [setSheet]);
 
-  const availableGoals = GOAL_OPTIONS.filter((g) => g.cost <= sheet.moxie);
-  const hiddenGoals = GOAL_OPTIONS.filter((g) => g.cost > sheet.moxie);
-
   const liveGoalPlan = useMemo(() => {
     if (!selectedGoal) return null;
     const option = GOAL_OPTIONS.find((g) => g.id === selectedGoal);
-    if (!option || (!committed && option.cost > sheet.moxie)) return null;
+    if (!option || (usedIds.length === 0 && option.cost > sheet.moxie)) return null;
     // Keep the "you had Moxie" plan on screen after the tap spends the last point.
-    const forPlan = committed
-      ? { ...sheet, moxie: Math.max(sheet.moxie, 1) }
-      : sheet;
+    const forPlan =
+      usedIds.length > 0 ? { ...sheet, moxie: Math.max(sheet.moxie, 1) } : sheet;
     return planFor(selectedGoal, forPlan, gary);
-  }, [selectedGoal, sheet, gary, committed]);
+  }, [selectedGoal, sheet, gary, usedIds.length]);
 
-  const plan = selectedGoal ? liveGoalPlan : staticPlan;
+  const activePlaybook = [...customPlaybooks, ...PLAYBOOKS].find(
+    (book) => book.id === playbookId,
+  );
+  const playbookPlan = useMemo(() => {
+    if (!activePlaybook) return null;
+    const choices: PlanChoice[] = [];
+    for (const id of activePlaybook.actionIds) {
+      const builtin = ACTIONS.find((action) => action.id === id);
+      const custom = customActions.find((action) => action.id === id);
+      if (builtin) {
+        if (!actionAvailable(builtin, sheet)) continue;
+        choices.push({
+          id: builtin.id,
+          label: builtin.name,
+          detail: builtin.summary,
+          part: PART_LABEL[builtin.part],
+          cost: builtin.moxie,
+          apply: builtin.apply,
+          dice: builtin.dice,
+          auto: builtin.auto,
+          group: builtin.group,
+        });
+      } else if (custom) {
+        choices.push({
+          id: custom.id,
+          label: custom.name,
+          detail: custom.summary || "Custom action.",
+          part: PART_LABEL[custom.part],
+          cost: custom.moxie,
+          apply: "moxie",
+          group:
+            custom.part === "bonus"
+              ? "bonus"
+              : custom.part === "reaction"
+                ? "reaction"
+                : undefined,
+        });
+      }
+    }
+    const builtinBook = PLAYBOOKS.find((book) => book.id === activePlaybook.id);
+    return {
+      title: activePlaybook.title,
+      action: "",
+      bonus: "",
+      reaction: "",
+      cost: 0,
+      costLabel: builtinBook?.tag ?? "Yours",
+      why: activePlaybook.blurb,
+      gym: builtinBook?.gym ?? activePlaybook.blurb,
+      apply: "none" as const,
+      choices,
+    };
+  }, [activePlaybook, customActions, sheet]);
+
+  const plan = playbookPlan ?? (selectedGoal ? liveGoalPlan : staticPlan);
 
   const selectedOption = GOAL_OPTIONS.find((g) => g.id === selectedGoal);
   const goalUnaffordable =
     phase === "result" &&
     selectedGoal != null &&
-    !committed &&
+    usedIds.length === 0 &&
     (selectedOption == null || selectedOption.cost > sheet.moxie);
   if (goalUnaffordable) {
     setSelectedGoal(null);
-    setCommitted(null);
+    setUsedIds([]);
     setReceipt(null);
     setPhase("goal");
   }
 
-  const planTitle = (selectedGoal ? liveGoalPlan?.title : staticPlan?.title) ?? "";
+  const planTitle = plan?.title ?? "";
   const [trackedTitle, setTrackedTitle] = useState(planTitle);
   if (planTitle !== trackedTitle) {
     setTrackedTitle(planTitle);
-    setCommitted(null);
+    setUsedIds([]);
     setReceipt(null);
   }
 
@@ -3421,7 +3472,8 @@ export function GaryCombatTool() {
     setTiming(null);
     setSelectedGoal(null);
     setStaticPlan(null);
-    setCommitted(null);
+    setPlaybookId(null);
+    setUsedIds([]);
     setReceipt(null);
   }
 
@@ -3429,10 +3481,10 @@ export function GaryCombatTool() {
     setTiming(next);
     setSelectedGoal(null);
     setStaticPlan(null);
-    setCommitted(null);
+    setPlaybookId(next === "check-fail" ? "failed-roll" : null);
+    setUsedIds([]);
     setReceipt(null);
     if (next === "check-fail") {
-      setStaticPlan(checkFailPlan(sheet.swagger));
       setPhase("result");
       return;
     }
@@ -3443,31 +3495,36 @@ export function GaryCombatTool() {
     setPhase("goal");
   }
 
-  function pickReaction(kind: ReactionKind) {
+  function pickPlaybook(id: string) {
+    setPlaybookId(id);
     setSelectedGoal(null);
-    setStaticPlan(reactionPlan(kind, gary));
-    setCommitted(null);
+    setStaticPlan(null);
+    setUsedIds([]);
     setReceipt(null);
     setPhase("result");
   }
 
-  function pickGoal(goal: Goal) {
-    const option = GOAL_OPTIONS.find((g) => g.id === goal);
-    if (!option || option.cost > sheet.moxie) return;
-    setStaticPlan(null);
-    setSelectedGoal(goal);
-    setCommitted(null);
+  function pickReaction(kind: ReactionKind) {
+    setPlaybookId(null);
+    setSelectedGoal(null);
+    setStaticPlan(reactionPlan(kind, gary));
+    setUsedIds([]);
     setReceipt(null);
     setPhase("result");
   }
 
   function commitChoice(choice: PlanChoice) {
-    if (committed) return;
+    if (usedIds.includes(choice.id)) return;
+    if (choice.group && usedIds.some((id) => plan?.choices?.find((c) => c.id === id)?.group === choice.group)) {
+      return;
+    }
     if (choice.apply === "moxie" && sheet.moxie < choice.cost) return;
     if (choice.apply === "dig-deep" && !sheet.digDeep) return;
     if (choice.apply === "dig-deep-exhaustion" && !canDigDeepAgain(sheet.exhaustion)) return;
     if (choice.apply === "swagger" && !sheet.swagger) return;
     if (choice.apply === "bloodied-unbowed" && !sheet.bloodiedUnbowed) return;
+    if (choice.apply === "guarded-mind" && !sheet.guardedMind) return;
+    if (choice.apply === "down-but-not-out" && !sheet.downButNotOut) return;
 
     const moxieBefore = sheet.moxie;
     const tempBefore = sheet.tempHp;
@@ -3519,7 +3576,11 @@ export function GaryCombatTool() {
           if (!canDigDeepAgain(s.exhaustion)) return s;
           return { ...s, digDeepActive: true, exhaustion: s.exhaustion + 1 };
         case "swagger":
-          return { ...s, swagger: false };
+          return { ...s, swagger: false, moxie: clamp(s.moxie - 1, 0, MOXIE_MAX) };
+        case "guarded-mind":
+          return { ...s, guardedMind: false };
+        case "down-but-not-out":
+          return { ...s, downButNotOut: false };
         default:
           return s;
       }
@@ -3527,29 +3588,31 @@ export function GaryCombatTool() {
 
     const paid =
       choice.apply === "moxie"
-        ? `Moxie ${moxieBefore} → ${clamp(moxieBefore - choice.cost, 0, MOXIE_MAX)}.`
+        ? choice.cost > 0
+          ? `Moxie ${moxieBefore} → ${clamp(moxieBefore - choice.cost, 0, MOXIE_MAX)}.`
+          : ""
         : choice.apply === "bloodied-unbowed"
           ? `Moxie ${moxieBefore} → ${MOXIE_MAX}. Temp HP ${tempBefore} → ${Math.max(tempBefore, 36)}.`
           : choice.apply === "dig-deep"
             ? "Dig Deep is on: nonmagical bludgeoning, piercing, and slashing are resisted."
             : choice.apply === "dig-deep-exhaustion"
               ? `Exhaustion ${sheet.exhaustion} → ${sheet.exhaustion + 1}. Dig Deep is on.`
-              : "Swagger is spent until a short rest.";
-    setReceipt([rolled, paid].filter(Boolean).join(" "));
-    setCommitted(choice.id);
+              : choice.apply === "guarded-mind"
+                ? "Guarded Mind: the save succeeds. Spent until a short rest."
+                : choice.apply === "down-but-not-out"
+                  ? `Down But Not Out: unarmed damage +${3 + sheet.exhaustion} for 1 minute.`
+                  : "Swagger is spent until a short rest. If the check still fails, put the Moxie point back.";
+    setReceipt([choice.label, rolled, paid].filter(Boolean).join(" "));
+    setUsedIds((ids) => (ids.includes(choice.id) ? ids : [...ids, choice.id]));
   }
 
   const effects = effectsFor(sheet, gary);
   const cantAct = effects.cantAct.length > 0;
-  const canBloodiedReaction =
-    sheet.bloodiedUnbowed && isBloodied(sheet.hp, gary) && !cantAct;
   const bloodiedBlockedReason = cantAct
     ? `Can’t take Reactions (${reasonText(effects.cantAct)})`
     : !sheet.bloodiedUnbowed
       ? "Already used this short rest"
-      : !isBloodied(sheet.hp, gary)
-        ? `Not bloodied (need HP ≤ ${gary.bloodiedAt})`
-        : null;
+      : null;
   const penalty = effects.d20Penalty;
   const attackMode = ROLL_SHORT[effects.attack.roll];
 
@@ -3763,22 +3826,31 @@ export function GaryCombatTool() {
                       <Button
                         variant="primary"
                         icon={Droplet}
-                        disabled={!canBloodiedReaction}
-                        onClick={() => pickReaction("bloodied")}
+                        disabled={cantAct || !sheet.bloodiedUnbowed}
+                        onClick={() => pickPlaybook("react-bloodied")}
                       >
                         Bloodied + damage
                       </Button>
                       <Button
                         variant="secondary"
+                        icon={Grab}
+                        disabled={cantAct}
+                        onClick={() => pickPlaybook("react-meat-shield")}
+                      >
+                        Meat Shield
+                      </Button>
+                      <Button
+                        variant="secondary"
                         icon={WandSparkles}
-                        onClick={() => pickReaction("mage-cast")}
+                        onClick={() => pickPlaybook("react-mage")}
                       >
                         Spell within 5 ft
                       </Button>
                       <Button
                         variant="secondary"
                         icon={Footprints}
-                        onClick={() => pickReaction("opportunity")}
+                        disabled={cantAct}
+                        onClick={() => pickPlaybook("react-opportunity")}
                       >
                         Left my reach
                       </Button>
@@ -3815,24 +3887,28 @@ export function GaryCombatTool() {
                 <CardBody>
                   <Stack gap={12}>
                     <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
-                      {availableGoals.map((g) => (
+                      {[
+                        ...customPlaybooks.filter((book) => book.when === "turn"),
+                        ...PLAYBOOKS.filter((book) => book.when === "turn"),
+                      ].map((book) => (
                         <Button
-                          key={g.id}
-                          variant={g.variant}
-                          icon={GOAL_ICONS[g.id]}
-                          onClick={() => pickGoal(g.id)}
+                          key={book.id}
+                          variant={book.id === "deal-damage" ? "primary" : "secondary"}
+                          icon={Target}
+                          onClick={() => pickPlaybook(book.id)}
                         >
-                          {g.cost > 0 ? `${g.label} · ${g.cost}` : g.label}
+                          {book.title}
                         </Button>
                       ))}
                     </div>
-                    {hiddenGoals.length > 0 ? (
-                      <Text tone="tertiary" className="inline-flex items-center gap-1.5">
-                        <Lock className="size-3.5 shrink-0" aria-hidden />
-                        Need more Moxie:{" "}
-                        {hiddenGoals.map((g) => g.label).join(", ")}
-                      </Text>
-                    ) : null}
+                    <Button
+                      variant="ghost"
+                      icon={BookOpen}
+                      className="w-fit"
+                      onClick={() => setCatalogOpen(true)}
+                    >
+                      All actions
+                    </Button>
                     <Button
                       variant="ghost"
                       icon={ArrowLeft}
@@ -3866,7 +3942,10 @@ export function GaryCombatTool() {
                       const choices = (plan.choices ?? []).filter(
                         (choice) => choice.part === section.heading,
                       );
-                      const committedHere = choices.some((choice) => choice.id === committed);
+                      const sectionUsed = choices.some((choice) => usedIds.includes(choice.id));
+                      if (!section.text && section.dice.length === 0 && choices.length === 0) {
+                        return null;
+                      }
                       return (
                         <Stack key={section.heading} gap={6}>
                           {index > 0 ? <Divider /> : null}
@@ -3883,11 +3962,16 @@ export function GaryCombatTool() {
                             />
                           ) : null}
                           {choices.map((choice) => {
-                            const used = committed === choice.id;
-                            const cantAfford =
-                              !committed &&
-                              choice.apply === "moxie" &&
-                              sheet.moxie < choice.cost;
+                            const used = usedIds.includes(choice.id);
+                            const groupTaken =
+                              !!choice.group &&
+                              choices.some(
+                                (other) =>
+                                  other.group === choice.group &&
+                                  other.id !== choice.id &&
+                                  usedIds.includes(other.id),
+                              );
+                            const cantAfford = choice.apply === "moxie" && sheet.moxie < choice.cost;
                             return (
                               <div
                                 key={choice.id}
@@ -3903,14 +3987,17 @@ export function GaryCombatTool() {
                                   icon={used ? CircleCheck : choice.cost > 0 ? Flame : Check}
                                   className="w-full"
                                   disabled={
-                                    !!committed ||
+                                    used ||
+                                    groupTaken ||
                                     cantAfford ||
                                     (choice.apply === "dig-deep" && !sheet.digDeep) ||
                                     (choice.apply === "dig-deep-exhaustion" &&
                                       !canDigDeepAgain(sheet.exhaustion)) ||
-                                    (choice.apply === "swagger" && !sheet.swagger) ||
+                                    (choice.apply === "swagger" && (!sheet.swagger || sheet.moxie < 1)) ||
                                     (choice.apply === "bloodied-unbowed" &&
-                                      !sheet.bloodiedUnbowed)
+                                      !sheet.bloodiedUnbowed) ||
+                                    (choice.apply === "guarded-mind" && !sheet.guardedMind) ||
+                                    (choice.apply === "down-but-not-out" && !sheet.downButNotOut)
                                   }
                                   onClick={() => commitChoice(choice)}
                                 >
@@ -3921,6 +4008,13 @@ export function GaryCombatTool() {
                                       : choice.label}
                                 </Button>
                                 <Text tone="tertiary">{choice.detail}</Text>
+                                {choice.dice ? (
+                                  <ActionRolls
+                                    dice={choice.dice}
+                                    sheet={sheet}
+                                    setSheet={setSheet}
+                                  />
+                                ) : null}
                               </div>
                             );
                           })}
@@ -3951,29 +4045,17 @@ export function GaryCombatTool() {
                             <div
                               className={cx(
                                 "flex min-h-11 items-center rounded-lg border px-3 py-2 text-sm",
-                                (committedHere || !committed) && receipt
+                                sectionUsed && receipt
                                   ? "border-gold/30 bg-gold/[0.06] text-gold-soft"
                                   : "border-dashed border-line text-faint",
                               )}
                               aria-live="polite"
                             >
-                              {(committedHere || !committed) && receipt
+                              {sectionUsed && receipt
                                 ? receipt
                                 : "Tap a move. The cost comes off immediately and the result shows here."}
                             </div>
                           ) : null}
-                          {committedHere
-                            ? choices
-                                .filter((choice) => choice.id === committed && choice.dice)
-                                .map((choice) => (
-                                  <ActionRolls
-                                    key={choice.id}
-                                    dice={choice.dice ?? []}
-                                    sheet={sheet}
-                                    setSheet={setSheet}
-                                  />
-                                ))
-                            : null}
                         </Stack>
                       );
                     })}
@@ -3996,7 +4078,7 @@ export function GaryCombatTool() {
                           onClick={() => {
                             setSelectedGoal(null);
                             setStaticPlan(null);
-                            setCommitted(null);
+                            setUsedIds([]);
                             setReceipt(null);
                             setPhase("goal");
                           }}
@@ -4181,6 +4263,14 @@ export function GaryCombatTool() {
         </Stack>
       </Drawer>
 
+      <ActionCatalog
+        open={catalogOpen}
+        onClose={() => setCatalogOpen(false)}
+        customActions={customActions}
+        setCustomActions={setCustomActions}
+        customPlaybooks={customPlaybooks}
+        setCustomPlaybooks={setCustomPlaybooks}
+      />
       <DiceRoller />
       <UndoBar
         tracks={[
@@ -4188,7 +4278,7 @@ export function GaryCombatTool() {
           { name: "Gear", timeline: inventory },
         ]}
         onTravel={() => {
-          setCommitted(null);
+          setUsedIds([]);
           setReceipt(null);
         }}
       />
@@ -4210,17 +4300,9 @@ const MAIN_TABS: { id: MainTab; label: string; icon: LucideIcon }[] = [
   { id: "bio", label: "Bio", icon: UserRound },
 ];
 
-const GOAL_ICONS: Record<Goal, LucideIcon> = {
-  damage: Sword,
-  control: Grab,
-  survive: Shield,
-  reposition: Footprints,
-  mage: WandSparkles,
-  unsure: CircleHelp,
-};
-
 const SECTION_ICONS: Record<string, LucideIcon> = {
   Action: Swords,
   "Bonus Action": Zap,
   Reaction: Hand,
+  "No action": Sparkles,
 };

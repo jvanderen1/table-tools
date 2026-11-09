@@ -115,14 +115,35 @@ function systemPrompt(bio: Bio, status: string) {
     .join("\n");
   return [
     "You voice Gary Grapplesauce, a D&D player character, for his player at the table.",
-    "Reply with only what Gary says out loud, optionally opening with one short action in *asterisks*.",
-    "One or two short sentences, in his voice. PG-13 and never mean-spirited.",
-    "Don’t explain rules, numbers, or dice, and don’t wrap the line in quotes.",
+    "Reply with only what Gary says out loud. One or two short sentences. No quotation marks.",
+    "PG-13, gentle, and never mean. Don’t explain rules, numbers, or dice.",
+    "The catchphrases in the bio are examples of his rhythm, not a script. Invent a new image almost every time. A named catchphrase is rare, and never twice in a row.",
+    "Don’t reuse a joke, a metaphor, an opening word, or a sentence shape from lines he already said.",
     "",
     sheet,
     "",
     `Right now: ${status}`,
   ].join("\n");
+}
+
+function spokenLine(raw: string) {
+  let text = raw.trim();
+  const pairs: [string, string][] = [
+    ['"', '"'],
+    ["“", "”"],
+    ["'", "'"],
+  ];
+  for (const [open, close] of pairs) {
+    if (text.startsWith(open) && text.endsWith(close) && text.length > 1) {
+      text = text.slice(open.length, -close.length).trim();
+    }
+  }
+  return text;
+}
+
+function sameLine(a: string, b: string) {
+  const norm = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  return norm(a) === norm(b);
 }
 
 export function PersonaPanel({ status }: { status: string }) {
@@ -186,17 +207,30 @@ function VoiceCard({ bio, status }: { bio: Bio; status: string }) {
     setError(null);
     setLastAsk(ask);
     setCopied(false);
+    const recent = log.slice(0, 8).map((line) => line.text);
     const prompt = [
-      `Situation: ${situation.trim() || "(not described; keep it general)"}`,
+      `Situation: ${situation.trim() || "(not described; keep it general, and still specific to him)"}`,
       `What I need: ${ask?.ask ?? FREEFORM}`,
-    ].join("\n");
+      recent.length > 0
+        ? `Already said. Do not echo these, their punchlines, or their first words:\n${recent.map((text) => `- ${text}`).join("\n")}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join("\n\n");
     try {
-      const text = await generateText(
-        settings,
-        systemPrompt(bio, status),
-        prompt,
-        controller.signal,
+      let text = spokenLine(
+        await generateText(settings, systemPrompt(bio, status), prompt, controller.signal),
       );
+      if (recent.some((line) => sameLine(line, text))) {
+        text = spokenLine(
+          await generateText(
+            settings,
+            systemPrompt(bio, status),
+            `${prompt}\n\nThat repeated a line he already said. Say something else.`,
+            controller.signal,
+          ),
+        );
+      }
       setLog((prev) =>
         [{ id: lineId(), label: ask?.label ?? "Line", text }, ...prev].slice(
           0,
@@ -241,6 +275,10 @@ function VoiceCard({ bio, status }: { bio: Bio; status: string }) {
       </CardHeader>
       <CardBody>
         <Stack gap={12}>
+          <Text tone="tertiary">
+            Describe the moment if you have one, then tap a button. The box
+            can stay empty. Another asks for a new line of the same kind.
+          </Text>
           <label className="flex flex-col gap-1">
             <span className={LABEL}>What’s happening? (optional)</span>
             <textarea
@@ -531,9 +569,16 @@ function AiSettingsForm({
             value={model}
             onChange={(e) => setModel(e.target.value)}
           >
-            {models.map((id) => (
+            {[...models]
+              .sort((a, b) =>
+                a.localeCompare(b, undefined, { sensitivity: "base", numeric: true }),
+              )
+              .map((id) => (
               <option key={id} value={id}>
                 {id}
+                {provider === "groq" && id === "openai/gpt-oss-120b"
+                  ? " — recommended"
+                  : ""}
               </option>
             ))}
           </select>
@@ -552,7 +597,7 @@ function AiSettingsForm({
         )}
         <span className="text-xs text-faint">
           {provider === "groq"
-            ? "This model is on Groq’s free plan. Leave the account on Free. Upgrading to Developer is what starts billing."
+            ? "For the table, use openai/gpt-oss-120b. It’s still quick, and sharper than the 20B. Stay on the Free plan."
             : provider === "gemini"
               ? "Gemini’s free tier is a Google AI Studio key, not a Gemini Pro subscription. Skip “Set up billing.”"
               : "This provider charges. A small model is a fraction of a cent per line. Set a spend limit on the key."}

@@ -63,7 +63,7 @@ export const PROVIDERS: Record<AiProvider, ProviderInfo> = {
   groq: {
     label: "Groq (free)",
     keyUrl: "https://console.groq.com/keys",
-    defaultModel: "openai/gpt-oss-20b",
+    defaultModel: "openai/gpt-oss-120b",
     keyHint: "gsk_…",
     blurb:
       "Free plan, no card. Sign in at console.groq.com with Google, GitHub, or email, and stay on Free. Create a key, paste it here. A different company from Grok.",
@@ -216,7 +216,18 @@ function openaiCompatibleBase(provider: AiProvider, baseUrl?: string) {
   return trimBase(baseUrl || "");
 }
 
-/** Model ids the key can use, newest first where the API says so. */
+function sortModels(ids: string[]) {
+  return [...ids].sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: "base", numeric: true }),
+  );
+}
+
+/** Speech, moderation, and embedding models cannot say a line. */
+function isChatModel(id: string) {
+  return !/whisper|orpheus|prompt-guard|safeguard|tts|embed/i.test(id);
+}
+
+/** Model ids the key can use. */
 export async function listModels(
   provider: AiProvider,
   apiKey: string,
@@ -267,7 +278,9 @@ export async function listModels(
       headers: bearerHeaders(apiKey),
     });
     const body = (await readOk(res)) as { data?: { id: string }[] };
-    return (body.data ?? []).map((m) => m.id);
+    const ids = (body.data ?? []).map((m) => m.id);
+    const chat = provider === "groq" ? ids.filter(isChatModel) : ids;
+    return sortModels(chat);
   } catch (err) {
     wrapNetwork(err);
   }
@@ -280,7 +293,7 @@ export function suggestModel(provider: AiProvider, ids: string[]): string {
     openai: [/luna/, /mini/, /nano/],
     gemini: [/flash-lite/, /flash/, /lite/],
     grok: [/mini/, /fast/],
-    groq: [/gpt-oss-20b/, /gpt-oss-120b/, /qwen/],
+    groq: [/gpt-oss-120b/, /gpt-oss-20b/, /qwen/],
     compatible: [/flash/, /mini/, /instant/, /small/],
   };
   for (const re of prefs[provider]) {

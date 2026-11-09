@@ -38,6 +38,7 @@ Then implement `Tool.tsx`. Prefer:
 - shared UI from `src/ui`
 - `usePersistentState` for trackers (Moxie, spell slots, etc.)
 - short labels, big tap targets, no login
+- a tool-local `README.md` with character/rules context so later agents can pick up cold (see `gary-grapplesauce-combat/README.md`)
 
 ## Conventions
 

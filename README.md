@@ -2,7 +2,7 @@
 
 Phone-friendly D&D (and other) **table play aids** — combat decision trees, trackers, cheat sheets — hosted on GitHub Pages so you can open them mid-session.
 
-First tool: **Gary Grapplesauce — combat tree**.
+First tool: **Gary Grapplesauce — combat tree**. Character and UI context for agents/humans: [`src/tools/gary-grapplesauce-combat/README.md`](./src/tools/gary-grapplesauce-combat/README.md).
 
 ## Use at the table
 

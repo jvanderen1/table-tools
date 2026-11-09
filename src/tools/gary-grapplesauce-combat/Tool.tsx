@@ -6,6 +6,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import { usePersistentState } from "../../lib/usePersistentState";
 import {
   Button,
@@ -438,7 +439,7 @@ function reactionPlan(kind: ReactionKind): Plan {
   }
 }
 
-type LineDie = "attack" | "damage" | "brace" | "swagger" | "hit-die";
+type LineDie = "attack" | "damage" | "brace" | "swagger";
 
 /** Dice buttons that belong on one Action / Bonus / Reaction line. */
 function lineDice(text: string): LineDie[] {
@@ -1581,16 +1582,6 @@ type ShownRoll =
       swaggerDie?: number;
     }
       | {
-      kind: "hit-die";
-      die: number;
-      bonus: number;
-      raw: number;
-      gained: number;
-      hpBefore: number;
-      hpAfter: number;
-      left: number;
-    }
-      | {
       kind: "damage";
       dice: number[];
       bonus: number;
@@ -1774,29 +1765,6 @@ function RollPanel({
     });
   }
 
-  function spendHitDie() {
-    if (sheet.hitDice <= 0 || sheet.hp >= HP_MAX) return;
-    const die = rollDie(HIT_DIE_SIDES);
-    const raw = Math.max(0, die + GARY.conMod);
-    const gained = Math.min(raw, HP_MAX - sheet.hp);
-    const hpAfter = sheet.hp + gained;
-    setSheet((s) => ({
-      ...s,
-      hp: hpAfter,
-      hitDice: s.hitDice - 1,
-    }));
-    setResult({
-      kind: "hit-die",
-      die,
-      bonus: GARY.conMod,
-      raw,
-      gained,
-      hpBefore: sheet.hp,
-      hpAfter,
-      left: sheet.hitDice - 1,
-    });
-  }
-
   function rollDamage() {
     const crit =
       result?.kind === "d20" &&
@@ -1849,9 +1817,7 @@ function RollPanel({
       </div>
 
       <div className="field">
-        <span className="field-label">
-          Attack and healing · hit dice {sheet.hitDice}/{HIT_DICE_MAX}
-        </span>
+        <span className="field-label">Attack</span>
         <div className="roll-grid">
           <RollButtons
             bare
@@ -1875,26 +1841,10 @@ function RollPanel({
                 : `1d${GARY.fisticuffsDie}+${GARY.fisticuffsBonus}`}
             </span>
           </button>
-          <button
-            type="button"
-            className="roll-btn"
-            disabled={sheet.hitDice <= 0 || sheet.hp >= HP_MAX}
-            onClick={spendHitDie}
-          >
-            <span>Hit die</span>
-            <span className="roll-btn-bonus">
-              {sheet.hitDice <= 0
-                ? "none left"
-                : sheet.hp >= HP_MAX
-                  ? "full HP"
-                  : `${sheet.hitDice} left`}
-            </span>
-          </button>
         </div>
         {attackNote ? <Text tone="tertiary">{attackNote}</Text> : null}
         <Text tone="tertiary">
-          A critical hit rolls damage twice. A hit die heals 1d{HIT_DIE_SIDES}+
-          {GARY.conMod} and spends one. A long rest refills them.
+          A critical hit rolls damage twice. Hit dice are in the corner.
         </Text>
       </div>
     </Stack>
@@ -1933,24 +1883,6 @@ function RollReadout({
         </div>
         <div className="roll-notes">
           Temp HP {result.tempBefore} → {result.tempAfter}
-        </div>
-      </div>
-    );
-  }
-
-  if (result.kind === "hit-die") {
-    return (
-      <div className="roll-result">
-        <div className="roll-result-label">Hit die</div>
-        <div className="roll-total">+{result.gained}</div>
-        <div className="roll-math">
-          d{HIT_DIE_SIDES} {result.die} + {result.bonus} = {result.raw}
-          {result.gained < result.raw
-            ? ` · ${result.raw - result.gained} over max`
-            : ""}
-        </div>
-        <div className="roll-notes">
-          HP {result.hpBefore} → {result.hpAfter} · {result.left} hit dice left
         </div>
       </div>
     );
@@ -2059,21 +1991,6 @@ function ActionRolls({
     setLine(`Swagger +${die}`);
   }
 
-  function rollHitDie() {
-    if (sheet.hitDice <= 0 || sheet.hp >= HP_MAX) return;
-    const die = rollDie(HIT_DIE_SIDES);
-    const raw = Math.max(0, die + GARY.conMod);
-    const gained = Math.min(raw, HP_MAX - sheet.hp);
-    setSheet((s) => ({
-      ...s,
-      hp: s.hp + gained,
-      hitDice: s.hitDice - 1,
-    }));
-    setLine(
-      `Hit die d${HIT_DIE_SIDES} ${die} + ${GARY.conMod} = ${raw} · HP ${sheet.hp} → ${sheet.hp + gained} · ${sheet.hitDice - 1} left`,
-    );
-  }
-
   return (
     <Stack gap={6}>
       <Row gap={8} wrap>
@@ -2115,20 +2032,6 @@ function ActionRolls({
             {sheet.swagger ? "Swagger +1d10" : "Swagger used"}
           </button>
         ) : null}
-        {dice.includes("hit-die") ? (
-          <button
-            type="button"
-            className="roll-btn compact"
-            disabled={sheet.hitDice <= 0 || sheet.hp >= HP_MAX}
-            onClick={rollHitDie}
-          >
-            {sheet.hitDice <= 0
-              ? "No hit dice"
-              : sheet.hp >= HP_MAX
-                ? "Hit die · full HP"
-                : `Hit die 1d${HIT_DIE_SIDES}+${GARY.conMod} · ${sheet.hitDice} left`}
-          </button>
-        ) : null}
       </Row>
       {line ? <div className="line-roll">{line}</div> : null}
     </Stack>
@@ -2147,9 +2050,76 @@ function planSections(plan: Plan) {
       dice: lineDice(plan.reaction),
     });
   }
-  const host = sections.find((section) => section.dice.length > 0) ?? sections[0];
-  if (!host.dice.includes("hit-die")) host.dice = [...host.dice, "hit-die"];
   return sections;
+}
+
+type HitDieLogEntry = { id: number; face: number };
+
+function HitDiceTray({
+  sheet,
+  setSheet,
+}: {
+  sheet: Sheet;
+  setSheet: (next: Sheet | ((prev: Sheet) => Sheet)) => void;
+}) {
+  const [log, setLog] = useState<HitDieLogEntry[]>([]);
+  const dead = (sheet.exhaustion ?? 0) >= EXHAUSTION_DEATH;
+  const full = sheet.hp >= HP_MAX;
+  const canRoll = sheet.hitDice > 0 && !full && !dead;
+
+  function roll() {
+    if (!canRoll) return;
+    const face = rollDie(HIT_DIE_SIDES);
+    const gained = Math.min(
+      Math.max(0, face + GARY.conMod),
+      HP_MAX - sheet.hp,
+    );
+    setSheet((s) => ({
+      ...s,
+      hp: Math.min(HP_MAX, s.hp + gained),
+      hitDice: s.hitDice - 1,
+    }));
+    setLog((prev) => [{ id: Date.now(), face }, ...prev].slice(0, 8));
+  }
+
+  return createPortal(
+    <aside className="hd-tray" aria-label="Hit dice">
+      <div className="hd-tray-head">
+        <span>Hit Dice</span>
+        <span className="hd-tray-count">
+          {sheet.hitDice}/{HIT_DICE_MAX}
+        </span>
+      </div>
+      <div className="hd-tray-dice">
+        {sheet.hitDice === 0 ? (
+          <span className="hd-empty">None left</span>
+        ) : (
+          Array.from({ length: sheet.hitDice }, (_, i) => (
+            <button
+              key={i}
+              type="button"
+              className="hd-die"
+              disabled={!canRoll}
+              onClick={roll}
+            >
+              d{HIT_DIE_SIDES}
+            </button>
+          ))
+        )}
+      </div>
+      {log.length > 0 ? (
+        <ol className="hd-log">
+          {log.map((entry) => (
+            <li key={entry.id}>
+              <span>d{HIT_DIE_SIDES}</span>
+              <span className="hd-log-face">{entry.face}</span>
+            </li>
+          ))}
+        </ol>
+      ) : null}
+    </aside>,
+    document.body,
+  );
 }
 
 type MainTab = "play" | "hit" | "roll" | "conds" | "rest";
@@ -2675,6 +2645,8 @@ export function GaryCombatTool() {
           </CardBody>
         </Card>
       ) : null}
+
+      <HitDiceTray sheet={sheet} setSheet={setSheet} />
 
       <footer className="tool-sources">
         <span>Rules:</span>

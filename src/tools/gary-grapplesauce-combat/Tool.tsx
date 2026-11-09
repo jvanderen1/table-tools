@@ -18,6 +18,8 @@ import {
   Stack,
   Text,
 } from "../../ui";
+import { GLOSSARY } from "./glossary";
+import { GlossaryList, Tip } from "./Tip";
 
 type Phase = "timing" | "reaction" | "goal" | "result";
 type Timing = "turn" | "reaction" | "check-fail";
@@ -748,6 +750,37 @@ function DamageAdjuster({
   );
 }
 
+function PlanTips({ plan }: { plan: Plan }) {
+  const ids: (keyof typeof GLOSSARY)[] = [];
+  const blob = `${plan.title} ${plan.action} ${plan.bonus} ${plan.reaction ?? ""}`;
+  if (/Dig Deep/i.test(blob)) ids.push("dig-deep");
+  if (/Brace Up/i.test(blob)) ids.push("brace-up");
+  if (/Bloodied But Unbowed|Bloodied/i.test(blob)) ids.push("bloodied-but-unbowed");
+  if (/One-Two/i.test(blob)) ids.push("one-two");
+  if (/Stick and Move/i.test(blob)) ids.push("stick-and-move");
+  if (/Heavy Hitter/i.test(blob)) ids.push("heavy-hitter");
+  if (/Fisticuffs/i.test(blob)) ids.push("fisticuffs");
+  if (/Stop and Drop/i.test(blob)) ids.push("stop-and-drop");
+  if (/Inescapable/i.test(blob)) ids.push("inescapable");
+  if (/Compression Lock/i.test(blob)) ids.push("compression-lock");
+  if (/Swagger/i.test(blob)) ids.push("swagger-streak");
+  if (/Moxie/i.test(blob)) ids.push("moxie");
+
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return null;
+
+  return (
+    <Row gap={8} wrap>
+      <Text tone="tertiary">Tips:</Text>
+      {unique.map((id) => (
+        <Tip key={id} id={id}>
+          {GLOSSARY[id].label}
+        </Tip>
+      ))}
+    </Row>
+  );
+}
+
 function StatusBar({
   sheet,
   setSheet,
@@ -782,7 +815,9 @@ function StatusBar({
             </div>
           </div>
           <div className="status-moxie">
-            <div className="field-label">Moxie</div>
+            <div className="field-label">
+              <Tip id="moxie">Moxie</Tip>
+            </div>
             <Row gap={6} wrap>
               {Array.from({ length: MOXIE_MAX }, (_, i) => (
                 <button
@@ -803,21 +838,43 @@ function StatusBar({
           </div>
         </div>
         <Row gap={8} wrap style={{ marginTop: 12 }}>
-          {isBloodied(sheet.hp) ? <Pill active>Bloodied</Pill> : null}
-          {sheet.digDeepActive ? <Pill active>Dig Deep</Pill> : null}
+          {isBloodied(sheet.hp) ? (
+            <Pill active>
+              <Tip id="bloodied">Bloodied</Tip>
+            </Pill>
+          ) : null}
+          {sheet.digDeepActive ? (
+            <Pill active>
+              <Tip id="dig-deep">Dig Deep</Tip>
+            </Pill>
+          ) : null}
           {(sheet.exhaustion ?? 0) > 0 ? (
-            <Pill active>Exhaustion {sheet.exhaustion}</Pill>
+            <Pill active>
+              <Tip id="exhaustion">Exhaustion {sheet.exhaustion}</Tip>
+            </Pill>
           ) : null}
           {activeConditions(sheet).map((c) => (
             <Pill key={c.id} active>
               {c.label}
             </Pill>
           ))}
-          {sheet.bloodiedUnbowed ? <Pill>Bloodied ready</Pill> : null}
-          {sheet.swagger ? <Pill>Swagger ready</Pill> : null}
-          {sheet.digDeep ? <Pill>Dig Deep ready</Pill> : null}
+          {sheet.bloodiedUnbowed ? (
+            <Pill>
+              <Tip id="bloodied-but-unbowed">Bloodied ready</Tip>
+            </Pill>
+          ) : null}
+          {sheet.swagger ? (
+            <Pill>
+              <Tip id="swagger-streak">Swagger ready</Tip>
+            </Pill>
+          ) : null}
+          {sheet.digDeep ? (
+            <Pill>
+              <Tip id="dig-deep">Dig Deep ready</Tip>
+            </Pill>
+          ) : null}
           <Spacer />
-          <Text tone="tertiary">Saved here</Text>
+          <Text tone="tertiary">Saved here · tap ? for rules</Text>
         </Row>
       </CardBody>
     </Card>
@@ -862,7 +919,9 @@ function ConditionsPanel({
       </Text>
 
       <label className="field">
-        <span className="field-label">Exhaustion</span>
+        <span className="field-label">
+          <Tip id="exhaustion">Exhaustion</Tip>
+        </span>
         <Row gap={8} wrap>
           {Array.from({ length: 7 }, (_, level) => (
             <Button
@@ -932,7 +991,7 @@ function RestPanel({
             onChange={(e) => patch({ bloodiedUnbowed: e.target.checked })}
           />
           <span>
-            Bloodied But Unbowed{" "}
+            <Tip id="bloodied-but-unbowed">Bloodied But Unbowed</Tip>{" "}
             <span className="tertiary">1 / short rest</span>
           </span>
         </label>
@@ -943,7 +1002,8 @@ function RestPanel({
             onChange={(e) => patch({ swagger: e.target.checked })}
           />
           <span>
-            Swagger Streak <span className="tertiary">1 / short rest</span>
+            <Tip id="swagger-streak">Swagger Streak</Tip>{" "}
+            <span className="tertiary">1 / short rest</span>
           </span>
         </label>
         <label className="resource-row">
@@ -958,7 +1018,8 @@ function RestPanel({
             }
           />
           <span>
-            Dig Deep <span className="tertiary">1 / long rest</span>
+            <Tip id="dig-deep">Dig Deep</Tip>{" "}
+            <span className="tertiary">free first use</span>
           </span>
         </label>
         <label className="resource-row">
@@ -969,7 +1030,8 @@ function RestPanel({
             onChange={(e) => patch({ digDeepActive: e.target.checked })}
           />
           <span>
-            Dig Deep active <span className="tertiary">resist B/P/S</span>
+            <Tip id="dig-deep">Dig Deep active</Tip>{" "}
+            <span className="tertiary">resist B/P/S</span>
           </span>
         </label>
       </div>
@@ -1350,6 +1412,7 @@ export function GaryCombatTool() {
                     </>
                   ) : null}
                   <Text tone="secondary">{plan.gym}</Text>
+                  <PlanTips plan={plan} />
                   <Row gap={8} wrap>
                     {applyLabel(plan) ? (
                       <Button
@@ -1418,6 +1481,18 @@ export function GaryCombatTool() {
                   <Text>{line}</Text>
                 </div>
               ))}
+            </Stack>
+          </details>
+
+          <details className="more-details">
+            <summary>Rules glossary (Pugilist)</summary>
+            <Stack gap={8}>
+              <Text tone="tertiary">
+                Summaries from the Sterling Vermin Pugilist 2024 D&D Beyond
+                write-up, with Gary’s level-9 numbers where useful. Tap any ? in
+                the UI for the same blurbs.
+              </Text>
+              <GlossaryList />
             </Stack>
           </details>
         </Stack>

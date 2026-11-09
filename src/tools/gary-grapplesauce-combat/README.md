@@ -98,6 +98,10 @@ Buttons use the same condition math as the effects card (Exhaustion −2 per lev
 
 A **Dice** button floats in the bottom-right corner. Tap dice to build a mixed pool (up to 20 of each of d4, d6, d8, d10, d12, d20, and d100), set a modifier, and roll. The tray has a fixed height: the pool scrolls sideways and only the log scrolls, so nothing moves while you build or roll. **Hide** masks every total (the setting is remembered) and **Clear log** empties the history. It does not change HP.
 
+**Every roll is logged in one place.** Roll tab saves/checks/attacks/damage/Swagger, the Play-plan dice (to-hit, damage, Brace Up, Swagger), and the tray all write to the shared log in `rollLog.ts` (React context provided by `GaryCombatTool`, persisted under `roll-log`, last 50). The tray's result box shows the latest roll from anywhere; crits are gold, misses and auto-fails red.
+
+**Crit toggle.** One shared flag (persisted under `crit`) shown as a **Crit** button next to every Damage button. A natural 20 on an attack turns it on, any other attack roll turns it off, and a damage roll uses it (2d10+5) and then turns it off. Tap it to set it by hand (e.g. hitting a Paralyzed target within 5 ft).
+
 On a Play plan, to-hit, damage, Brace Up, and Swagger sit under the action they belong to.
 
 Str/Dex/Con/Cha checks (including Athletics) offer **Add Swagger +1d10** while that use is ready. Blinded/Deafened don’t auto-fail every check — the tab says which ones need sight or hearing.

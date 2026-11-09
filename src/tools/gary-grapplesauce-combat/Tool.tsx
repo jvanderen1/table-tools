@@ -112,6 +112,15 @@ import {
 } from "./conditions";
 import { GLOSSARY } from "./glossary";
 import { GlossaryItem, GlossaryList, Tip } from "./Tip";
+import {
+  ROLL_LOG_MAX,
+  RollLogContext,
+  rollId,
+  useRollLog,
+  type NewRoll,
+  type RollLogApi,
+  type RollLogEntry,
+} from "./rollLog";
 
 const FIELD_INPUT =
   "w-full appearance-none rounded-lg border border-line bg-well px-3 py-2.5 text-ink outline-none transition-colors focus:border-gold/70";
@@ -2014,6 +2023,95 @@ function rollDie(sides: number) {
   return (buf[0] % sides) + 1;
 }
 
+function d20LogEntry({
+  label,
+  dice,
+  kept,
+  bonus,
+  mode,
+  attack = false,
+  autoFail = false,
+}: {
+  label: string;
+  dice: number[];
+  kept: number;
+  bonus: number;
+  mode: RollEffect["roll"];
+  attack?: boolean;
+  autoFail?: boolean;
+}): NewRoll {
+  const suffix =
+    mode === "advantage" ? " (adv)" : mode === "disadvantage" ? " (dis)" : "";
+  const faces =
+    dice.length === 1 ? `d20 (${kept})` : `d20 (${dice.join(", ")} → ${kept})`;
+  const miss = attack && !autoFail && kept === 1;
+  return {
+    label,
+    expression: `${withModifier("1d20", bonus)}${suffix}`,
+    breakdown: withModifier(faces, bonus),
+    total: kept + bonus,
+    result: autoFail ? "Fail" : miss ? "Miss" : undefined,
+    flag: autoFail
+      ? "fail"
+      : miss
+        ? "miss"
+        : attack && kept === 20
+          ? "crit"
+          : undefined,
+  };
+}
+
+function damageLogEntry(dice: number[], crit: boolean): NewRoll {
+  const bonus = GARY.fisticuffsBonus;
+  const notation = `${dice.length}d${GARY.fisticuffsDie}`;
+  return {
+    label: crit ? "Unarmed damage · crit" : "Unarmed damage",
+    expression: withModifier(notation, bonus),
+    breakdown: withModifier(`${notation} (${dice.join(", ")})`, bonus),
+    total: dice.reduce((sum, n) => sum + n, 0) + bonus,
+    flag: crit ? "crit" : undefined,
+  };
+}
+
+function CritToggle({ tile = false }: { tile?: boolean }) {
+  const { crit, setCrit } = useRollLog();
+  const on = "border-gold/80 bg-gold/15 text-gold-soft";
+  return (
+    <button
+      type="button"
+      aria-pressed={crit}
+      aria-label="Critical hit: next damage rolls double dice"
+      className={cx(tile ? ROLL_TILE : LINE_ROLL_BTN, crit && on)}
+      onClick={() => setCrit(!crit)}
+    >
+      {tile ? (
+        <>
+          <span className="inline-flex items-center gap-1.5 text-[0.85rem]">
+            <Star
+              className={cx("size-3.5", crit ? "fill-current text-gold" : "text-gold/80")}
+              aria-hidden
+            />
+            Crit
+          </span>
+          <span
+            className={cx(
+              "text-base font-semibold",
+              crit ? "text-gold-soft" : "text-faint",
+            )}
+          >
+            {crit ? "On" : "Off"}
+          </span>
+        </>
+      ) : (
+        <>
+          <Star className={cx(crit && "fill-current")} aria-hidden />
+          {crit ? "Crit on" : "Crit off"}
+        </>
+      )}
+    </button>
+  );
+}
+
 function d20Notes(effect: RollEffect, penalty: number) {
   const parts: string[] = [];
   if (effect.advantage.length > 0 && effect.disadvantage.length > 0) {
@@ -2120,6 +2218,7 @@ function RollPanel({
   setSheet: (next: Sheet | ((prev: Sheet) => Sheet)) => void;
 }) {
   const [result, setResult] = useState<ShownRoll | null>(null);
+  const { record, crit, setCrit } = useRollLog();
   const effects = effectsFor(sheet);
   const penalty = effects.d20Penalty;
   const cantAct = effects.cantAct.length > 0;
@@ -2180,6 +2279,19 @@ function RollPanel({
         : mode === "disadvantage"
           ? Math.min(...dice)
           : first;
+    const autoFail = spec.autoFail.length > 0;
+    record(
+      d20LogEntry({
+        label: spec.attack ? "Unarmed to hit" : spec.label,
+        dice,
+        kept,
+        bonus: spec.bonus,
+        mode,
+        attack: spec.attack,
+        autoFail,
+      }),
+    );
+    if (spec.attack) setCrit(!autoFail && kept === 20);
     setResult({
       kind: "d20",
       label: spec.label,
@@ -2202,6 +2314,12 @@ function RollPanel({
     }
     const die = rollDie(10);
     setSheet((s) => ({ ...s, swagger: false }));
+    record({
+      label: `${result.label} + Swagger`,
+      expression: "1d10",
+      breakdown: `d10 (${die}): ${result.total} → ${result.total + die}`,
+      total: result.total + die,
+    });
     setResult({
       ...result,
       total: result.total + die,
@@ -2211,15 +2329,12 @@ function RollPanel({
   }
 
   function rollDamage() {
-    const crit =
-      result?.kind === "d20" &&
-      result.attack &&
-      !result.autoFail &&
-      result.kept === 20;
     const dice = Array.from({ length: crit ? 2 : 1 }, () =>
       rollDie(GARY.fisticuffsDie),
     );
     const bonus = GARY.fisticuffsBonus;
+    record(damageLogEntry(dice, crit));
+    setCrit(false);
     setResult({
       kind: "damage",
       dice,
@@ -2270,7 +2385,7 @@ function RollPanel({
 
       <div className="flex flex-col gap-1.5">
         <FieldLabel icon={Swords}>Attack</FieldLabel>
-        <div className={ROLL_GRID}>
+        <div className="grid grid-cols-3 gap-1.5">
           <RollButtons
             bare
             specs={[attack]}
@@ -2287,19 +2402,22 @@ function RollPanel({
               <Sword className="size-3.5 text-gold/80" aria-hidden />
               Damage
             </span>
-            <span className="text-base font-semibold tabular-nums text-ink">
-              {result?.kind === "d20" &&
-              result.attack &&
-              result.kept === 20 &&
-              !result.autoFail
-                ? `2d${GARY.fisticuffsDie}+${GARY.fisticuffsBonus}`
-                : `1d${GARY.fisticuffsDie}+${GARY.fisticuffsBonus}`}
+            <span
+              className={cx(
+                "text-base font-semibold tabular-nums",
+                crit ? "text-gold-soft" : "text-ink",
+              )}
+            >
+              {crit ? 2 : 1}d{GARY.fisticuffsDie}+{GARY.fisticuffsBonus}
             </span>
           </button>
+          <CritToggle tile />
         </div>
         {attackNote ? <Text tone="tertiary">{attackNote}</Text> : null}
         <Text tone="tertiary">
-          A critical hit rolls damage twice. Any other die is the Dice button.
+          A natural 20 turns Crit on; the next damage roll doubles its dice and
+          turns it off. Tap Crit to set it yourself. Every roll lands in the
+          Dice log.
         </Text>
       </div>
     </Stack>
@@ -2428,7 +2546,7 @@ function ActionRolls({
   setSheet: (next: Sheet | ((prev: Sheet) => Sheet)) => void;
 }) {
   const [line, setLine] = useState<string | null>(null);
-  const [crit, setCrit] = useState(false);
+  const { record, crit, setCrit } = useRollLog();
   const effects = effectsFor(sheet);
   const cantAct = effects.cantAct.length > 0;
   const attackBonus = GARY.attack - effects.d20Penalty;
@@ -2447,6 +2565,16 @@ function ActionRolls({
     const isCrit = kept === 20;
     const isMiss = kept === 1;
     setCrit(isCrit);
+    record(
+      d20LogEntry({
+        label: "Unarmed to hit",
+        dice: diceRoll,
+        kept,
+        bonus: attackBonus,
+        mode,
+        attack: true,
+      }),
+    );
     const shown =
       diceRoll.length === 1
         ? `d20 ${kept}`
@@ -2462,6 +2590,7 @@ function ActionRolls({
     const faces = crit ? 2 : 1;
     const rolled = Array.from({ length: faces }, () => rollDie(GARY.fisticuffsDie));
     const total = rolled.reduce((sum, n) => sum + n, 0) + GARY.fisticuffsBonus;
+    record(damageLogEntry(rolled, crit));
     setCrit(false);
     setLine(
       `${crit ? "Crit " : ""}${faces}d${GARY.fisticuffsDie} ${rolled.join("+")} + ${GARY.fisticuffsBonus} = ${total} bludgeoning`,
@@ -2473,6 +2602,12 @@ function ActionRolls({
     const total = die + GARY.braceBonus;
     const next = Math.max(sheet.tempHp, total);
     setSheet((s) => ({ ...s, tempHp: Math.max(s.tempHp, total) }));
+    record({
+      label: "Brace Up (temp HP)",
+      expression: withModifier(`1d${GARY.fisticuffsDie}`, GARY.braceBonus),
+      breakdown: withModifier(`d${GARY.fisticuffsDie} (${die})`, GARY.braceBonus),
+      total,
+    });
     setLine(
       `Brace Up d${GARY.fisticuffsDie} ${die} + ${GARY.braceBonus} = ${total} temp${
         next === sheet.tempHp ? ` · kept ${sheet.tempHp}` : ` · temp ${sheet.tempHp} → ${next}`
@@ -2484,6 +2619,12 @@ function ActionRolls({
     if (!sheet.swagger) return;
     const die = rollDie(10);
     setSheet((s) => ({ ...s, swagger: false }));
+    record({
+      label: "Swagger Streak",
+      expression: "1d10",
+      breakdown: `d10 (${die})`,
+      total: die,
+    });
     setLine(`Swagger +${die}`);
   }
 
@@ -2515,6 +2656,7 @@ function ActionRolls({
               : `Damage 1d${GARY.fisticuffsDie}+${GARY.fisticuffsBonus}`}
           </button>
         ) : null}
+        {dice.includes("damage") ? <CritToggle /> : null}
         {dice.includes("brace") ? (
           <button type="button" className={LINE_ROLL_BTN} onClick={rollBrace}>
             <ShieldPlus aria-hidden />
@@ -2573,13 +2715,6 @@ const MAX_MODIFIER = 30;
 type DieSides = (typeof DICE_SIDES)[number];
 type DicePool = Partial<Record<DieSides, number>>;
 
-type DiceLogEntry = {
-  id: number;
-  groups: { sides: DieSides; faces: number[] }[];
-  modifier: number;
-  total: number;
-};
-
 function poolGroups(pool: DicePool) {
   return DICE_SIDES.filter((sides) => (pool[sides] ?? 0) > 0)
     .reverse()
@@ -2601,27 +2736,17 @@ function diceExpression(
   );
 }
 
-function entryExpression(entry: DiceLogEntry) {
-  return diceExpression(
-    entry.groups.map((g) => ({ sides: g.sides, count: g.faces.length })),
-    entry.modifier,
-  );
-}
-
-function entryBreakdown(entry: DiceLogEntry) {
-  return withModifier(
-    entry.groups
-      .map((g) => `${g.faces.length}d${g.sides} (${g.faces.join(", ")})`)
-      .join(" + "),
-    entry.modifier,
-  );
-}
+const FLAG_TONE: Record<NonNullable<RollLogEntry["flag"]>, string> = {
+  crit: "text-gold-soft",
+  miss: "text-crimson-soft",
+  fail: "text-crimson-soft",
+};
 
 function DiceRoller() {
   const [open, setOpen] = useState(false);
   const [pool, setPool] = useState<DicePool>({ 20: 1 });
   const [modifier, setModifier] = useState(0);
-  const [log, setLog] = useState<DiceLogEntry[]>([]);
+  const { log, record, clear } = useRollLog();
   const [hidden, setHidden] = usePersistentState(
     "gary-grapplesauce-combat:dice-hidden",
     false,
@@ -2662,9 +2787,17 @@ function DiceRoller() {
         (sum, g) => sum + g.faces.reduce((s, face) => s + face, 0),
         0,
       ) + modifier;
-    setLog((prev) =>
-      [{ id: Date.now(), groups: rolled, modifier, total }, ...prev].slice(0, 12),
-    );
+    record({
+      label: "Dice tray",
+      expression,
+      breakdown: withModifier(
+        rolled
+          .map((g) => `${g.faces.length}d${g.sides} (${g.faces.join(", ")})`)
+          .join(" + "),
+        modifier,
+      ),
+      total,
+    });
   }
 
   const DICE_KEY =
@@ -2818,14 +2951,19 @@ function DiceRoller() {
                   key={`${latest.id}-${hidden}`}
                   className={cx(
                     "animate-pop-in font-display text-[2.4rem] leading-none font-semibold tabular-nums",
-                    hidden ? "text-faint" : "text-gold-soft",
+                    hidden
+                      ? "text-faint"
+                      : latest.flag
+                        ? FLAG_TONE[latest.flag]
+                        : "text-gold-soft",
                   )}
                   aria-label={hidden ? "Result hidden" : undefined}
                 >
-                  {hidden ? MASK : latest.total}
+                  {hidden ? MASK : (latest.result ?? latest.total)}
                 </div>
                 <div className="mt-1 line-clamp-2 h-8 w-full text-[0.72rem] leading-4 tabular-nums text-faint">
-                  {hidden ? entryExpression(latest) : entryBreakdown(latest)}
+                  <span className="text-muted">{latest.label}</span> ·{" "}
+                  {hidden ? latest.expression : latest.breakdown}
                 </div>
               </>
             ) : (
@@ -2835,13 +2973,13 @@ function DiceRoller() {
 
           <div className="flex h-6 shrink-0 items-center justify-between gap-2">
             <span className={SECTION_LABEL}>
-              Log{log.length > 1 ? ` · ${log.length - 1}` : ""}
+              All rolls{log.length > 1 ? ` · ${log.length - 1} earlier` : ""}
             </span>
             <button
               type="button"
               className={HEADER_BTN}
               disabled={log.length === 0}
-              onClick={() => setLog([])}
+              onClick={clear}
             >
               <Trash2 className="size-3.5" aria-hidden />
               Clear log
@@ -2857,15 +2995,22 @@ function DiceRoller() {
                 >
                   <span className="inline-flex min-w-0 items-center gap-1.5">
                     <History className="size-3 shrink-0 text-faint" aria-hidden />
-                    <span className="truncate">{entryExpression(entry)}</span>
+                    <span className="truncate">
+                      <span className="text-ink/85">{entry.label}</span>
+                      <span className="text-faint"> · {entry.expression}</span>
+                    </span>
                   </span>
                   <span
                     className={cx(
-                      "font-semibold",
-                      hidden ? "text-faint" : "text-ink",
+                      "shrink-0 font-semibold",
+                      hidden
+                        ? "text-faint"
+                        : entry.flag
+                          ? FLAG_TONE[entry.flag]
+                          : "text-ink",
                     )}
                   >
-                    {hidden ? MASK : entry.total}
+                    {hidden ? MASK : (entry.result ?? entry.total)}
                   </span>
                 </li>
               ))
@@ -2925,6 +3070,30 @@ export function GaryCombatTool() {
     "play",
   );
   const [spentApplied, setSpentApplied] = useState(false);
+  const [rollLog, setRollLog] = usePersistentState<RollLogEntry[]>(
+    "gary-grapplesauce-combat:roll-log",
+    [],
+  );
+  const [crit, setCrit] = usePersistentState(
+    "gary-grapplesauce-combat:crit",
+    false,
+  );
+  const rollApi = useMemo<RollLogApi>(
+    () => ({
+      log: rollLog,
+      record: (roll) =>
+        setRollLog((prev) =>
+          [{ ...roll, id: rollId(), at: Date.now() }, ...prev].slice(
+            0,
+            ROLL_LOG_MAX,
+          ),
+        ),
+      clear: () => setRollLog([]),
+      crit,
+      setCrit,
+    }),
+    [rollLog, setRollLog, crit, setCrit],
+  );
 
   // Migrate old moxie-only key once
   useEffect(() => {
@@ -3110,6 +3279,7 @@ export function GaryCombatTool() {
         : "normal";
 
   return (
+    <RollLogContext.Provider value={rollApi}>
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:items-start lg:gap-6">
       <Stack gap={14} className="lg:sticky lg:top-4">
         <header className="flex flex-col gap-3">
@@ -3604,6 +3774,7 @@ export function GaryCombatTool() {
 
       <DiceRoller />
     </div>
+    </RollLogContext.Provider>
   );
 }
 

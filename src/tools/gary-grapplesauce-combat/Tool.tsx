@@ -3647,82 +3647,85 @@ export function GaryCombatTool() {
                 Dead · Exhaustion 6
               </div>
             ) : null}
-            <div
-              className={cx("grid grid-cols-3 gap-1.5", effects.dead && "opacity-30")}
-              aria-hidden={effects.dead || undefined}
-            >
-              <Stat
-                icon={Swords}
-                label="Attack"
-                tone={attackTone}
-                value={
-                  <span
-                    key={cantAct ? "cant" : `${gary.attack}-${penalty}-${attackMode}`}
-                    className="inline-block animate-pop-in"
-                  >
-                    {cantAct
-                      ? "Can’t act"
-                      : `${signed(gary.attack - penalty)}${attackMode ? ` ${attackMode}` : ""}`}
-                  </span>
-                }
-              />
-              <Stat
-                icon={Sword}
-                label="Damage"
-                value={
-                  <span key={gary.damage} className="inline-block animate-pop-in">
-                    {gary.damage.split(" ")[0]}
-                  </span>
-                }
-              />
-              <Stat
-                icon={ShieldHalf}
-                label="AC"
-                value={
-                  <span key={gary.ac} className="inline-block animate-pop-in">
-                    {gary.ac}
-                  </span>
-                }
-              />
-              <Stat
-                icon={BicepsFlexed}
-                label="Athletics"
-                tone={penalty > 0 ? "bad" : "normal"}
-                value={
-                  <span
-                    key={`${gary.athletics}-${penalty}`}
-                    className="inline-block animate-pop-in"
-                  >
-                    {signed(gary.athletics - penalty)}
-                  </span>
-                }
-              />
-              <Stat
-                icon={Footprints}
-                label="Speed"
-                tone={effects.speed.value !== gary.speed ? "bad" : "normal"}
-                value={
-                  <span
-                    key={effects.speed.value}
-                    className="inline-block animate-pop-in"
-                  >
-                    {effects.speed.value} ft
-                  </span>
-                }
-              />
-              <Stat
-                icon={Zap}
-                label="Init"
-                tone={penalty > 0 ? "bad" : "normal"}
-                value={
-                  <span
-                    key={`${gary.initiative}-${penalty}`}
-                    className="inline-block animate-pop-in"
-                  >
-                    {signed(gary.initiative - penalty)}
-                  </span>
-                }
-              />
+            <div className={cx("flex flex-col gap-1.5", effects.dead && "opacity-30")} aria-hidden={effects.dead || undefined}>
+              <div className="grid grid-cols-3 gap-1.5">
+                <Stat
+                  icon={ShieldHalf}
+                  label="AC"
+                  value={
+                    <span key={gary.ac} className="inline-block animate-pop-in">
+                      {gary.ac}
+                    </span>
+                  }
+                />
+                <Stat
+                  icon={Zap}
+                  label="Init"
+                  tone={penalty > 0 ? "bad" : "normal"}
+                  value={
+                    <span
+                      key={`${gary.initiative}-${penalty}`}
+                      className="inline-block animate-pop-in"
+                    >
+                      {signed(gary.initiative - penalty)}
+                    </span>
+                  }
+                />
+                <Stat
+                  icon={Footprints}
+                  label="Speed"
+                  tone={effects.speed.value !== gary.speed ? "bad" : "normal"}
+                  value={
+                    <span
+                      key={effects.speed.value}
+                      className="inline-block animate-pop-in"
+                    >
+                      {effects.speed.value} ft
+                    </span>
+                  }
+                />
+              </div>
+              <Accordion title="Attack" icon={Swords}>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <Stat
+                    icon={Swords}
+                    label="Attack"
+                    tone={attackTone}
+                    value={
+                      <span
+                        key={cantAct ? "cant" : `${gary.attack}-${penalty}-${attackMode}`}
+                        className="inline-block animate-pop-in"
+                      >
+                        {cantAct
+                          ? "Can’t act"
+                          : `${signed(gary.attack - penalty)}${attackMode ? ` ${attackMode}` : ""}`}
+                      </span>
+                    }
+                  />
+                  <Stat
+                    icon={Sword}
+                    label="Damage"
+                    value={
+                      <span key={gary.damage} className="inline-block animate-pop-in">
+                        {gary.damage.split(" ")[0]}
+                      </span>
+                    }
+                  />
+                  <Stat
+                    icon={BicepsFlexed}
+                    label="Athletics"
+                    tone={penalty > 0 ? "bad" : "normal"}
+                    value={
+                      <span
+                        key={`${gary.athletics}-${penalty}`}
+                        className="inline-block animate-pop-in"
+                      >
+                        {signed(gary.athletics - penalty)}
+                      </span>
+                    }
+                  />
+                </div>
+              </Accordion>
             </div>
           </div>
         </header>

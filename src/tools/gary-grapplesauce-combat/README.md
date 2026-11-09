@@ -143,7 +143,7 @@ On a Play plan, to-hit, damage, Brace Up, and Swagger sit under the action they 
 
 Str/Dex/Con/Cha checks (including Athletics) offer **Add Swagger +1d10** while that use is ready. Blinded/Deafened don’t auto-fail every check — the tab says which ones need sight or hearing.
 
-The status card shows short “Effects” chips; the header line shows adjusted attack/Athletics/speed. Base stats live in `BASE` in `stats.ts` (update on level-up or ASI); item bonuses come from the Gear tab.
+The status card shows short “Effects” chips. Under Gary’s name the glance row is AC, initiative, and speed. Attack, damage, and Athletics sit in the Attack disclosure under that row, and again on the Roll tab. Base stats live in `BASE` in `stats.ts` (update on level-up or ASI); item bonuses come from the Gear tab.
 
 ## Limited uses (track in Rest)
 

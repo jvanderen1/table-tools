@@ -380,10 +380,17 @@ function digDeepAgainNote(exhaustion: number) {
     : `again would be Exhaustion ${EXHAUSTION_DEATH}: Gary dies. Don’t.`;
 }
 
+/** Dig Deep ignores Exhaustion below 6. Level 6 is still death. */
+function exhaustionForEffects(sheet: Sheet) {
+  const level = sheet.exhaustion ?? 0;
+  if (sheet.digDeepActive && level < EXHAUSTION_DEATH) return 0;
+  return level;
+}
+
 function effectsFor(sheet: Sheet, gary: GaryStats): ConditionEffects {
   return computeConditionEffects(
     sheet.conditions,
-    sheet.exhaustion ?? 0,
+    exhaustionForEffects(sheet),
     gary.speed,
   );
 }
@@ -540,7 +547,7 @@ function planFor(goal: Goal, sheet: Sheet, gary: GaryStats): Plan {
               id: "dig-deep",
               label: "Dig Deep",
               part: "Bonus Action",
-              detail: "Resistance to nonmagical bludgeoning, piercing, and slashing for about 10 minutes.",
+              detail: "For 10 minutes, resist bludgeoning, piercing, and slashing, and ignore Exhaustion below 6.",
               cost: 0,
               apply: "dig-deep",
             },
@@ -566,8 +573,8 @@ function planFor(goal: Goal, sheet: Sheet, gary: GaryStats): Plan {
             {
               id: "dig-deep-again",
               label: "Dig Deep again",
-              part: "Bonus Action",
-              detail: `Resistance to nonmagical B/P/S. Exhaustion ${sheet.exhaustion} → ${next}.`,
+              part: "No action",
+              detail: `Restores the use. Exhaustion ${sheet.exhaustion} → ${next}. Turning it on is still a Bonus Action.`,
               cost: 0,
               apply: "dig-deep-exhaustion",
             },
@@ -685,7 +692,7 @@ function reactionPlan(kind: ReactionKind, gary: GaryStats): Plan {
         reaction: "This spends the Reaction and the short-rest use.",
         cost: 0,
         costLabel: "refill + 36 temp",
-        why: "Only when you take damage while bloodied. Biggest swing button in the kit.",
+        why: "Reaction when you take damage. Temp HP only if you are bloodied.",
         gym: "Not done. Spot me.",
         apply: "bloodied-unbowed",
         choices: [
@@ -693,7 +700,7 @@ function reactionPlan(kind: ReactionKind, gary: GaryStats): Plan {
             id: "unbowed",
             label: "Bloodied But Unbowed",
             part: "Reaction",
-            detail: "Moxie refills to full and temp HP becomes at least 36.",
+            detail: "Regain all expended Moxie. If you are bloodied, also gain 36 temporary hit points until a short rest.",
             cost: 0,
             apply: "bloodied-unbowed",
           },
@@ -790,7 +797,7 @@ const HIT_MODES: { id: Effectiveness; label: string; hint: string }[] = [
   {
     id: "auto",
     label: "Auto",
-    hint: "Dig Deep halves nonmagical bludgeoning, piercing, and slashing. Other hits land in full.",
+    hint: "Dig Deep halves bludgeoning, piercing, and slashing. Other hits land in full.",
   },
   { id: "normal", label: "Full", hint: "Take the typed amount." },
   { id: "resistant", label: "Half", hint: "Halve it, round down." },
@@ -810,16 +817,14 @@ function isWeaponPhysical(type: DamageType) {
   );
 }
 
-/** Dig Deep only covers nonmagical B/P/S at this table; Petrified covers everything. */
+/** Dig Deep covers all bludgeoning, piercing, and slashing. Petrified covers everything. */
 function autoResistReason(
   sheet: Sheet,
   type: DamageType,
-  magical: boolean,
+  _magical: boolean,
 ): string | null {
   if (sheet.conditions.petrified) return "Petrified";
-  if (sheet.digDeepActive && isWeaponPhysical(type) && !magical) {
-    return "Dig Deep";
-  }
+  if (sheet.digDeepActive && isWeaponPhysical(type)) return "Dig Deep";
   return null;
 }
 
@@ -891,8 +896,6 @@ function DamageAdjuster({
     magical,
   );
   const autoReason = autoResistReason(sheet, ui.type, magical);
-  const digDeepBypassed =
-    magical && sheet.digDeepActive && ui.effectiveness === "auto";
   const preview = modifyDamage(raw, resolved);
 
   function setAmount(next: string) {
@@ -962,8 +965,6 @@ function DamageAdjuster({
     }
     if (autoReason && ui.effectiveness === "auto") {
       bits.push(`${autoReason} resistance applied`);
-    } else if (digDeepBypassed) {
-      bits.push("magical, so Dig Deep didn’t resist");
     }
 
     setOutcome({ tone, title, detail: bits.join(" · ") });
@@ -991,9 +992,7 @@ function DamageAdjuster({
     ui.effectiveness === "auto"
       ? autoReason
         ? `${autoReason} → resistant`
-        : digDeepBypassed
-          ? "magical, Dig Deep skipped"
-          : "Normal"
+        : "Normal"
       : ui.effectiveness;
 
   return (
@@ -1057,7 +1056,7 @@ function DamageAdjuster({
         />
         <span className="flex-1 text-sm font-medium">Magical</span>
         <span className="text-xs text-faint">
-          {physical ? "skips Dig Deep" : "B/P/S only"}
+          {physical ? "noted on the hit" : "B/P/S only"}
         </span>
       </button>
 
@@ -1441,6 +1440,11 @@ function StatusPanels({
   const effects = [
     ...(sheet.holdingGrapple
       ? [{ text: "Half cover +2", tone: "good" as const }]
+      : []),
+    ...(sheet.digDeepActive &&
+    (sheet.exhaustion ?? 0) > 0 &&
+    (sheet.exhaustion ?? 0) < EXHAUSTION_DEATH
+      ? [{ text: "Exhaustion ignored", tone: "good" as const }]
       : []),
     ...effectChips(effectsFor(sheet, gary), gary),
   ].map((c) => (
@@ -2129,7 +2133,7 @@ function RestPanel({
           <ShieldCheck className={RESOURCE_ICON} aria-hidden />
           <span className="min-w-0">
             <Tip id="dig-deep">Dig Deep active</Tip>
-            <span className={RESOURCE_NOTE}>resist nonmagical B/P/S</span>
+            <span className={RESOURCE_NOTE}>resist B/P/S, ignore Exhaustion</span>
           </span>
         </label>
       </div>
@@ -2146,7 +2150,7 @@ function RestPanel({
             onClick={() =>
               setSheet((s) =>
                 !s.digDeep && !s.digDeepActive && canDigDeepAgain(s.exhaustion)
-                  ? { ...s, digDeepActive: true, exhaustion: s.exhaustion + 1 }
+                  ? { ...s, digDeep: true, exhaustion: s.exhaustion + 1 }
                   : s,
               )
             }
@@ -2158,7 +2162,7 @@ function RestPanel({
           {sheet.digDeepActive
             ? "Dig Deep is active."
             : sheet.digDeep
-              ? "The free Dig Deep is still unused — tick it above first."
+              ? "The use is ready. Turning it on is a Bonus Action."
               : `Dig Deep ${digDeepAgainNote(sheet.exhaustion)}`}
         </Text>
       </Stack>
@@ -2229,6 +2233,7 @@ type ShownRoll =
       attack: boolean;
       swagger: boolean;
       swaggerDie?: number;
+      swaggerCall?: "pending" | "failed" | "succeeded";
     }
       | {
       kind: "damage";
@@ -2250,6 +2255,23 @@ function rollDie(sides: number) {
   const buf = new Uint32Array(1);
   crypto.getRandomValues(buf);
   return (buf[0] % sides) + 1;
+}
+
+/** Tavern Brawler: an Unarmed Strike damage die that shows 1 is rerolled once. */
+function rollUnarmedDice(count: number, sides: number) {
+  const dice: number[] = [];
+  const rerolls: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const first = rollDie(sides);
+    if (first !== 1) {
+      dice.push(first);
+      continue;
+    }
+    const second = rollDie(sides);
+    dice.push(second);
+    rerolls.push(`1 → ${second}`);
+  }
+  return { dice, rerolls };
 }
 
 function d20LogEntry({
@@ -2290,13 +2312,21 @@ function d20LogEntry({
   };
 }
 
-function damageLogEntry(dice: number[], crit: boolean, gary: GaryStats): NewRoll {
+function damageLogEntry(
+  dice: number[],
+  crit: boolean,
+  gary: GaryStats,
+  rerolls: string[] = [],
+): NewRoll {
   const bonus = gary.fisticuffsBonus;
   const notation = `${dice.length}d${gary.fisticuffsDie}`;
+  const faces = `${notation} (${dice.join(", ")})${
+    rerolls.length > 0 ? `; reroll ${rerolls.join(", ")}` : ""
+  }`;
   return {
     label: crit ? "Unarmed damage · crit" : "Unarmed damage",
     expression: withModifier(notation, bonus),
-    breakdown: withModifier(`${notation} (${dice.join(", ")})`, bonus),
+    breakdown: withModifier(faces, bonus),
     total: dice.reduce((sum, n) => sum + n, 0) + bonus,
     flag: crit ? "crit" : undefined,
   };
@@ -2542,11 +2572,18 @@ function RollPanel({
   }
 
   function addSwagger() {
-    if (!result || result.kind !== "d20" || !result.swagger || !sheet.swagger) {
+    if (
+      !result ||
+      result.kind !== "d20" ||
+      !result.swagger ||
+      result.swaggerCall ||
+      !sheet.swagger ||
+      sheet.moxie < 1
+    ) {
       return;
     }
     const die = rollDie(10);
-    setSheet((s) => ({ ...s, swagger: false }));
+    setSheet((s) => ({ ...s, moxie: clamp(s.moxie - 1, 0, MOXIE_MAX) }));
     record({
       label: `${result.label} + Swagger`,
       expression: "1d10",
@@ -2558,21 +2595,32 @@ function RollPanel({
       total: result.total + die,
       swagger: false,
       swaggerDie: die,
+      swaggerCall: "pending",
     });
   }
 
+  function settleSwagger(kind: "failed" | "succeeded") {
+    if (!result || result.kind !== "d20" || result.swaggerCall !== "pending") return;
+    if (kind === "failed") {
+      setSheet((s) => ({
+        ...s,
+        moxie: clamp(s.moxie + 1, 0, MOXIE_MAX),
+        swagger: false,
+      }));
+    }
+    setResult({ ...result, swaggerCall: kind });
+  }
+
   function rollDamage() {
-    const dice = Array.from({ length: crit ? 2 : 1 }, () =>
-      rollDie(gary.fisticuffsDie),
-    );
+    const rolled = rollUnarmedDice(crit ? 2 : 1, gary.fisticuffsDie);
     const bonus = gary.fisticuffsBonus;
-    record(damageLogEntry(dice, crit, gary));
+    record(damageLogEntry(rolled.dice, crit, gary, rolled.rerolls));
     setCrit(false);
     setResult({
       kind: "damage",
-      dice,
+      dice: rolled.dice,
       bonus,
-      total: dice.reduce((sum, n) => sum + n, 0) + bonus,
+      total: rolled.dice.reduce((sum, n) => sum + n, 0) + bonus,
       crit,
     });
   }
@@ -2592,7 +2640,12 @@ function RollPanel({
   return (
     <Stack gap={16}>
       {result ? (
-        <RollReadout result={result} onSwagger={addSwagger} />
+        <RollReadout
+          result={result}
+          onSwagger={addSwagger}
+          onSwaggerSettle={settleSwagger}
+          swaggerReady={sheet.swagger && sheet.moxie >= 1}
+        />
       ) : (
         <div className={cx(ROLL_SLOT, ROLL_EMPTY)}>
           <Dices className="size-6 text-faint" aria-hidden />
@@ -2660,9 +2713,13 @@ function RollPanel({
 function RollReadout({
   result,
   onSwagger,
+  onSwaggerSettle,
+  swaggerReady,
 }: {
   result: ShownRoll;
   onSwagger: () => void;
+  onSwaggerSettle: (kind: "failed" | "succeeded") => void;
+  swaggerReady: boolean;
 }) {
   const gary = useGary();
   if (result.kind === "damage") {
@@ -2746,10 +2803,33 @@ function RollReadout({
         </div>
       ) : null}
       {result.notes ? <div className={ROLL_NOTES}>{result.notes}</div> : null}
-      {result.swagger ? (
-        <Button variant="secondary" icon={Sparkles} onClick={onSwagger}>
-          Add Swagger +1d10
-        </Button>
+      {result.swagger || result.swaggerCall ? (
+        <div className="grid w-full grid-cols-1 gap-2">
+          <Button
+            variant="secondary"
+            icon={Sparkles}
+            disabled={!result.swagger || !swaggerReady}
+            onClick={onSwagger}
+          >
+            {result.swaggerDie ? `Swagger +${result.swaggerDie}` : "Add Swagger +1d10"}
+          </Button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              variant="secondary"
+              disabled={result.swaggerCall !== "pending"}
+              onClick={() => onSwaggerSettle("failed")}
+            >
+              Still failed
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={result.swaggerCall !== "pending"}
+              onClick={() => onSwaggerSettle("succeeded")}
+            >
+              Succeeded
+            </Button>
+          </div>
+        </div>
       ) : null}
     </div>
   );
@@ -2781,6 +2861,10 @@ function ActionRolls({
 }) {
   const gary = useGary();
   const [line, setLine] = useState<string | null>(null);
+  const [swaggerDie, setSwaggerDie] = useState<number | null>(null);
+  const [swaggerCall, setSwaggerCall] = useState<
+    "pending" | "failed" | "succeeded" | null
+  >(null);
   const { record, crit, setCrit } = useRollLog();
   const effects = effectsFor(sheet, gary);
   const cantAct = effects.cantAct.length > 0;
@@ -2823,12 +2907,14 @@ function ActionRolls({
 
   function rollDamage() {
     const faces = crit ? 2 : 1;
-    const rolled = Array.from({ length: faces }, () => rollDie(gary.fisticuffsDie));
-    const total = rolled.reduce((sum, n) => sum + n, 0) + gary.fisticuffsBonus;
-    record(damageLogEntry(rolled, crit, gary));
+    const rolled = rollUnarmedDice(faces, gary.fisticuffsDie);
+    const total = rolled.dice.reduce((sum, n) => sum + n, 0) + gary.fisticuffsBonus;
+    record(damageLogEntry(rolled.dice, crit, gary, rolled.rerolls));
     setCrit(false);
     setLine(
-      `${crit ? "Crit " : ""}${faces}d${gary.fisticuffsDie} ${rolled.join("+")} + ${gary.fisticuffsBonus} = ${total} bludgeoning`,
+      `${crit ? "Crit " : ""}${faces}d${gary.fisticuffsDie} ${rolled.dice.join("+")} + ${gary.fisticuffsBonus} = ${total} bludgeoning${
+        rolled.rerolls.length > 0 ? ` · reroll ${rolled.rerolls.join(", ")}` : ""
+      }`,
     );
   }
 
@@ -2851,16 +2937,33 @@ function ActionRolls({
   }
 
   function rollSwagger() {
-    if (!sheet.swagger) return;
+    if (!sheet.swagger || sheet.moxie < 1 || swaggerCall) return;
     const die = rollDie(10);
-    setSheet((s) => ({ ...s, swagger: false }));
+    setSheet((s) => ({ ...s, moxie: clamp(s.moxie - 1, 0, MOXIE_MAX) }));
+    setSwaggerDie(die);
+    setSwaggerCall("pending");
     record({
       label: "Swagger Streak",
       expression: "1d10",
       breakdown: `d10 (${die})`,
       total: die,
     });
-    setLine(`Swagger +${die}`);
+    setLine(`Swagger +${die}. Say whether the check still failed.`);
+  }
+
+  function settleSwagger(kind: "failed" | "succeeded") {
+    if (swaggerCall !== "pending") return;
+    if (kind === "failed") {
+      setSheet((s) => ({
+        ...s,
+        moxie: clamp(s.moxie + 1, 0, MOXIE_MAX),
+        swagger: false,
+      }));
+      setLine(`Swagger +${swaggerDie ?? 0}. Still failed: Moxie is back, and Swagger is used.`);
+    } else {
+      setLine(`Swagger +${swaggerDie ?? 0}. Succeeded: the Moxie stays spent, and Swagger is still ready.`);
+    }
+    setSwaggerCall(kind);
   }
 
   return (
@@ -2902,14 +3005,38 @@ function ActionRolls({
           <button
             type="button"
             className={LINE_ROLL_BTN}
-            disabled={!sheet.swagger}
+            disabled={!sheet.swagger || sheet.moxie < 1 || swaggerCall !== null}
             onClick={rollSwagger}
           >
             <Sparkles aria-hidden />
-            {sheet.swagger ? "Swagger +1d10" : "Swagger used"}
+            {swaggerDie != null
+              ? `Swagger +${swaggerDie}`
+              : sheet.swagger
+                ? "Swagger +1d10"
+                : "Swagger used"}
           </button>
         ) : null}
       </div>
+      {dice.includes("swagger") ? (
+        <div className="grid grid-cols-2 gap-1.5">
+          <button
+            type="button"
+            className={LINE_ROLL_BTN}
+            disabled={swaggerCall !== "pending"}
+            onClick={() => settleSwagger("failed")}
+          >
+            Still failed
+          </button>
+          <button
+            type="button"
+            className={LINE_ROLL_BTN}
+            disabled={swaggerCall !== "pending"}
+            onClick={() => settleSwagger("succeeded")}
+          >
+            Succeeded
+          </button>
+        </div>
+      ) : null}
       <div
         className={cx(
           "flex h-11 items-center gap-1.5 rounded-md border px-2.5 text-[0.8rem] leading-4 tabular-nums",
@@ -3371,6 +3498,12 @@ export function GaryCombatTool() {
     [],
   );
   const [receipt, setReceipt] = useState<string | null>(null);
+  const [haymakerCall, setHaymakerCall] = useState<
+    "pending" | "hit" | "miss" | null
+  >(null);
+  const [swaggerCall, setSwaggerCall] = useState<
+    "pending" | "failed" | "succeeded" | null
+  >(null);
   const [rollLog, setRollLog] = usePersistentState<RollLogEntry[]>(
     "gary-grapplesauce-combat:roll-log",
     [],
@@ -3436,7 +3569,7 @@ export function GaryCombatTool() {
       const builtin = ACTIONS.find((action) => action.id === id);
       const custom = customActions.find((action) => action.id === id);
       if (builtin) {
-        if (!actionAvailable(builtin, sheet)) continue;
+        if (!usedIds.includes(builtin.id) && !actionAvailable(builtin, sheet)) continue;
         choices.push({
           id: builtin.id,
           label: builtin.name,
@@ -3478,7 +3611,7 @@ export function GaryCombatTool() {
       apply: "none" as const,
       choices,
     };
-  }, [activePlaybook, customActions, sheet]);
+  }, [activePlaybook, customActions, sheet, usedIds]);
 
   const plan = playbookPlan ?? (selectedGoal ? liveGoalPlan : staticPlan);
 
@@ -3492,6 +3625,8 @@ export function GaryCombatTool() {
     setSelectedGoal(null);
     setUsedIds([]);
     setReceipt(null);
+    setHaymakerCall(null);
+    setSwaggerCall(null);
     setPhase("goal");
   }
 
@@ -3501,6 +3636,8 @@ export function GaryCombatTool() {
     setTrackedTitle(planTitle);
     setUsedIds([]);
     setReceipt(null);
+    setHaymakerCall(null);
+    setSwaggerCall(null);
   }
 
   function resetDecision() {
@@ -3511,6 +3648,8 @@ export function GaryCombatTool() {
     setPlaybookId(null);
     setUsedIds([]);
     setReceipt(null);
+    setHaymakerCall(null);
+    setSwaggerCall(null);
   }
 
   function pickTiming(next: Timing) {
@@ -3520,6 +3659,8 @@ export function GaryCombatTool() {
     setPlaybookId(next === "check-fail" ? "failed-roll" : null);
     setUsedIds([]);
     setReceipt(null);
+    setHaymakerCall(null);
+    setSwaggerCall(null);
     if (next === "check-fail") {
       setPhase("result");
       return;
@@ -3537,6 +3678,8 @@ export function GaryCombatTool() {
     setStaticPlan(null);
     setUsedIds([]);
     setReceipt(null);
+    setHaymakerCall(null);
+    setSwaggerCall(null);
     setPhase("result");
   }
 
@@ -3546,6 +3689,8 @@ export function GaryCombatTool() {
     setStaticPlan(reactionPlan(kind, gary));
     setUsedIds([]);
     setReceipt(null);
+    setHaymakerCall(null);
+    setSwaggerCall(null);
     setPhase("result");
   }
 
@@ -3557,10 +3702,15 @@ export function GaryCombatTool() {
     if (choice.apply === "moxie" && sheet.moxie < choice.cost) return;
     if (choice.apply === "dig-deep" && !sheet.digDeep) return;
     if (choice.apply === "dig-deep-exhaustion" && !canDigDeepAgain(sheet.exhaustion)) return;
-    if (choice.apply === "swagger" && !sheet.swagger) return;
+    if (choice.apply === "swagger" && (!sheet.swagger || sheet.moxie < 1)) return;
     if (choice.apply === "bloodied-unbowed" && !sheet.bloodiedUnbowed) return;
     if (choice.apply === "guarded-mind" && !sheet.guardedMind) return;
-    if (choice.apply === "down-but-not-out" && !sheet.downButNotOut) return;
+    if (
+      choice.apply === "down-but-not-out" &&
+      (!sheet.downButNotOut || !isBloodied(sheet.hp, gary))
+    ) {
+      return;
+    }
 
     const moxieBefore = sheet.moxie;
     const tempBefore = sheet.tempHp;
@@ -3604,15 +3754,15 @@ export function GaryCombatTool() {
             ...s,
             moxie: MOXIE_MAX,
             bloodiedUnbowed: false,
-            tempHp: Math.max(s.tempHp, 36),
+            tempHp: isBloodied(s.hp, gary) ? Math.max(s.tempHp, 36) : s.tempHp,
           };
         case "dig-deep":
           return { ...s, digDeep: false, digDeepActive: true };
         case "dig-deep-exhaustion":
           if (!canDigDeepAgain(s.exhaustion)) return s;
-          return { ...s, digDeepActive: true, exhaustion: s.exhaustion + 1 };
+          return { ...s, digDeep: true, exhaustion: s.exhaustion + 1 };
         case "swagger":
-          return { ...s, swagger: false, moxie: clamp(s.moxie - 1, 0, MOXIE_MAX) };
+          return { ...s, moxie: clamp(s.moxie - 1, 0, MOXIE_MAX) };
         case "guarded-mind":
           return { ...s, guardedMind: false };
         case "down-but-not-out":
@@ -3622,24 +3772,58 @@ export function GaryCombatTool() {
       }
     });
 
+    const moxieAfter = clamp(moxieBefore - Math.max(choice.cost, choice.apply === "swagger" ? 1 : 0), 0, MOXIE_MAX);
+    const bloodiedNow = isBloodied(sheet.hp, gary);
     const paid =
-      choice.apply === "moxie"
-        ? choice.cost > 0
-          ? `Moxie ${moxieBefore} → ${clamp(moxieBefore - choice.cost, 0, MOXIE_MAX)}.`
-          : ""
-        : choice.apply === "bloodied-unbowed"
-          ? `Moxie ${moxieBefore} → ${MOXIE_MAX}. Temp HP ${tempBefore} → ${Math.max(tempBefore, 36)}.`
-          : choice.apply === "dig-deep"
-            ? "Dig Deep is on: nonmagical bludgeoning, piercing, and slashing are resisted."
-            : choice.apply === "dig-deep-exhaustion"
-              ? `Exhaustion ${sheet.exhaustion} → ${sheet.exhaustion + 1}. Dig Deep is on.`
-              : choice.apply === "guarded-mind"
-                ? "Guarded Mind: the save succeeds. Spent until a short rest."
-                : choice.apply === "down-but-not-out"
-                  ? `Down But Not Out: unarmed damage +${3 + sheet.exhaustion} for 1 minute.`
-                  : "Swagger is spent until a short rest. If the check still fails, put the Moxie point back.";
+      choice.id === "haymaker"
+        ? `Moxie ${moxieBefore} → ${moxieAfter}. On a hit, tap Hit and the point comes back. On a miss, tap Miss.`
+        : choice.apply === "moxie"
+          ? choice.cost > 0
+            ? `Moxie ${moxieBefore} → ${moxieAfter}.`
+            : ""
+          : choice.apply === "bloodied-unbowed"
+            ? bloodiedNow
+              ? `Moxie ${moxieBefore} → ${MOXIE_MAX}. Temp HP ${tempBefore} → ${Math.max(tempBefore, 36)}.`
+              : `Moxie ${moxieBefore} → ${MOXIE_MAX}. Not bloodied, so no temporary hit points.`
+            : choice.apply === "dig-deep"
+              ? "Dig Deep is on for 10 minutes: resist bludgeoning, piercing, and slashing, and ignore Exhaustion below 6."
+              : choice.apply === "dig-deep-exhaustion"
+                ? `Exhaustion ${sheet.exhaustion} → ${sheet.exhaustion + 1}. The use is restored. Turning it on is a Bonus Action.`
+                : choice.apply === "guarded-mind"
+                  ? "Guarded Mind: the save succeeds. Spent until a short rest."
+                  : choice.apply === "down-but-not-out"
+                    ? `Down But Not Out: unarmed damage +${3 + sheet.exhaustion} for 1 minute.`
+                    : `Moxie ${moxieBefore} → ${moxieAfter}. If the check still fails, tap Still failed. If it succeeds, tap Succeeded.`;
     setReceipt([choice.label, rolled, paid].filter(Boolean).join(" "));
     setUsedIds((ids) => (ids.includes(choice.id) ? ids : [...ids, choice.id]));
+    if (choice.id === "haymaker") setHaymakerCall("pending");
+    if (choice.id === "swagger") setSwaggerCall("pending");
+  }
+
+  function settleHaymaker(hit: boolean) {
+    if (haymakerCall !== "pending") return;
+    if (hit) {
+      setSheet((s) => ({ ...s, moxie: clamp(s.moxie + 1, 0, MOXIE_MAX) }));
+      setReceipt("Haymaker hit. The Moxie point is back, and that attack deals maximum damage.");
+    } else {
+      setReceipt("Haymaker missed. The Moxie point stays spent.");
+    }
+    setHaymakerCall(hit ? "hit" : "miss");
+  }
+
+  function settleSwagger(kind: "failed" | "succeeded") {
+    if (swaggerCall !== "pending") return;
+    if (kind === "failed") {
+      setSheet((s) => ({
+        ...s,
+        moxie: clamp(s.moxie + 1, 0, MOXIE_MAX),
+        swagger: false,
+      }));
+      setReceipt("The check still failed. The Moxie point is back, and Swagger is used until a rest.");
+    } else {
+      setReceipt("The check succeeded. The Moxie point stays spent, and Swagger is still ready.");
+    }
+    setSwaggerCall(kind);
   }
 
   const effects = effectsFor(sheet, gary);
@@ -4043,7 +4227,8 @@ export function GaryCombatTool() {
                                     (choice.apply === "bloodied-unbowed" &&
                                       !sheet.bloodiedUnbowed) ||
                                     (choice.apply === "guarded-mind" && !sheet.guardedMind) ||
-                                    (choice.apply === "down-but-not-out" && !sheet.downButNotOut)
+                                    (choice.apply === "down-but-not-out" &&
+                                      (!sheet.downButNotOut || !isBloodied(sheet.hp, gary)))
                                   }
                                   onClick={() => commitChoice(choice)}
                                 >
@@ -4054,6 +4239,42 @@ export function GaryCombatTool() {
                                       : choice.label}
                                 </Button>
                                 <Text tone="tertiary">{choice.detail}</Text>
+                                {choice.id === "haymaker" ? (
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <Button
+                                      variant="secondary"
+                                      disabled={!used || haymakerCall !== "pending"}
+                                      onClick={() => settleHaymaker(true)}
+                                    >
+                                      Hit
+                                    </Button>
+                                    <Button
+                                      variant="secondary"
+                                      disabled={!used || haymakerCall !== "pending"}
+                                      onClick={() => settleHaymaker(false)}
+                                    >
+                                      Miss
+                                    </Button>
+                                  </div>
+                                ) : null}
+                                {choice.id === "swagger" ? (
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <Button
+                                      variant="secondary"
+                                      disabled={!used || swaggerCall !== "pending"}
+                                      onClick={() => settleSwagger("failed")}
+                                    >
+                                      Still failed
+                                    </Button>
+                                    <Button
+                                      variant="secondary"
+                                      disabled={!used || swaggerCall !== "pending"}
+                                      onClick={() => settleSwagger("succeeded")}
+                                    >
+                                      Succeeded
+                                    </Button>
+                                  </div>
+                                ) : null}
                                 {choice.dice ? (
                                   <ActionRolls
                                     dice={choice.dice}
@@ -4080,7 +4301,7 @@ export function GaryCombatTool() {
                                 setReceipt((current) =>
                                   current
                                     ? `${current} Dig Deep is also on.`
-                                    : "Dig Deep is on: nonmagical B/P/S is resisted.",
+                                    : "Dig Deep is on: bludgeoning, piercing, and slashing are resisted.",
                                 );
                               }}
                             >
@@ -4126,6 +4347,8 @@ export function GaryCombatTool() {
                             setStaticPlan(null);
                             setUsedIds([]);
                             setReceipt(null);
+                            setHaymakerCall(null);
+                            setSwaggerCall(null);
                             setPhase("goal");
                           }}
                         >
@@ -4140,7 +4363,7 @@ export function GaryCombatTool() {
 
             {!effects.dead &&
             !cantAct &&
-            effects.d20Penalty === 2 * (EXHAUSTION_DEATH - 1) ? (
+            sheet.exhaustion === EXHAUSTION_DEATH - 1 ? (
               <Callout
                 title="Exhaustion 5 — one level from death"
                 tone="warning"
@@ -4326,6 +4549,8 @@ export function GaryCombatTool() {
         onTravel={() => {
           setUsedIds([]);
           setReceipt(null);
+          setHaymakerCall(null);
+          setSwaggerCall(null);
         }}
       />
     </div>

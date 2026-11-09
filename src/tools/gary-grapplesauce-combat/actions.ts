@@ -59,7 +59,7 @@ export const ACTIONS: GameAction[] = [
     name: "Attack",
     part: "action",
     summary:
-      "Two Unarmed Strikes (Extra Attack). On a hit: Heavy Hitter adds Grapple or Shove. Grappler can add Grapple once a turn, and you have Advantage on attacks against a creature you are grappling.",
+      "Two Unarmed Strikes. On a hit you can also Grapple or Shove (Heavy Hitter). Grappler: once a turn, damage and Grapple, Advantage against someone you are grappling, and no extra movement to drag a creature your size or smaller. A damage die that shows 1 is rerolled once. The damage can be bludgeoning or Force.",
     moxie: 0,
     apply: "moxie",
     dice: ["attack", "damage"],
@@ -67,27 +67,27 @@ export const ACTIONS: GameAction[] = [
   {
     id: "haymaker",
     name: "Haymaker",
-    part: "action",
+    part: "free",
     summary:
-      "Spend 1 Moxie on an Unarmed Strike. On a hit, deal maximum damage and get the Moxie back. On a miss it is gone. Undo the spend if it misses.",
+      "When you attack with an Unarmed Strike or Pugilist weapon, expend 1 Moxie. On a hit, the damage is maximum and you regain that Moxie. On a miss, the Moxie stays spent.",
     moxie: 1,
     apply: "moxie",
   },
   {
     id: "hard-knocks",
     name: "School of Hard Knocks",
-    part: "action",
+    part: "free",
     summary:
-      "Once a turn, add 1d12 to an unarmed hit, or skip the damage to Endanger (next hit on them is max damage) or Provoke (they have Disadvantage attacking anyone but you).",
+      "Once a turn, when you hit with an Unarmed Strike or Pugilist weapon, add 1d12 of the same damage type. You can skip that damage to Endanger (the next attack that hits them deals maximum damage dice) or Provoke (Disadvantage on attacks against anyone but you until the end of your next turn).",
     moxie: 0,
     apply: "moxie",
-    dice: ["damage"],
   },
   {
     id: "push",
     name: "Tavern push",
-    part: "action",
-    summary: "Once a turn, when an Unarmed Strike hits, you can also push the target 5 feet.",
+    part: "free",
+    summary:
+      "Once a turn, when you hit with an Unarmed Strike, you can deal damage and also push the target 5 feet.",
     moxie: 0,
     apply: "moxie",
   },
@@ -95,7 +95,8 @@ export const ACTIONS: GameAction[] = [
     id: "fisticuffs",
     name: "Fisticuffs",
     part: "bonus",
-    summary: "One free Unarmed Strike. This is the bonus strike when you are not spending Moxie.",
+    summary:
+      "While unarmed or wielding only Pugilist weapons, in light or no armor and no shield, you can make one Unarmed Strike as a Bonus Action.",
     moxie: 0,
     apply: "moxie",
     dice: ["attack", "damage"],
@@ -105,7 +106,8 @@ export const ACTIONS: GameAction[] = [
     id: "one-two",
     name: "One-Two Punch",
     part: "bonus",
-    summary: "Two Unarmed Strikes.",
+    summary:
+      "Bonus Action. Expend 1 Moxie and make two Unarmed Strikes. The damage can be bludgeoning or Force.",
     moxie: 1,
     apply: "moxie",
     dice: ["attack", "damage"],
@@ -115,7 +117,7 @@ export const ACTIONS: GameAction[] = [
     id: "stick-and-move",
     name: "Stick and Move",
     part: "bonus",
-    summary: "One Unarmed Strike, then Dash or Disengage.",
+    summary: "Bonus Action. Expend 1 Moxie, make one Unarmed Strike, and take the Dash or Disengage action.",
     moxie: 1,
     apply: "moxie",
     dice: ["attack", "damage"],
@@ -125,7 +127,8 @@ export const ACTIONS: GameAction[] = [
     id: "brace-up",
     name: "Brace Up",
     part: "bonus",
-    summary: "Roll the Fisticuffs die and gain that plus 12 temporary hit points for about 10 minutes.",
+    summary:
+      "Bonus Action. Expend 1 Moxie, roll your Fisticuffs die, and gain temporary hit points equal to the roll + 12. They vanish after 10 minutes.",
     moxie: 1,
     apply: "moxie",
     auto: "brace",
@@ -136,7 +139,7 @@ export const ACTIONS: GameAction[] = [
     name: "Dig Deep",
     part: "bonus",
     summary:
-      "For about 10 minutes, resist bludgeoning, piercing, and slashing, and ignore Exhaustion below 6. Once per long rest.",
+      "Bonus Action, once per long rest. For 10 minutes you have Resistance to bludgeoning, piercing, and slashing, and you ignore Exhaustion below 6.",
     moxie: 0,
     apply: "dig-deep",
     group: "bonus",
@@ -145,11 +148,11 @@ export const ACTIONS: GameAction[] = [
   {
     id: "dig-deep-again",
     name: "Dig Deep again",
-    part: "bonus",
-    summary: "The free use is gone. Take 1 Exhaustion (never to 6) to turn Dig Deep back on.",
+    part: "free",
+    summary:
+      "No action. Gain 1 Exhaustion to restore your use of Dig Deep. You cannot do this if it would reach Exhaustion 6.",
     moxie: 0,
     apply: "dig-deep-exhaustion",
-    group: "bonus",
     when: "dig-spent",
   },
   {
@@ -157,7 +160,7 @@ export const ACTIONS: GameAction[] = [
     name: "Bloodied But Unbowed",
     part: "reaction",
     summary:
-      "When you take damage: refill Moxie. If you are bloodied, also gain 36 temporary hit points. Once per short rest.",
+      "Reaction when you take damage: regain all expended Moxie. If you are bloodied, also gain 36 temporary hit points, which vanish at the end of a short rest. Once per short or long rest.",
     moxie: 0,
     apply: "bloodied-unbowed",
     group: "reaction",
@@ -178,7 +181,7 @@ export const ACTIONS: GameAction[] = [
     name: "Mage Slayer",
     part: "reaction",
     summary:
-      "A creature within 5 feet casts a spell with a spell slot: make an Unarmed Strike. Damage you deal also gives them Disadvantage on the Concentration save.",
+      "Reaction: a creature within 5 feet casts a spell with a spell slot, so you make an Unarmed Strike. Separately, whenever you damage a concentrating creature, that Concentration save has Disadvantage.",
     moxie: 0,
     apply: "moxie",
     dice: ["attack", "damage"],
@@ -188,7 +191,7 @@ export const ACTIONS: GameAction[] = [
     id: "opportunity",
     name: "Opportunity attack",
     part: "reaction",
-    summary: "They leave your reach. Unarmed Strike.",
+    summary: "Reaction when a creature you can see leaves your reach. One Unarmed Strike.",
     moxie: 0,
     apply: "moxie",
     dice: ["attack", "damage"],
@@ -199,7 +202,7 @@ export const ACTIONS: GameAction[] = [
     name: "Swagger Streak",
     part: "free",
     summary:
-      "You failed a Strength, Dexterity, Constitution, or Charisma check. Add 1d10. If it still fails, the Moxie comes back and this is spent until a short rest.",
+      "When you fail a Strength, Dexterity, Constitution, or Charisma check, expend 1 Moxie and add 1d10. If the check still fails, you regain that Moxie and cannot use this again until a short or long rest. If it succeeds, the Moxie stays spent.",
     moxie: 1,
     apply: "swagger",
     auto: "swagger",
@@ -216,10 +219,20 @@ export const ACTIONS: GameAction[] = [
     when: "guarded-ready",
   },
   {
+    id: "stop-and-drop",
+    name: "Stop and Drop",
+    part: "free",
+    summary:
+      "When you hit with an Unarmed Strike and you do not use a mastery property on that attack, you can both Grapple and Shove.",
+    moxie: 0,
+    apply: "moxie",
+  },
+  {
     id: "inescapable",
     name: "Inescapable",
     part: "free",
-    summary: "They roll to escape your grapple or shove. Spend 1 Moxie and that roll has Disadvantage.",
+    summary:
+      "When a creature makes a save or ability check against your grapple or shove DC, expend 1 Moxie. That roll has Disadvantage.",
     moxie: 1,
     apply: "moxie",
   },
@@ -228,7 +241,7 @@ export const ACTIONS: GameAction[] = [
     name: "Compression Lock",
     part: "free",
     summary:
-      "At the start of your turn, each creature you have grappled takes your unarmed damage. No action.",
+      "No action. At the start of your turn, if you have a creature grappled, you can deal 1d10 + 5 bludgeoning to each of them. The +5 is your Strength modifier, as printed on the sheet.",
     moxie: 0,
     apply: "moxie",
     dice: ["damage"],
@@ -238,7 +251,7 @@ export const ACTIONS: GameAction[] = [
     name: "Down But Not Out",
     part: "free",
     summary:
-      "When you use Bloodied But Unbowed while bloodied: for 1 minute your unarmed damage gains +3 plus your Exhaustion level. Once per long rest.",
+      "Once per long rest, when you use Bloodied But Unbowed while bloodied. For 1 minute, your Unarmed Strikes and Pugilist weapons add 3 + your Exhaustion level. The 3 is your Constitution modifier, as printed on the sheet.",
     moxie: 0,
     apply: "down-but-not-out",
     when: "down-ready",
@@ -247,7 +260,8 @@ export const ACTIONS: GameAction[] = [
     id: "dodge",
     name: "Dodge",
     part: "action",
-    summary: "Attacks against you have Disadvantage, and you have Advantage on Dexterity saves, until your next turn.",
+    summary:
+      "Until the start of your next turn, attacks against you have Disadvantage and you have Advantage on Dexterity saves. You lose this if you are Incapacitated or your Speed is 0.",
     moxie: 0,
     apply: "moxie",
   },
@@ -255,7 +269,8 @@ export const ACTIONS: GameAction[] = [
     id: "help",
     name: "Help",
     part: "action",
-    summary: "An ally has Advantage on the next attack against a creature within 5 feet of you, or on an ability check.",
+    summary:
+      "Either distract a creature within 5 feet (the next attack against it has Advantage) or help an ally with an ability check.",
     moxie: 0,
     apply: "moxie",
   },

@@ -27,7 +27,7 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
     id: "fisticuffs",
     label: "Fisticuffs",
     summary:
-      "Your Unarmed Strikes (and Pugilist weapons) use the Fisticuffs die for damage and you can make an extra Unarmed Strike as a Bonus Action when you Attack with fists/pugilist weapons. At level 9 Gary’s die is 1d10 (+ Str).",
+      "While unarmed or wielding only Pugilist weapons, in light or no armor and no shield: Unarmed Strikes and Pugilist weapons deal 1d10 + Strength, you can make one Unarmed Strike as a Bonus Action, and a damage die that shows 1 is rerolled once.",
     source: "Pugilist 2024 · DDB post",
   },
   "iron-chin": {
@@ -41,7 +41,7 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
     id: "moxie",
     label: "Moxie",
     summary:
-      "A pool of points (Gary: 5) spent on Bonus Action options. You regain all Moxie on a Short or Long Rest, and when you use Bloodied But Unbowed.",
+      "A pool of 5 points. You spend them on Brace Up, One-Two Punch, Stick and Move, Haymaker, Swagger Streak, Inescapable, and Meat Shield. You regain all expended points on a Short or Long Rest, and when you use Bloodied But Unbowed.",
     source: "Pugilist 2024 · DDB post",
   },
   "brace-up": {
@@ -55,7 +55,7 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
     id: "one-two",
     label: "One-Two (Old One-Two)",
     summary:
-      "Bonus Action after the Attack action: spend 1 Moxie to make two Unarmed Strikes.",
+      "Bonus Action: expend 1 Moxie and make two Unarmed Strikes.",
     source: "Pugilist 2024 · Moxie / DDB post",
   },
   "stick-and-move": {
@@ -69,14 +69,14 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
     id: "bloodied-but-unbowed",
     label: "Bloodied But Unbowed",
     summary:
-      "Reaction when you have the Bloodied condition or take damage while Bloodied: gain Temporary Hit Points equal to 4 × Pugilist level (36 at 9) and regain all expended Moxie. Recharges on a Short or Long Rest.",
+      "Reaction when you take damage: regain all expended Moxie. If you are bloodied when you take the reaction, also gain 36 temporary hit points until you finish a short rest. Once per short or long rest.",
     source: "Pugilist 2024 · DDB post",
   },
   "dig-deep": {
     id: "dig-deep",
     label: "Dig Deep",
     summary:
-      "Temporarily gain Resistance to Bludgeoning, Piercing, and Slashing damage. First use costs nothing; you can use it again by gaining 1 Exhaustion. Track “active” while the resistance is up. At this table it only covers nonmagical hits: mark magical damage on the Hit tab and it gets through.",
+      "Bonus Action, once per long rest, for 10 minutes: Resistance to bludgeoning, piercing, and slashing, and you ignore Exhaustion below 6. You can gain 1 Exhaustion (no action) to restore the use, but not if that would reach 6.",
     source: "Pugilist 2024 · DDB post",
   },
   "heavy-hitter": {
@@ -90,14 +90,14 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
     id: "haymaker",
     label: "Haymaker",
     summary:
-      "Gamble 1 Moxie on an Unarmed Strike / Pugilist weapon attack: on a hit, deal maximum damage (no roll) and get the Moxie back; on a miss, the Moxie is lost.",
+      "When you attack with an Unarmed Strike or Pugilist weapon, expend 1 Moxie. On a hit, deal maximum damage and regain that Moxie. On a miss, the Moxie stays spent.",
     source: "Pugilist 2024 · DDB post",
   },
   "swagger-streak": {
     id: "swagger-streak",
     label: "Swagger Streak",
     summary:
-      "When you fail a Strength, Dexterity, Constitution, or Charisma check, you can add 1d10 to the result (1/short rest). Tracked on Gary’s sheet; confirm exact wording on DDB if disputed.",
+      "When you fail a Strength, Dexterity, Constitution, or Charisma check, expend 1 Moxie and add 1d10. If the check still fails, you regain that Moxie and cannot use this again until a short or long rest. If it succeeds, the Moxie stays spent.",
     source: "Pugilist · sheet feature (verify on DDB)",
   },
   "squared-circle": {
@@ -125,7 +125,7 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
     id: "compression-lock",
     label: "Compression Lock",
     summary:
-      "While you have a creature grappled, it takes ongoing unarmed damage (Gary: Fisticuffs + Str) — keep the hug going.",
+      "No action. When you start your turn with a creature grappled, you can deal 1d10 + 5 bludgeoning to each of them.",
     source: "Squared Circle · Groundwork",
   },
   bloodied: {

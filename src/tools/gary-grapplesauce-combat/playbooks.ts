@@ -56,7 +56,7 @@ export const PLAYBOOKS: PlaybookDef[] = [
     gym: "Sit Down. Still Hugging.",
     when: "turn",
     tag: "Control",
-    actionIds: ["attack", "inescapable", "compression-lock"],
+    actionIds: ["attack", "stop-and-drop", "inescapable", "compression-lock"],
   },
   {
     id: "stay-standing",

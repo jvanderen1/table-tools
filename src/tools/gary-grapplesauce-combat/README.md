@@ -45,7 +45,7 @@ Three tabs so the screen isn’t a wall of controls:
 | Tab | Job |
 |---|---|
 | **Play** | Combat decision tree (timing → goal/reaction → Action / BA / Reaction) |
-| **Hit** | Take damage / heal (amount + type; Dig Deep auto-resists nonmagical B/P/S) |
+| **Hit** | Take damage / heal (amount + type; Dig Deep auto-resists B/P/S) |
 | **Roll** | Saves, checks, unarmed attack, and hit dice — bonuses include conditions |
 | **Conds** | Effects on Gary (auto-calculated) + 2024 conditions + Exhaustion 0–6 |
 | **Rest** | Once-per-rest toggles + Short / Long rest |
@@ -94,7 +94,7 @@ The sheet and the inventory use `useUndoableState` (`src/lib/useUndoableState.ts
 
 ### Decision tree behavior
 
-- **Actions** (`actions.ts`) is the full list from the live sheet: Attack, Haymaker, School of Hard Knocks, Fisticuffs, Brace Up, One-Two, Stick and Move, Dig Deep, Bloodied But Unbowed, Meat Shield, Mage Slayer, Opportunity Attack, Swagger, Guarded Mind, Inescapable, Compression Lock, Down But Not Out, Dodge, Help. **All actions** on the Play tab adds custom moves.
+- **Actions** (`actions.ts`) is the full list from the live sheet: Attack, Haymaker, School of Hard Knocks, Tavern push, Fisticuffs, Brace Up, One-Two, Stick and Move, Dig Deep, Bloodied But Unbowed, Meat Shield, Mage Slayer, Opportunity Attack, Swagger, Guarded Mind, Stop and Drop, Inescapable, Compression Lock, Down But Not Out, Dodge, Help. Haymaker, Hard Knocks, and the push are riders on an attack, not their own action. **All actions** on the Play tab adds custom moves.
 - **Playbooks** (`playbooks.ts`) are situations that only name those action ids. My turn lists them (including Meat Shield, caster shutdown, comeback). Reaction and Failed roll use the same list. Custom playbooks show up beside the built-in ones.
 - The Play landing also lists every move under Action, Bonus, Reaction, and Other. Meat Shield’s half cover is free while **Holding a grapple** is on (status card): +2 AC and +2 Dex saves against anyone you are not grappling. The Meat Shield button only spends 1 Moxie to redirect a miss.
 - Each plan’s moves are buttons under the part of the turn they belong to (Action, Bonus Action, or Reaction). “Shut down the caster” puts Stick and Move and One-Two under Bonus Action, above the free Mage Slayer reaction. Tapping one spends the cost and shows the result there: Brace Up and Swagger roll and apply immediately; attack moves then offer to-hit and damage.
@@ -104,8 +104,8 @@ The sheet and the inventory use `useUndoableState` (`src/lib/useUndoableState.ts
 
 - Keyboard amount field (Enter = take damage; ↑/↓ = ±1).
 - Damage types: all 13 5e types.
-- **Auto** effectiveness: if Dig Deep is active and type is B/P/S → resistant (½).
-- **Magical** toggle (B/P/S only, remembered like the type): magical hits skip Dig Deep. The Pugilist post just says “Resistance to B/P/S”; the owner chose the nonmagical reading for this table. Petrified still resists everything.
+- **Auto** effectiveness: if Dig Deep is active and type is B/P/S → resistant (½), magical or not. While it is active, Exhaustion below 6 does not change Gary’s numbers.
+- **Magical** toggle (B/P/S only, remembered like the type): notes the hit. It does not bypass Dig Deep. Petrified still resists everything.
 - Manual override: normal / resistant / immune / vulnerable.
 - Temp HP absorbs before real HP; alerts explain immune / resist / vuln / bloodied.
 
@@ -120,7 +120,7 @@ The sheet and the inventory use `useUndoableState` (`src/lib/useUndoableState.ts
 - Incapacitated family → no Action/BA/Reaction: Play tab warns, Bloodied But Unbowed is locked.
 - Petrified → Hit tab auto-resists all damage.
 - **Exhaustion 6 = death** (2024 rule). At 6 the decision tree hides, the header/status say dead, and Long rest is disabled. At 5 the Play tab warns “one level from death”.
-- **Dig Deep again** (after the free use) costs 1 Exhaustion: offered in the Survive plan (no Moxie) and on the Rest tab, and refused when it would reach 6.
+- **Dig Deep again** restores the use with no action and costs 1 Exhaustion. Turning the resistance on is still a Bonus Action. Refused when the Exhaustion would reach 6.
 
 ### Roll tab
 
@@ -151,9 +151,9 @@ The status card shows short “Effects” chips. Under Gary’s name the glance 
 | Feature | Cadence | Notes |
 |---|---|---|
 | Moxie | Short rest | Pool of 5 |
-| Bloodied But Unbowed | 1 / short rest | Reaction while bloodied + took damage → refill Moxie + 36 temp HP |
-| Swagger Streak | 1 / short rest | Add 1d10 to a failed Str/Dex/Con/Cha check |
-| Dig Deep | 1 free / long rest | BA → resist nonmagical B/P/S ~10 min; toggle “active” while up. Extra uses cost 1 Exhaustion each (never to 6) |
+| Bloodied But Unbowed | 1 / short or long rest | Reaction when you take damage → refill Moxie. Temp HP 36 only if bloodied |
+| Swagger Streak | until a still-failed check | Spend 1 Moxie to add 1d10 to a failed Str/Dex/Con/Cha check. Refund and lock only if it still fails |
+| Dig Deep | 1 / long rest | BA → resist B/P/S and ignore Exhaustion below 6 for 10 min. Restoring the use is no action and costs 1 Exhaustion (never to 6) |
 
 Short rest: Moxie full, Bloodied + Swagger ready, clear Dig Deep active + temp HP (conditions stay).  
 Long rest: full HP/uses reset, clear conditions, Exhaustion −1 (2024-style).

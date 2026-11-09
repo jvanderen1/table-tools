@@ -14,6 +14,8 @@ Phone-friendly play aid for **Gary Grapplesauce** at the table. Live on GitHub P
 
 ### Live numbers (magic items on)
 
+These are computed, not typed in: `stats.ts` builds them from base stats (Str 8, Dex 16, Con 17, Int 10, Wis 14, Cha 12; proficiency +4; Str/Con save proficiency; Athletics expertise; Iron Chin 12 + Con; HP 76 + 9 × Con) plus whatever is equipped in the Gear tab. With the belt, wraps, and towel on, they come out to:
+
 | | |
 |---|---|
 | Str / Dex / Con / Int / Wis / Cha | **21** / 16 / 17 / 10 / 14 / 12 |
@@ -47,7 +49,7 @@ Three tabs so the screen isn’t a wall of controls:
 | **Roll** | Saves, checks, unarmed attack, and hit dice — bonuses include conditions |
 | **Conds** | Effects on Gary (auto-calculated) + 2024 conditions + Exhaustion 0–6 |
 | **Rest** | Once-per-rest toggles + Short / Long rest |
-| **Gear** | Inventory (`Inventory.tsx`): coins, items with quantity, nickname → real item, notes, attunement (max 3) |
+| **Gear** | Gary’s numbers from gear, plus inventory (`Inventory.tsx`): coins, items with quantity, nickname → real item, effects, equip switch, attunement (max 3) |
 | **Bio** | Personality & biography, plus optional AI “Say it like Gary” lines (`Persona.tsx`) |
 
 ### Bio tab behavior (`Persona.tsx`)
@@ -58,10 +60,14 @@ Three tabs so the screen isn’t a wall of controls:
 
 ### Gear tab behavior
 
-- Seeded from the attuned items and inventory flavor above (the DDB sheet is private, so coins start at 0 — fill them in). Persisted under `inventory`.
+- **Gary’s numbers** card: all six scores, then AC, to hit, damage, Str save, Athletics, initiative, speed, max HP. Each tile shows how much gear adds (“+13 gear” / “base”). Hover or long-press a tile to see which items are responsible. Values pop when they change.
+- Items can carry **effects**: AC, all saves, all ability checks (also skills and initiative), unarmed attack, unarmed damage, speed, initiative, “Str becomes N” (no effect if already higher), or “Str ±N”. Effects count only while the item is **equipped**, has quantity > 0, and is **attuned** if it requires attunement.
+- The **switch** on a row equips / takes off an item (only shown on items with effects). Equipping an attunement item also attunes it if a slot is free; otherwise the row says “Not attuned (3/3 used)”.
+- Typing or picking a known magic item (Belt of Giant Strength, Gauntlets of Ogre Power, Amulet of Health, Headband of Intellect, Bracers of Defense, Cloak/Ring of Protection, Stone of Good Luck, Ioun Stones) as the name or real item fills in its effects (`MAGIC_ITEMS` in `inventoryData.ts`).
+- Everything downstream follows: header stats, Roll tab bonuses, plan text (Brace Up, Compression Lock, Mage Slayer), dice buttons, bloodied threshold, and max HP (Con items). If max HP drops below current HP, current HP is capped.
+- Seeded from the attuned items above; saved inventories from before effects existed get them filled in by item id / real-item name (`normalizeInventory`). Persisted under `inventory` (with undo history).
 - Add box on top; new items go to the top of a fixed-height list that scrolls on its own, so adding never moves the page.
-- Tap an item to edit name, real item, notes, attunement, or remove it (no confirm; Undo brings it back). Quantity 0 keeps the item, dimmed.
-- Purely a record: it doesn’t change the numbers in `GARY`. If an attuned item changes, update `GARY` too.
+- Tap an item to edit name, real item, effects, notes, attunement, or remove it (no confirm; Undo brings it back). Quantity 0 keeps the item, dimmed.
 
 Always visible above tabs: **HP bar**, **Moxie dots**, and three status sections, all fixed-size so changes never move the page (no sideways carousels; everything is visible at a glance):
 
@@ -136,7 +142,7 @@ On a Play plan, to-hit, damage, Brace Up, and Swagger sit under the action they 
 
 Str/Dex/Con/Cha checks (including Athletics) offer **Add Swagger +1d10** while that use is ready. Blinded/Deafened don’t auto-fail every check — the tab says which ones need sight or hearing.
 
-The status card shows short “Effects” chips; the header line shows adjusted attack/Athletics/speed. Base numbers live in `GARY` in `Tool.tsx` — update there if the sheet changes.
+The status card shows short “Effects” chips; the header line shows adjusted attack/Athletics/speed. Base stats live in `BASE` in `stats.ts` (update on level-up or ASI); item bonuses come from the Gear tab.
 
 ## Limited uses (track in Rest)
 

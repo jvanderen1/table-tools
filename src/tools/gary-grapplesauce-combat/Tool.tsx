@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -118,9 +119,18 @@ import { InventoryPanel } from "./Inventory";
 import {
   DEFAULT_INVENTORY,
   describeInventory,
+  normalizeInventory,
   type Inventory,
 } from "./inventoryData";
 import { PersonaPanel } from "./Persona";
+import {
+  DEFAULT_GARY,
+  GaryContext,
+  computeGary,
+  diceText,
+  useGary,
+  type GaryStats,
+} from "./stats";
 import {
   ROLL_LOG_MAX,
   RollLogContext,
@@ -217,8 +227,6 @@ type Sheet = {
 };
 
 const MOXIE_MAX = 5;
-const HP_MAX = 103;
-const BLOODIED_AT = Math.floor(HP_MAX / 2); // ≤ 51
 /** Pugilist d10, one per level. A 2024 Long Rest refills all of them. */
 const HIT_DICE_MAX = 9;
 /** Swagger Streak adds 1d10 to a failed Str/Dex/Con/Cha check. */
@@ -232,7 +240,7 @@ function emptyConditions(): ConditionFlags {
 
 const DEFAULT_SHEET: Sheet = {
   moxie: MOXIE_MAX,
-  hp: HP_MAX,
+  hp: DEFAULT_GARY.hpMax,
   tempHp: 0,
   digDeep: true,
   digDeepActive: false,
@@ -305,34 +313,14 @@ function describeSheetChange(prev: Sheet, next: Sheet): Change {
   return { label, key: keys.join("|") };
 }
 
-/** Live D&D Beyond numbers with attuned items (Towel adds +1 to every save) */
-const GARY = {
-  attack: 9,
-  damage: "1d10+5 bludgeoning",
-  ac: 18,
-  athletics: 13,
-  initiative: 3,
-  speed: 30,
-  /** Saves include the Towel’s +1. Checks do not. */
-  saves: { str: 10, dex: 4, con: 8, int: 1, wis: 3, cha: 2 } satisfies Record<
-    Ability,
-    number
-  >,
-  checks: { str: 5, dex: 3, con: 3, int: 0, wis: 2, cha: 1 } satisfies Record<
-    Ability,
-    number
-  >,
-  skills: [
-    { id: "athletics", label: "Athletics", ability: "str" as const, bonus: 13 },
-    { id: "perception", label: "Perception", ability: "wis" as const, bonus: 6 },
-    { id: "insight", label: "Insight", ability: "wis" as const, bonus: 6 },
-  ],
-  conMod: 3,
-  /** Unarmed damage and Brace Up both use the d10 Fisticuffs die */
-  fisticuffsDie: 10,
-  fisticuffsBonus: 5,
-  braceBonus: 12,
-};
+
+function unarmedDice(gary: GaryStats) {
+  return diceText(gary.fisticuffsDie, gary.fisticuffsBonus);
+}
+
+function braceDice(gary: GaryStats) {
+  return diceText(gary.fisticuffsDie, gary.braceBonus);
+}
 
 /** Re-using Dig Deep costs 1 Exhaustion; reaching level 6 kills Gary. */
 function canDigDeepAgain(exhaustion: number) {
@@ -345,11 +333,11 @@ function digDeepAgainNote(exhaustion: number) {
     : `again would be Exhaustion ${EXHAUSTION_DEATH}: Gary dies. Don’t.`;
 }
 
-function effectsFor(sheet: Sheet): ConditionEffects {
+function effectsFor(sheet: Sheet, gary: GaryStats): ConditionEffects {
   return computeConditionEffects(
     sheet.conditions,
     sheet.exhaustion ?? 0,
-    GARY.speed,
+    gary.speed,
   );
 }
 
@@ -390,11 +378,11 @@ const GOAL_OPTIONS: GoalOption[] = [
   { id: "unsure", label: "Not sure", cost: 0, variant: "ghost" },
 ];
 
-function isBloodied(hp: number) {
-  return hp > 0 && hp <= BLOODIED_AT;
+function isBloodied(hp: number, gary: GaryStats) {
+  return hp > 0 && hp <= gary.bloodiedAt;
 }
 
-function planFor(goal: Goal, sheet: Sheet): Plan {
+function planFor(goal: Goal, sheet: Sheet, gary: GaryStats): Plan {
   const canSpend = sheet.moxie >= 1;
 
   switch (goal) {
@@ -432,7 +420,7 @@ function planFor(goal: Goal, sheet: Sheet): Plan {
           : "Fisticuffs Unarmed, or shove prone if already grappled. Inescapable locked until you have 1 Moxie.",
         cost: 0,
         costLabel: canSpend ? "0 now · 1 later" : "0",
-        why: "Compression Lock deals 1d10+5 at the start of your turns while you hold them.",
+        why: `Compression Lock deals ${unarmedDice(gary)} at the start of your turns while you hold them.`,
         gym: "Sit Down. Still Hugging.",
         apply: "none",
       };
@@ -443,8 +431,8 @@ function planFor(goal: Goal, sheet: Sheet): Plan {
           action:
             "Attack only if safe. Prefer holding position or Disengaging later.",
           bonus: sheet.digDeep
-            ? "Brace Up (1 Moxie): temp HP = 1d10 + 12. Dig Deep still available (1/long rest)."
-            : `Brace Up (1 Moxie): temp HP = 1d10 + 12. Dig Deep already used — ${digDeepAgainNote(sheet.exhaustion)}`,
+            ? `Brace Up (1 Moxie): temp HP = ${braceDice(gary)}. Dig Deep still available (1/long rest).`
+            : `Brace Up (1 Moxie): temp HP = ${braceDice(gary)}. Dig Deep already used — ${digDeepAgainNote(sheet.exhaustion)}`,
           reaction: sheet.bloodiedUnbowed
             ? "If bloodied and you take damage: Bloodied But Unbowed still available."
             : "Bloodied But Unbowed already used this short rest.",
@@ -557,7 +545,7 @@ function planFor(goal: Goal, sheet: Sheet): Plan {
   }
 }
 
-function reactionPlan(kind: ReactionKind): Plan {
+function reactionPlan(kind: ReactionKind, gary: GaryStats): Plan {
   switch (kind) {
     case "bloodied":
       return {
@@ -578,7 +566,7 @@ function reactionPlan(kind: ReactionKind): Plan {
         action: "No Action — this is a Reaction.",
         bonus: "—",
         reaction:
-          "Creature within 5 ft casts with a spell slot → Reaction Unarmed Strike (+9 / 1d10+5). Next turn, stay adjacent.",
+          `Creature within 5 ft casts with a spell slot → Reaction Unarmed Strike (${signed(gary.attack)} / ${unarmedDice(gary)}). Next turn, stay adjacent.`,
         cost: 0,
         costLabel: "0",
         why: "Interrupt first. Follow up by grappling them so they can't walk off.",
@@ -748,7 +736,7 @@ function applyIncomingDamage(
     remaining -= absorbedByTemp;
   }
   return {
-    hp: clamp(hp - remaining, 0, HP_MAX),
+    hp: Math.max(0, hp - remaining),
     tempHp: nextTemp,
     absorbedByTemp,
     toHp: remaining,
@@ -764,6 +752,7 @@ function DamageAdjuster({
   sheet: Sheet;
   setSheet: (next: Sheet | ((prev: Sheet) => Sheet)) => void;
 }) {
+  const gary = useGary();
   const [ui, setUi] = usePersistentState<DamageUi>(
     "gary-grapplesauce-combat:damage-ui",
     DEFAULT_DAMAGE_UI,
@@ -856,8 +845,8 @@ function DamageAdjuster({
     } else if (finalDamage > 0 && after.absorbedByTemp > 0) {
       bits.push(`HP unchanged at ${after.hp}`);
     }
-    if (isBloodied(after.hp) && !isBloodied(before.hp)) {
-      bits.push(`now bloodied (≤${BLOODIED_AT})`);
+    if (isBloodied(after.hp, gary) && !isBloodied(before.hp, gary)) {
+      bits.push(`now bloodied (≤${gary.bloodiedAt})`);
     }
     if (autoReason && ui.effectiveness === "auto") {
       bits.push(`${autoReason} resistance applied`);
@@ -877,7 +866,7 @@ function DamageAdjuster({
       });
       return;
     }
-    const next = clamp(sheet.hp + raw, 0, HP_MAX);
+    const next = clamp(sheet.hp + raw, 0, gary.hpMax);
     setSheet((s) => ({ ...s, hp: next }));
     setOutcome({
       tone: "info",
@@ -1123,7 +1112,7 @@ function DamageAdjuster({
               variant="ghost"
               icon={Heart}
               onClick={() =>
-                setSheet((s) => ({ ...s, hp: HP_MAX, tempHp: 0 }))
+                setSheet((s) => ({ ...s, hp: gary.hpMax, tempHp: 0 }))
               }
             >
               Full HP
@@ -1180,7 +1169,7 @@ const CHIP =
 
 type EffectChip = { text: string; tone: "bad" | "good" };
 
-function effectChips(e: ConditionEffects): EffectChip[] {
+function effectChips(e: ConditionEffects, gary: GaryStats): EffectChip[] {
   if (e.dead) return [{ text: "Exhaustion 6 — Gary is dead", tone: "bad" }];
   const chips: EffectChip[] = [];
   if (e.d20Penalty === 2 * (EXHAUSTION_DEATH - 1)) {
@@ -1189,7 +1178,7 @@ function effectChips(e: ConditionEffects): EffectChip[] {
   if (e.cantAct.length > 0) {
     chips.push({ text: "Can’t act or react", tone: "bad" });
   }
-  const atk = GARY.attack - e.d20Penalty;
+  const atk = gary.attack - e.d20Penalty;
   if (e.cantAct.length === 0 && (e.d20Penalty > 0 || e.attack.roll !== "normal")) {
     const mode = ROLL_SHORT[e.attack.roll];
     chips.push({
@@ -1370,8 +1359,9 @@ function StatusPanels({
   sheet: Sheet;
   onDetails: () => void;
 }) {
+  const gary = useGary();
   const now: ReactNode[] = [];
-  if (isBloodied(sheet.hp)) {
+  if (isBloodied(sheet.hp, gary)) {
     now.push(
       <span key="bloodied" className={NOW_CHIP.bad}>
         <Tip id="bloodied" fill>
@@ -1399,7 +1389,7 @@ function StatusPanels({
     );
   }
 
-  const effects = effectChips(effectsFor(sheet)).map((c) => (
+  const effects = effectChips(effectsFor(sheet, gary), gary).map((c) => (
     <span
       key={c.text}
       className={cx(SLOT_CHIP, TONE_CHIP[c.tone])}
@@ -1531,12 +1521,13 @@ function EffectRow({
 }
 
 function ConditionEffectsCard({ sheet }: { sheet: Sheet }) {
-  const e = effectsFor(sheet);
+  const gary = useGary();
+  const e = effectsFor(sheet, gary);
   if (!e.any) {
     return (
       <Text tone="tertiary">
-        No conditions — Gary is at his normal numbers: attack {signed(GARY.attack)},
-        Athletics {signed(GARY.athletics)}, speed {GARY.speed} ft, AC {GARY.ac}.
+        No conditions — Gary is at his normal numbers: attack {signed(gary.attack)},
+        Athletics {signed(gary.athletics)}, speed {gary.speed} ft, AC {gary.ac}.
       </Text>
     );
   }
@@ -1574,14 +1565,14 @@ function ConditionEffectsCard({ sheet }: { sheet: Sheet }) {
       <EffectRow
         label="Your attacks"
         icon={Swords}
-        value={`${signed(GARY.attack - pen)} to hit`}
+        value={`${signed(gary.attack - pen)} to hit`}
         badge={rollBadge(e.attack)}
         detail={joinDetail(rollReasons(e.attack), penaltyNote)}
       />
       <EffectRow
         label="Athletics"
         icon={BicepsFlexed}
-        value={signed(GARY.athletics - pen)}
+        value={signed(gary.athletics - pen)}
         badge={rollBadge(e.checks)}
         detail={joinDetail(
           rollReasons(e.checks),
@@ -1624,7 +1615,7 @@ function ConditionEffectsCard({ sheet }: { sheet: Sheet }) {
                     {label}
                   </span>
                   <span className="text-[0.9rem] font-semibold tabular-nums">
-                    {fail ? "Fail" : signed(GARY.saves[id] - pen)}
+                    {fail ? "Fail" : signed(gary.saves[id] - pen)}
                     {!fail && s.effect.roll === "disadvantage" ? " Dis" : ""}
                   </span>
                 </div>
@@ -1647,7 +1638,7 @@ function ConditionEffectsCard({ sheet }: { sheet: Sheet }) {
       <EffectRow
         label="Attacks vs. Gary"
         icon={ShieldHalf}
-        value={`AC ${GARY.ac}`}
+        value={`AC ${gary.ac}`}
         badge={rollBadge(e.againstNear, true)}
         detail={joinDetail(
           e.againstNear.roll !== e.againstFar.roll
@@ -1672,7 +1663,7 @@ function ConditionEffectsCard({ sheet }: { sheet: Sheet }) {
       <EffectRow
         label="Initiative"
         icon={Zap}
-        value={signed(GARY.initiative - pen)}
+        value={signed(gary.initiative - pen)}
         badge={rollBadge(e.initiative)}
         detail={joinDetail(rollReasons(e.initiative), penaltyNote)}
       />
@@ -1705,7 +1696,8 @@ function StatusBar({
   sheet: Sheet;
   setSheet: (next: Sheet | ((prev: Sheet) => Sheet)) => void;
 }) {
-  const bloodied = isBloodied(sheet.hp);
+  const gary = useGary();
+  const bloodied = isBloodied(sheet.hp, gary);
   return (
     <Card>
       <div className="flex flex-col gap-4 p-4">
@@ -1727,14 +1719,18 @@ function StatusBar({
               </span>
             ) : null}
             <span className="mb-1 text-sm whitespace-nowrap text-faint tabular-nums">
-              / {HP_MAX} HP
+              /{" "}
+              <span key={gary.hpMax} className="inline-block animate-pop-in">
+                {gary.hpMax}
+              </span>{" "}
+              HP
             </span>
           </div>
           <div
             className="mt-3 h-2.5 overflow-hidden rounded-full border border-line bg-well"
             role="meter"
             aria-valuemin={0}
-            aria-valuemax={HP_MAX}
+            aria-valuemax={gary.hpMax}
             aria-valuenow={sheet.hp}
             aria-label="Hit points"
           >
@@ -1745,7 +1741,7 @@ function StatusBar({
                   ? "from-crimson to-crimson-soft"
                   : "from-gold-deep to-gold-soft",
               )}
-              style={{ width: `${Math.round((sheet.hp / HP_MAX) * 100)}%` }}
+              style={{ width: `${Math.round((sheet.hp / gary.hpMax) * 100)}%` }}
             />
           </div>
         </div>
@@ -2211,9 +2207,9 @@ function d20LogEntry({
   };
 }
 
-function damageLogEntry(dice: number[], crit: boolean): NewRoll {
-  const bonus = GARY.fisticuffsBonus;
-  const notation = `${dice.length}d${GARY.fisticuffsDie}`;
+function damageLogEntry(dice: number[], crit: boolean, gary: GaryStats): NewRoll {
+  const bonus = gary.fisticuffsBonus;
+  const notation = `${dice.length}d${gary.fisticuffsDie}`;
   return {
     label: crit ? "Unarmed damage · crit" : "Unarmed damage",
     expression: withModifier(notation, bonus),
@@ -2367,16 +2363,17 @@ function RollPanel({
   sheet: Sheet;
   setSheet: (next: Sheet | ((prev: Sheet) => Sheet)) => void;
 }) {
+  const gary = useGary();
   const [result, setResult] = useState<ShownRoll | null>(null);
   const { record, crit, setCrit } = useRollLog();
-  const effects = effectsFor(sheet);
+  const effects = effectsFor(sheet, gary);
   const penalty = effects.d20Penalty;
   const cantAct = effects.cantAct.length > 0;
 
   const saves: D20Spec[] = ABILITIES.map(({ id, label }) => ({
     id: `save-${id}`,
     label: `${label} save`,
-    bonus: GARY.saves[id] - penalty,
+    bonus: gary.saves[id] - penalty,
     effect: effects.saves[id].effect,
     autoFail: effects.saves[id].autoFail,
     swagger: false,
@@ -2386,12 +2383,12 @@ function RollPanel({
     ...ABILITIES.map(({ id, label }) => ({
       id: `check-${id}`,
       label: `${label} check`,
-      bonus: GARY.checks[id] - penalty,
+      bonus: gary.checks[id] - penalty,
       effect: effects.checks,
       autoFail: [],
       swagger: sheet.swagger && SWAGGER_ABILITIES.has(id),
     })),
-    ...GARY.skills.map((skill) => ({
+    ...gary.skills.map((skill) => ({
       id: skill.id,
       label: skill.label,
       bonus: skill.bonus - penalty,
@@ -2402,7 +2399,7 @@ function RollPanel({
     {
       id: "initiative",
       label: "Initiative",
-      bonus: GARY.initiative - penalty,
+      bonus: gary.initiative - penalty,
       effect: effects.initiative,
       autoFail: [],
       swagger: false,
@@ -2412,7 +2409,7 @@ function RollPanel({
   const attack: D20Spec = {
     id: "attack",
     label: "Unarmed",
-    bonus: GARY.attack - penalty,
+    bonus: gary.attack - penalty,
     effect: effects.attack,
     autoFail: [],
     swagger: false,
@@ -2480,10 +2477,10 @@ function RollPanel({
 
   function rollDamage() {
     const dice = Array.from({ length: crit ? 2 : 1 }, () =>
-      rollDie(GARY.fisticuffsDie),
+      rollDie(gary.fisticuffsDie),
     );
-    const bonus = GARY.fisticuffsBonus;
-    record(damageLogEntry(dice, crit));
+    const bonus = gary.fisticuffsBonus;
+    record(damageLogEntry(dice, crit, gary));
     setCrit(false);
     setResult({
       kind: "damage",
@@ -2558,7 +2555,7 @@ function RollPanel({
                 crit ? "text-gold-soft" : "text-ink",
               )}
             >
-              {crit ? 2 : 1}d{GARY.fisticuffsDie}+{GARY.fisticuffsBonus}
+              {crit ? 2 : 1}d{gary.fisticuffsDie}+{gary.fisticuffsBonus}
             </span>
           </button>
           <CritToggle tile />
@@ -2581,6 +2578,7 @@ function RollReadout({
   result: ShownRoll;
   onSwagger: () => void;
 }) {
+  const gary = useGary();
   if (result.kind === "damage") {
     return (
       <div className={ROLL_RESULT}>
@@ -2590,7 +2588,7 @@ function RollReadout({
         </div>
         <div className={ROLL_TOTAL}>{result.total}</div>
         <div className={ROLL_MATH}>
-          {result.dice.length}d{GARY.fisticuffsDie} {result.dice.join("+")} +{" "}
+          {result.dice.length}d{gary.fisticuffsDie} {result.dice.join("+")} +{" "}
           {result.bonus} = {result.total} bludgeoning
         </div>
       </div>
@@ -2606,7 +2604,7 @@ function RollReadout({
         </div>
         <div className={ROLL_TOTAL}>+{result.total}</div>
         <div className={ROLL_MATH}>
-          d{GARY.fisticuffsDie} {result.die} + {result.bonus} = {result.total} temp
+          d{gary.fisticuffsDie} {result.die} + {result.bonus} = {result.total} temp
         </div>
         <div className={ROLL_NOTES}>
           Temp HP {result.tempBefore} → {result.tempAfter}
@@ -2695,11 +2693,12 @@ function ActionRolls({
   sheet: Sheet;
   setSheet: (next: Sheet | ((prev: Sheet) => Sheet)) => void;
 }) {
+  const gary = useGary();
   const [line, setLine] = useState<string | null>(null);
   const { record, crit, setCrit } = useRollLog();
-  const effects = effectsFor(sheet);
+  const effects = effectsFor(sheet, gary);
   const cantAct = effects.cantAct.length > 0;
-  const attackBonus = GARY.attack - effects.d20Penalty;
+  const attackBonus = gary.attack - effects.d20Penalty;
   const attackMode = ROLL_SHORT[effects.attack.roll];
 
   function rollAttack() {
@@ -2738,28 +2737,28 @@ function ActionRolls({
 
   function rollDamage() {
     const faces = crit ? 2 : 1;
-    const rolled = Array.from({ length: faces }, () => rollDie(GARY.fisticuffsDie));
-    const total = rolled.reduce((sum, n) => sum + n, 0) + GARY.fisticuffsBonus;
-    record(damageLogEntry(rolled, crit));
+    const rolled = Array.from({ length: faces }, () => rollDie(gary.fisticuffsDie));
+    const total = rolled.reduce((sum, n) => sum + n, 0) + gary.fisticuffsBonus;
+    record(damageLogEntry(rolled, crit, gary));
     setCrit(false);
     setLine(
-      `${crit ? "Crit " : ""}${faces}d${GARY.fisticuffsDie} ${rolled.join("+")} + ${GARY.fisticuffsBonus} = ${total} bludgeoning`,
+      `${crit ? "Crit " : ""}${faces}d${gary.fisticuffsDie} ${rolled.join("+")} + ${gary.fisticuffsBonus} = ${total} bludgeoning`,
     );
   }
 
   function rollBrace() {
-    const die = rollDie(GARY.fisticuffsDie);
-    const total = die + GARY.braceBonus;
+    const die = rollDie(gary.fisticuffsDie);
+    const total = die + gary.braceBonus;
     const next = Math.max(sheet.tempHp, total);
     setSheet((s) => ({ ...s, tempHp: Math.max(s.tempHp, total) }));
     record({
       label: "Brace Up (temp HP)",
-      expression: withModifier(`1d${GARY.fisticuffsDie}`, GARY.braceBonus),
-      breakdown: withModifier(`d${GARY.fisticuffsDie} (${die})`, GARY.braceBonus),
+      expression: withModifier(`1d${gary.fisticuffsDie}`, gary.braceBonus),
+      breakdown: withModifier(`d${gary.fisticuffsDie} (${die})`, gary.braceBonus),
       total,
     });
     setLine(
-      `Brace Up d${GARY.fisticuffsDie} ${die} + ${GARY.braceBonus} = ${total} temp${
+      `Brace Up d${gary.fisticuffsDie} ${die} + ${gary.braceBonus} = ${total} temp${
         next === sheet.tempHp ? ` · kept ${sheet.tempHp}` : ` · temp ${sheet.tempHp} → ${next}`
       }`,
     );
@@ -2802,15 +2801,15 @@ function ActionRolls({
           >
             <Sword aria-hidden />
             {crit
-              ? `Crit 2d${GARY.fisticuffsDie}+${GARY.fisticuffsBonus}`
-              : `Damage 1d${GARY.fisticuffsDie}+${GARY.fisticuffsBonus}`}
+              ? `Crit 2d${gary.fisticuffsDie}+${gary.fisticuffsBonus}`
+              : `Damage 1d${gary.fisticuffsDie}+${gary.fisticuffsBonus}`}
           </button>
         ) : null}
         {dice.includes("damage") ? <CritToggle /> : null}
         {dice.includes("brace") ? (
           <button type="button" className={LINE_ROLL_BTN} onClick={rollBrace}>
             <ShieldPlus aria-hidden />
-            Brace Up 1d{GARY.fisticuffsDie}+{GARY.braceBonus}
+            Brace Up 1d{gary.fisticuffsDie}+{gary.braceBonus}
           </button>
         ) : null}
         {dice.includes("swagger") ? (
@@ -3210,11 +3209,11 @@ function DiceRoller() {
 type MainTab = "play" | "hit" | "roll" | "conds" | "rest" | "gear" | "bio";
 
 /** Plain-language state for the AI voice prompt. */
-function personaStatus(sheet: Sheet) {
-  const effects = effectsFor(sheet);
+function personaStatus(sheet: Sheet, gary: GaryStats) {
+  const effects = effectsFor(sheet, gary);
   if (effects.dead) return "Gary is dead (Exhaustion 6).";
   const parts = [
-    `HP ${sheet.hp} of ${HP_MAX}${isBloodied(sheet.hp) ? " (bloodied, hurting)" : ""}`,
+    `HP ${sheet.hp} of ${gary.hpMax}${isBloodied(sheet.hp, gary) ? " (bloodied, hurting)" : ""}`,
     `Moxie ${sheet.moxie} of ${MOXIE_MAX}`,
   ];
   if (sheet.tempHp > 0) parts.push(`${sheet.tempHp} temp HP`);
@@ -3237,12 +3236,35 @@ export function GaryCombatTool() {
     DEFAULT_SHEET,
     { normalize: normalizeSheet, describe: describeSheetChange },
   );
-  const sheet = sheetHistory.value;
-  const setSheet = sheetHistory.set;
   const inventory = useUndoableState<Inventory>(
     "gary-grapplesauce-combat:inventory",
     DEFAULT_INVENTORY,
-    { describe: describeInventory, coalesceMs: 4000 },
+    {
+      normalize: normalizeInventory,
+      describe: describeInventory,
+      coalesceMs: 4000,
+    },
+  );
+  const gary = useMemo(
+    () => computeGary(inventory.value.items),
+    [inventory.value.items],
+  );
+  const hpMax = gary.hpMax;
+  const sheetRaw = sheetHistory.value;
+  const setSheetRaw = sheetHistory.set;
+  // Taking off a Con item can drop max HP below current HP.
+  const sheet = useMemo(
+    () => (sheetRaw.hp > hpMax ? { ...sheetRaw, hp: hpMax } : sheetRaw),
+    [sheetRaw, hpMax],
+  );
+  const setSheet = useCallback(
+    (next: Sheet | ((prev: Sheet) => Sheet)) =>
+      setSheetRaw((prev) => {
+        const current = prev.hp > hpMax ? { ...prev, hp: hpMax } : prev;
+        const value = typeof next === "function" ? next(current) : next;
+        return value.hp > hpMax ? { ...value, hp: hpMax } : value;
+      }),
+    [setSheetRaw, hpMax],
   );
   const [tab, setTab] = usePersistentState<MainTab>(
     "gary-grapplesauce-combat:tab",
@@ -3301,8 +3323,8 @@ export function GaryCombatTool() {
     if (!selectedGoal) return null;
     const option = GOAL_OPTIONS.find((g) => g.id === selectedGoal);
     if (!option || option.cost > sheet.moxie) return null;
-    return planFor(selectedGoal, sheet);
-  }, [selectedGoal, sheet]);
+    return planFor(selectedGoal, sheet, gary);
+  }, [selectedGoal, sheet, gary]);
 
   const plan = selectedGoal ? liveGoalPlan : staticPlan;
 
@@ -3347,7 +3369,7 @@ export function GaryCombatTool() {
 
   function pickReaction(kind: ReactionKind) {
     setSelectedGoal(null);
-    setStaticPlan(reactionPlan(kind));
+    setStaticPlan(reactionPlan(kind, gary));
     setSpentApplied(false);
     setPhase("result");
   }
@@ -3434,16 +3456,16 @@ export function GaryCombatTool() {
     }
   }
 
-  const effects = effectsFor(sheet);
+  const effects = effectsFor(sheet, gary);
   const cantAct = effects.cantAct.length > 0;
   const canBloodiedReaction =
-    sheet.bloodiedUnbowed && isBloodied(sheet.hp) && !cantAct;
+    sheet.bloodiedUnbowed && isBloodied(sheet.hp, gary) && !cantAct;
   const bloodiedBlockedReason = cantAct
     ? `Can’t take Reactions (${reasonText(effects.cantAct)})`
     : !sheet.bloodiedUnbowed
       ? "Already used this short rest"
-      : !isBloodied(sheet.hp)
-        ? `Not bloodied (need HP ≤ ${BLOODIED_AT})`
+      : !isBloodied(sheet.hp, gary)
+        ? `Not bloodied (need HP ≤ ${gary.bloodiedAt})`
         : null;
   const penalty = effects.d20Penalty;
   const attackMode = ROLL_SHORT[effects.attack.roll];
@@ -3459,6 +3481,7 @@ export function GaryCombatTool() {
         : "normal";
 
   return (
+    <GaryContext.Provider value={gary}>
     <RollLogContext.Provider value={rollApi}>
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:items-start lg:gap-6">
       <Stack gap={14} className="lg:sticky lg:top-4">
@@ -3487,30 +3510,72 @@ export function GaryCombatTool() {
                 label="Attack"
                 tone={attackTone}
                 value={
-                  cantAct
-                    ? "Can’t act"
-                    : `${signed(GARY.attack - penalty)}${attackMode ? ` ${attackMode}` : ""}`
+                  <span
+                    key={cantAct ? "cant" : `${gary.attack}-${penalty}-${attackMode}`}
+                    className="inline-block animate-pop-in"
+                  >
+                    {cantAct
+                      ? "Can’t act"
+                      : `${signed(gary.attack - penalty)}${attackMode ? ` ${attackMode}` : ""}`}
+                  </span>
                 }
               />
-              <Stat icon={Sword} label="Damage" value={GARY.damage.split(" ")[0]} />
-              <Stat icon={ShieldHalf} label="AC" value={GARY.ac} />
+              <Stat
+                icon={Sword}
+                label="Damage"
+                value={
+                  <span key={gary.damage} className="inline-block animate-pop-in">
+                    {gary.damage.split(" ")[0]}
+                  </span>
+                }
+              />
+              <Stat
+                icon={ShieldHalf}
+                label="AC"
+                value={
+                  <span key={gary.ac} className="inline-block animate-pop-in">
+                    {gary.ac}
+                  </span>
+                }
+              />
               <Stat
                 icon={BicepsFlexed}
                 label="Athletics"
                 tone={penalty > 0 ? "bad" : "normal"}
-                value={signed(GARY.athletics - penalty)}
+                value={
+                  <span
+                    key={`${gary.athletics}-${penalty}`}
+                    className="inline-block animate-pop-in"
+                  >
+                    {signed(gary.athletics - penalty)}
+                  </span>
+                }
               />
               <Stat
                 icon={Footprints}
                 label="Speed"
-                tone={effects.speed.value !== GARY.speed ? "bad" : "normal"}
-                value={`${effects.speed.value} ft`}
+                tone={effects.speed.value !== gary.speed ? "bad" : "normal"}
+                value={
+                  <span
+                    key={effects.speed.value}
+                    className="inline-block animate-pop-in"
+                  >
+                    {effects.speed.value} ft
+                  </span>
+                }
               />
               <Stat
                 icon={Zap}
                 label="Init"
                 tone={penalty > 0 ? "bad" : "normal"}
-                value={signed(GARY.initiative - penalty)}
+                value={
+                  <span
+                    key={`${gary.initiative}-${penalty}`}
+                    className="inline-block animate-pop-in"
+                  >
+                    {signed(gary.initiative - penalty)}
+                  </span>
+                }
               />
             </div>
           </div>
@@ -3877,7 +3942,7 @@ export function GaryCombatTool() {
           />
         ) : null}
 
-        {tab === "bio" ? <PersonaPanel status={personaStatus(sheet)} /> : null}
+        {tab === "bio" ? <PersonaPanel status={personaStatus(sheet, gary)} /> : null}
 
         <footer className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-1 text-[0.8rem] text-faint">
           <span className="inline-flex items-center gap-1.5">
@@ -3972,6 +4037,7 @@ export function GaryCombatTool() {
       />
     </div>
     </RollLogContext.Provider>
+    </GaryContext.Provider>
   );
 }
 

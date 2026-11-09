@@ -132,7 +132,7 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
     id: "bloodied",
     label: "Bloodied",
     summary:
-      "A creature is Bloodied while it has half its Hit Points or fewer (Gary: HP ≤ 51). Many Pugilist comeback features key off this.",
+      "A creature is Bloodied while it has half its Hit Points or fewer. Gary’s threshold is half of current max HP (51 with his usual gear). Many Pugilist comeback features key off this.",
     source: "2024 Rules Glossary · Bloodied",
     href: `${RULES_GLOSSARY_URL}#Bloodied`,
   },

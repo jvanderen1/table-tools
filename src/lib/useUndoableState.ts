@@ -113,14 +113,14 @@ export function useUndoableState<T>(
           const entry = past[past.length - 1];
           past = past.slice(0, -1);
           future = [{ ...entry, state: value }, ...future];
-          value = entry.state;
+          value = normalize(entry.state);
         }
       } else {
         for (let i = 0; i < a.steps && future.length > 0; i++) {
           const [entry, ...rest] = future;
           future = rest;
           past = [...past, { ...entry, state: value }];
-          value = entry.state;
+          value = normalize(entry.state);
         }
       }
       return { value, past, future };

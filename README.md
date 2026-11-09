@@ -66,7 +66,7 @@ Optional second host, deployed from the same `main` pushes as a Worker with stat
 
 1. **Workers & Pages → Create → Import a repository**, pick this repo.
 2. Project name `table-tools` (must match `name` in `wrangler.jsonc`).
-3. Build command `BASE_PATH=/ npm run build` (the site lives at the domain root there), deploy command `npx wrangler deploy`, preview command left as the default. Node comes from `.node-version`.
+3. Build command `BASE_PATH=/ npm run build` (the site lives at the domain root there), deploy command `npx wrangler deploy`, preview command left as the default. Node comes from `.node-version`. Leave this command as-is: locally it runs Vite under Bun, and on GitHub Actions and Cloudflare (no Bun installed) it runs Vite under Node.
 
 Each origin has its own `localStorage`, so use **Backup → Save backup file** on one and **Restore from file** on the other to move state.
 

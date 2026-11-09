@@ -75,7 +75,7 @@ Always visible above tabs: **HP bar**, **Moxie dots**, and three status sections
 - **Now** — Bloodied, Exhaustion, and conditions in a 3 × 2 slot grid. More than 6 → the last slot becomes “+N more” (opens Conds details).
 - **Effects** — what those mean for Gary’s numbers, 2 × 2 slots, same “+N more” rule, plus **Details**.
 
-Advanced damage options (override resistance, custom ± steps, temp HP) stay under **More damage options**.
+**Resistance and temp HP** (the disclosure under the outcome): how the hit lands (Auto / Full / Half / None / Double), add the typed amount as temp HP, clear temp, or fill HP.
 
 ### Persistence
 
@@ -100,7 +100,7 @@ The sheet and the inventory use `useUndoableState` (`src/lib/useUndoableState.ts
 
 ### Hit tab behavior
 
-- Keyboard amount field (Enter = take damage; ↑/↓ = ±1). Quick ± chips (1 / 5 / 10 / 20) plus **Save step** for a custom amount; custom chips have an **X** and a **Remove step** button (defaults stay).
+- Keyboard amount field (Enter = take damage; ↑/↓ = ±1).
 - Damage types: all 13 5e types.
 - **Auto** effectiveness: if Dig Deep is active and type is B/P/S → resistant (½).
 - **Magical** toggle (B/P/S only, remembered like the type): magical hits skip Dig Deep. The Pugilist post just says “Resistance to B/P/S”; the owner chose the nonmagical reading for this table. Petrified still resists everything.

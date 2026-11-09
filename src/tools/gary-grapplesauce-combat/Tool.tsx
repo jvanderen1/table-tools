@@ -80,11 +80,18 @@ type Sheet = {
   conditions: ConditionFlags;
   /** 0 = none, 1–6 = Exhaustion level */
   exhaustion: number;
+  /** Unspent Pugilist hit dice (d10), max 9 */
+  hitDice: number;
 };
 
 const MOXIE_MAX = 5;
 const HP_MAX = 103;
 const BLOODIED_AT = Math.floor(HP_MAX / 2); // ≤ 51
+/** Pugilist d10, one per level. A 2024 Long Rest refills all of them. */
+const HIT_DICE_MAX = 9;
+const HIT_DIE_SIDES = 10;
+/** Swagger Streak adds 1d10 to a failed Str/Dex/Con/Cha check. */
+const SWAGGER_ABILITIES = new Set<Ability>(["str", "dex", "con", "cha"]);
 
 function emptyConditions(): ConditionFlags {
   return Object.fromEntries(
@@ -102,6 +109,7 @@ const DEFAULT_SHEET: Sheet = {
   swagger: true,
   conditions: emptyConditions(),
   exhaustion: 0,
+  hitDice: HIT_DICE_MAX,
 };
 
 function clamp(n: number, min: number, max: number) {
@@ -114,6 +122,7 @@ function normalizeSheet(raw: Sheet): Sheet {
     ...raw,
     conditions: { ...emptyConditions(), ...(raw.conditions ?? {}) },
     exhaustion: clamp(raw.exhaustion ?? 0, 0, 6),
+    hitDice: clamp(raw.hitDice ?? HIT_DICE_MAX, 0, HIT_DICE_MAX),
   };
 }
 
@@ -129,10 +138,21 @@ const GARY = {
   athletics: 13,
   initiative: 3,
   speed: 30,
+  /** Saves include the Towel’s +1. Checks do not. */
   saves: { str: 10, dex: 4, con: 8, int: 1, wis: 3, cha: 2 } satisfies Record<
     Ability,
     number
   >,
+  checks: { str: 5, dex: 3, con: 3, int: 0, wis: 2, cha: 1 } satisfies Record<
+    Ability,
+    number
+  >,
+  skills: [
+    { id: "athletics", label: "Athletics", ability: "str" as const, bonus: 13 },
+    { id: "perception", label: "Perception", ability: "wis" as const, bonus: 6 },
+    { id: "insight", label: "Insight", ability: "wis" as const, bonus: 6 },
+  ],
+  conMod: 3,
 };
 
 /** Re-using Dig Deep costs 1 Exhaustion; reaching level 6 kills Gary. */
@@ -1509,13 +1529,368 @@ function RestPanel({
       <Text tone="tertiary">
         {sheet.exhaustion >= EXHAUSTION_DEATH
           ? "Gary is dead at Exhaustion 6 — no long rest. If the DM revives him, set Exhaustion on the Conds tab."
-          : "Short restores Moxie, Bloodied, Swagger. Long restores HP/uses, clears conditions, and reduces Exhaustion by 1."}
+          : "Short restores Moxie, Bloodied, Swagger. Long restores HP, hit dice, and uses, clears conditions, and reduces Exhaustion by 1."}
       </Text>
     </Stack>
   );
 }
 
-type MainTab = "play" | "hit" | "conds" | "rest";
+type D20Spec = {
+  id: string;
+  label: string;
+  /** Modifier after Exhaustion */
+  bonus: number;
+  effect: RollEffect;
+  autoFail: Reason[];
+  /** This check can take Swagger Streak */
+  swagger: boolean;
+  attack?: boolean;
+};
+
+type ShownRoll =
+  | {
+      kind: "d20";
+      label: string;
+      dice: number[];
+      kept: number;
+      bonus: number;
+      total: number;
+      mode: RollEffect["roll"];
+      autoFail: string | null;
+      notes: string;
+      attack: boolean;
+      swagger: boolean;
+      swaggerDie?: number;
+    }
+  | {
+      kind: "hit-die";
+      die: number;
+      bonus: number;
+      raw: number;
+      gained: number;
+      hpBefore: number;
+      hpAfter: number;
+      left: number;
+    };
+
+function rollDie(sides: number) {
+  const buf = new Uint32Array(1);
+  crypto.getRandomValues(buf);
+  return (buf[0] % sides) + 1;
+}
+
+function d20Notes(effect: RollEffect, penalty: number) {
+  const parts: string[] = [];
+  if (effect.advantage.length > 0 && effect.disadvantage.length > 0) {
+    parts.push(
+      `Adv (${reasonText(effect.advantage)}) and Dis (${reasonText(effect.disadvantage)}) cancel`,
+    );
+  } else if (effect.roll === "advantage") {
+    parts.push(`Advantage: ${reasonText(effect.advantage)}`);
+  } else if (effect.roll === "disadvantage") {
+    parts.push(`Disadvantage: ${reasonText(effect.disadvantage)}`);
+  }
+  if (penalty > 0) parts.push(`Exhaustion −${penalty}`);
+  return parts.join(" · ");
+}
+
+function rollCaption(spec: D20Spec) {
+  if (spec.autoFail.length > 0) return "Auto-fail";
+  const mode =
+    spec.effect.roll === "advantage"
+      ? " Adv"
+      : spec.effect.roll === "disadvantage"
+        ? " Dis"
+        : "";
+  return `${signed(spec.bonus)}${mode}`;
+}
+
+function RollButtons({
+  specs,
+  disabled,
+  onRoll,
+}: {
+  specs: D20Spec[];
+  disabled?: boolean;
+  onRoll: (spec: D20Spec) => void;
+}) {
+  return (
+    <div className="roll-grid">
+      {specs.map((spec) => {
+        const caption = rollCaption(spec);
+        const tone =
+          spec.autoFail.length > 0 || spec.effect.roll === "disadvantage"
+            ? "bad"
+            : spec.effect.roll === "advantage"
+              ? "good"
+              : "";
+        return (
+          <button
+            key={spec.id}
+            type="button"
+            className="roll-btn"
+            disabled={disabled}
+            onClick={() => onRoll(spec)}
+          >
+            <span>{spec.label}</span>
+            <span className={`roll-btn-bonus${tone ? ` ${tone}` : ""}`}>
+              {caption}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function RollPanel({
+  sheet,
+  setSheet,
+}: {
+  sheet: Sheet;
+  setSheet: (next: Sheet | ((prev: Sheet) => Sheet)) => void;
+}) {
+  const [result, setResult] = useState<ShownRoll | null>(null);
+  const effects = effectsFor(sheet);
+  const penalty = effects.d20Penalty;
+  const cantAct = effects.cantAct.length > 0;
+
+  const saves: D20Spec[] = ABILITIES.map(({ id, label }) => ({
+    id: `save-${id}`,
+    label: `${label} save`,
+    bonus: GARY.saves[id] - penalty,
+    effect: effects.saves[id].effect,
+    autoFail: effects.saves[id].autoFail,
+    swagger: false,
+  }));
+
+  const checks: D20Spec[] = [
+    ...ABILITIES.map(({ id, label }) => ({
+      id: `check-${id}`,
+      label: `${label} check`,
+      bonus: GARY.checks[id] - penalty,
+      effect: effects.checks,
+      autoFail: [],
+      swagger: sheet.swagger && SWAGGER_ABILITIES.has(id),
+    })),
+    ...GARY.skills.map((skill) => ({
+      id: skill.id,
+      label: skill.label,
+      bonus: skill.bonus - penalty,
+      effect: effects.checks,
+      autoFail: [],
+      swagger: sheet.swagger && SWAGGER_ABILITIES.has(skill.ability),
+    })),
+    {
+      id: "initiative",
+      label: "Initiative",
+      bonus: GARY.initiative - penalty,
+      effect: effects.initiative,
+      autoFail: [],
+      swagger: false,
+    },
+  ];
+
+  const attack: D20Spec = {
+    id: "attack",
+    label: "Unarmed",
+    bonus: GARY.attack - penalty,
+    effect: effects.attack,
+    autoFail: [],
+    swagger: false,
+    attack: true,
+  };
+
+  function rollD20(spec: D20Spec) {
+    const mode = spec.autoFail.length > 0 ? "normal" : spec.effect.roll;
+    const first = rollDie(20);
+    const dice = mode === "normal" ? [first] : [first, rollDie(20)];
+    const kept =
+      mode === "advantage"
+        ? Math.max(...dice)
+        : mode === "disadvantage"
+          ? Math.min(...dice)
+          : first;
+    setResult({
+      kind: "d20",
+      label: spec.label,
+      dice,
+      kept,
+      bonus: spec.bonus,
+      total: kept + spec.bonus,
+      mode,
+      autoFail:
+        spec.autoFail.length > 0 ? reasonText(spec.autoFail) : null,
+      notes: d20Notes(spec.effect, penalty),
+      attack: Boolean(spec.attack),
+      swagger: spec.swagger,
+    });
+  }
+
+  function addSwagger() {
+    if (!result || result.kind !== "d20" || !result.swagger || !sheet.swagger) {
+      return;
+    }
+    const die = rollDie(10);
+    setSheet((s) => ({ ...s, swagger: false }));
+    setResult({
+      ...result,
+      total: result.total + die,
+      swagger: false,
+      swaggerDie: die,
+    });
+  }
+
+  function spendHitDie() {
+    if (sheet.hitDice <= 0 || sheet.hp >= HP_MAX) return;
+    const die = rollDie(HIT_DIE_SIDES);
+    const raw = Math.max(0, die + GARY.conMod);
+    const gained = Math.min(raw, HP_MAX - sheet.hp);
+    const hpAfter = sheet.hp + gained;
+    setSheet((s) => ({
+      ...s,
+      hp: hpAfter,
+      hitDice: s.hitDice - 1,
+    }));
+    setResult({
+      kind: "hit-die",
+      die,
+      bonus: GARY.conMod,
+      raw,
+      gained,
+      hpBefore: sheet.hp,
+      hpAfter,
+      left: sheet.hitDice - 1,
+    });
+  }
+
+  if (effects.dead) {
+    return (
+      <Text tone="secondary">
+        Gary is dead at Exhaustion 6, so there’s nothing to roll.
+      </Text>
+    );
+  }
+
+  const attackNote = cantAct
+    ? `Can’t attack: ${reasonText(effects.cantAct)}.`
+    : null;
+
+  return (
+    <Stack gap={16}>
+      {result ? <RollReadout result={result} onSwagger={addSwagger} /> : null}
+
+      <div className="field">
+        <span className="field-label">Saving throws</span>
+        <RollButtons specs={saves} onRoll={rollD20} />
+      </div>
+
+      <div className="field">
+        <span className="field-label">Checks</span>
+        <RollButtons specs={checks} onRoll={rollD20} />
+        {effects.checkAutoFail.length > 0 ? (
+          <Text tone="tertiary">
+            {reasonText(effects.checkAutoFail)} — those checks fail on their
+            own, so don’t trust a roll that needed sight or hearing.
+          </Text>
+        ) : null}
+      </div>
+
+      <div className="field">
+        <span className="field-label">Attack</span>
+        <RollButtons specs={[attack]} disabled={cantAct} onRoll={rollD20} />
+        {attackNote ? <Text tone="tertiary">{attackNote}</Text> : null}
+      </div>
+
+      <div className="field">
+        <span className="field-label">
+          Hit dice · {sheet.hitDice}/{HIT_DICE_MAX}
+        </span>
+        <button
+          type="button"
+          className="roll-btn roll-btn-wide"
+          disabled={sheet.hitDice <= 0 || sheet.hp >= HP_MAX}
+          onClick={spendHitDie}
+        >
+          <span>
+            {sheet.hitDice <= 0
+              ? "No hit dice left"
+              : sheet.hp >= HP_MAX
+                ? "Already at full HP"
+                : `Spend 1d${HIT_DIE_SIDES} + ${GARY.conMod}`}
+          </span>
+          <span className="roll-btn-bonus">
+            {sheet.hitDice} left · heals and spends one
+          </span>
+        </button>
+        <Text tone="tertiary">
+          Short rest healing. A long rest refills all {HIT_DICE_MAX}.
+        </Text>
+      </div>
+    </Stack>
+  );
+}
+
+function RollReadout({
+  result,
+  onSwagger,
+}: {
+  result: ShownRoll;
+  onSwagger: () => void;
+}) {
+  if (result.kind === "hit-die") {
+    return (
+      <div className="roll-result">
+        <div className="roll-result-label">Hit die</div>
+        <div className="roll-total">+{result.gained}</div>
+        <div className="roll-math">
+          d{HIT_DIE_SIDES} {result.die} + {result.bonus} = {result.raw}
+          {result.gained < result.raw
+            ? ` · ${result.raw - result.gained} over max`
+            : ""}
+        </div>
+        <div className="roll-notes">
+          HP {result.hpBefore} → {result.hpAfter} · {result.left} hit dice left
+        </div>
+      </div>
+    );
+  }
+
+  const crit = result.attack && !result.autoFail && result.kept === 20;
+  const miss = result.attack && !result.autoFail && result.kept === 1;
+  const dice =
+    result.dice.length === 1
+      ? `d20 ${result.dice[0]}`
+      : `${result.dice[0]} & ${result.dice[1]} → keep ${result.kept}`;
+  const math = result.autoFail
+    ? `${dice} would be ${result.total}`
+    : `${dice} ${signed(result.bonus)} = ${result.total}${
+        result.swaggerDie ? ` · Swagger +${result.swaggerDie}` : ""
+      }`;
+
+  return (
+    <div className="roll-result">
+      <div className="roll-result-label">{result.label}</div>
+      <div className={`roll-total${result.autoFail || miss ? " fail" : ""}`}>
+        {result.autoFail ? "Fail" : miss ? "Miss" : result.total}
+      </div>
+      <div className="roll-math">{math}</div>
+      {crit ? <div className="roll-flag good">Critical hit</div> : null}
+      {miss ? <div className="roll-flag bad">Natural 1 — automatic miss</div> : null}
+      {result.autoFail ? (
+        <div className="roll-flag bad">Automatic failure · {result.autoFail}</div>
+      ) : null}
+      {result.notes ? <div className="roll-notes">{result.notes}</div> : null}
+      {result.swagger ? (
+        <Button variant="secondary" onClick={onSwagger}>
+          Add Swagger +1d10
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+type MainTab = "play" | "hit" | "roll" | "conds" | "rest";
 
 export function GaryCombatTool() {
   const [phase, setPhase] = useState<Phase>("timing");
@@ -1765,6 +2140,7 @@ export function GaryCombatTool() {
           [
             ["play", "Play"],
             ["hit", "Hit"],
+            ["roll", "Roll"],
             ["conds", "Conds"],
             ["rest", "Rest"],
           ] as const
@@ -2003,6 +2379,15 @@ export function GaryCombatTool() {
           <CardHeader>I took a hit</CardHeader>
           <CardBody>
             <DamageAdjuster sheet={sheet} setSheet={setSheet} />
+          </CardBody>
+        </Card>
+      ) : null}
+
+      {tab === "roll" ? (
+        <Card>
+          <CardHeader>Roll</CardHeader>
+          <CardBody>
+            <RollPanel sheet={sheet} setSheet={setSheet} />
           </CardBody>
         </Card>
       ) : null}

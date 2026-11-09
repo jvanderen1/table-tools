@@ -448,8 +448,8 @@ h3 {
 
 .tab-bar {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
   padding: 4px;
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -493,9 +493,10 @@ h3 {
   background: transparent;
   color: var(--text-secondary);
   border-radius: 8px;
-  padding: 10px 8px;
+  padding: 10px 2px;
   cursor: pointer;
   font: inherit;
+  font-size: 0.92rem;
   font-weight: 560;
 }
 
@@ -799,6 +800,106 @@ a.tip-source-link {
 
 .condition-note-head a {
   font-size: 0.8rem;
+}
+
+.roll-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.roll-btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--bg-muted);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 10px 6px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 54px;
+  font: inherit;
+  line-height: 1.2;
+}
+
+.roll-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.roll-btn-wide {
+  width: 100%;
+}
+
+.roll-btn-bonus {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.roll-btn-bonus.bad {
+  color: var(--bad);
+}
+
+.roll-btn-bonus.good {
+  color: var(--good);
+}
+
+.roll-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-muted);
+  text-align: center;
+}
+
+.roll-result-label {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.roll-total {
+  font-family: var(--mono);
+  font-size: 2.6rem;
+  font-weight: 560;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.roll-total.fail {
+  color: var(--bad);
+}
+
+.roll-math {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+}
+
+.roll-notes {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  line-height: 1.4;
+}
+
+.roll-flag {
+  font-size: 0.85rem;
+  font-weight: 560;
+}
+
+.roll-flag.good {
+  color: var(--good);
+}
+
+.roll-flag.bad {
+  color: var(--bad);
 }
 
 .tool-sources {

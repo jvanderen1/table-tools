@@ -44,6 +44,7 @@ Three tabs so the screen isn’t a wall of controls:
 |---|---|
 | **Play** | Combat decision tree (timing → goal/reaction → Action / BA / Reaction) |
 | **Hit** | Take damage / heal (amount + type; Dig Deep auto-resists B/P/S) |
+| **Roll** | Saves, checks, unarmed attack, and hit dice — bonuses include conditions |
 | **Conds** | Effects on Gary (auto-calculated) + 2024 conditions + Exhaustion 0–6 |
 | **Rest** | Once-per-rest toggles + Short / Long rest |
 
@@ -81,6 +82,21 @@ Everything important is in `localStorage` under `table-tools:gary-grapplesauce-c
 - Petrified → Hit tab auto-resists all damage.
 - **Exhaustion 6 = death** (2024 rule). At 6 the decision tree hides, the header/status say dead, and Long rest is disabled. At 5 the Play tab warns “one level from death”.
 - **Dig Deep again** (after the free use) costs 1 Exhaustion: offered in the Survive plan (no Moxie) and on the Rest tab, and refused when it would reach 6.
+
+### Roll tab
+
+Buttons use the same condition math as the effects card (Exhaustion −2 per level, Advantage / Disadvantage, auto-fail saves). Each button shows the bonus you’ll actually roll.
+
+| Button | Bonus before Exhaustion |
+|---|---|
+| Saves | Str +10, Dex +4, Con +8, Int +1, Wis +3, Cha +2 (Towel included) |
+| Ability checks | Str +5, Dex +3, Con +3, Int +0, Wis +2, Cha +1 |
+| Skills | Athletics +13, Perception +6, Insight +6 |
+| Initiative | +3 |
+| Unarmed | +9 to hit (nat 20 crit, nat 1 miss) |
+| Hit die | 1d10 + 3, pool of 9. Spending one heals immediately. Long rest refills them. |
+
+Str/Dex/Con/Cha checks (including Athletics) offer **Add Swagger +1d10** while that use is ready. Blinded/Deafened don’t auto-fail every check — the tab says which ones need sight or hearing.
 
 The status card shows a short “Effects” chip line; the header line shows adjusted attack/Athletics/speed. Base numbers live in `GARY` in `Tool.tsx` — update there if the sheet changes.
 

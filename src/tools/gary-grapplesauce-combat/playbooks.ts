@@ -33,7 +33,8 @@ export const PLAYBOOKS: PlaybookDef[] = [
   {
     id: "meat-shield",
     title: "Meat Shield",
-    blurb: "Grapple someone, then hide behind them. A miss can be redirected.",
+    blurb:
+      "Grapple someone first. Half cover against everyone else is free while you hold them. This reaction spends 1 Moxie to redirect a miss.",
     gym: "Hug the problem.",
     when: "turn",
     tag: "Grapple",
@@ -96,7 +97,7 @@ export const PLAYBOOKS: PlaybookDef[] = [
   {
     id: "react-meat-shield",
     title: "Meat Shield",
-    blurb: "Someone else missed you, and you are holding a creature.",
+    blurb: "Someone you are not grappling missed you. Half cover was already on. This spends 1 Moxie to redirect the attack.",
     gym: "Hug the problem.",
     when: "reaction",
     tag: "Reaction",

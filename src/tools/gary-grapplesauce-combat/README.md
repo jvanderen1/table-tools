@@ -96,6 +96,7 @@ The sheet and the inventory use `useUndoableState` (`src/lib/useUndoableState.ts
 
 - **Actions** (`actions.ts`) is the full list from the live sheet: Attack, Haymaker, School of Hard Knocks, Fisticuffs, Brace Up, One-Two, Stick and Move, Dig Deep, Bloodied But Unbowed, Meat Shield, Mage Slayer, Opportunity Attack, Swagger, Guarded Mind, Inescapable, Compression Lock, Down But Not Out, Dodge, Help. **All actions** on the Play tab adds custom moves.
 - **Playbooks** (`playbooks.ts`) are situations that only name those action ids. My turn lists them (including Meat Shield, caster shutdown, comeback). Reaction and Failed roll use the same list. Custom playbooks show up beside the built-in ones.
+- The Play landing also lists every move under Action, Bonus, Reaction, and Other. Meat Shield’s half cover is free while **Holding a grapple** is on (status card): +2 AC and +2 Dex saves against anyone you are not grappling. The Meat Shield button only spends 1 Moxie to redirect a miss.
 - Each plan’s moves are buttons under the part of the turn they belong to (Action, Bonus Action, or Reaction). “Shut down the caster” puts Stick and Move and One-Two under Bonus Action, above the free Mage Slayer reaction. Tapping one spends the cost and shows the result there: Brace Up and Swagger roll and apply immediately; attack moves then offer to-hit and damage.
 - Live plans recompute when Moxie changes (e.g. Damage focus ↔ free Fisticuffs).
 

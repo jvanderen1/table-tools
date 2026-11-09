@@ -99,7 +99,6 @@ import {
   ABILITIES,
   CONDITION_DEFS,
   EXHAUSTION_DEATH,
-  EXHAUSTION_SUMMARY,
   PUGILIST_POST_URL,
   RULES_GLOSSARY_URL,
   computeConditionEffects,
@@ -112,8 +111,8 @@ import {
   type RollEffect,
 } from "./conditions";
 import { GLOSSARY } from "./glossary";
-import { GlossaryItem, GlossaryList, Tip } from "./Tip";
-import { ActionCatalog } from "./Catalog";
+import { GlossaryList, Tip } from "./Tip";
+import { ActionBrowser, ActionCatalog } from "./Catalog";
 import {
   ACTIONS,
   PART_LABEL,
@@ -256,6 +255,8 @@ type Sheet = {
   guardedMind: boolean;
   /** Once per long rest, after Bloodied But Unbowed while bloodied. */
   downButNotOut: boolean;
+  /** Gary has a creature grappled. Meat Shield half cover is free while this is on. */
+  holdingGrapple: boolean;
   conditions: ConditionFlags;
   /** 0 = none, 1–6 = Exhaustion level */
   exhaustion: number;
@@ -285,6 +286,7 @@ const DEFAULT_SHEET: Sheet = {
   swagger: true,
   guardedMind: true,
   downButNotOut: true,
+  holdingGrapple: false,
   conditions: emptyConditions(),
   exhaustion: 0,
   hitDice: HIT_DICE_MAX,
@@ -302,6 +304,7 @@ function normalizeSheet(raw: Sheet): Sheet {
     exhaustion: clamp(raw.exhaustion ?? 0, 0, 6),
     guardedMind: raw.guardedMind ?? true,
     downButNotOut: raw.downButNotOut ?? true,
+    holdingGrapple: raw.holdingGrapple ?? false,
     hitDice: clamp(raw.hitDice ?? HIT_DICE_MAX, 0, HIT_DICE_MAX),
   };
 }
@@ -324,6 +327,7 @@ const SHEET_FLAGS: [keyof Sheet, string, on: string, off: string][] = [
   ["swagger", "Swagger", "ready", "used"],
   ["guardedMind", "Guarded Mind", "ready", "used"],
   ["downButNotOut", "Down But Not Out", "ready", "used"],
+  ["holdingGrapple", "Grappling", "holding", "let go"],
 ];
 
 /** Plain-language summary of one sheet change, for the undo timeline. */
@@ -1434,7 +1438,12 @@ function StatusPanels({
     );
   }
 
-  const effects = effectChips(effectsFor(sheet, gary), gary).map((c) => (
+  const effects = [
+    ...(sheet.holdingGrapple
+      ? [{ text: "Half cover +2", tone: "good" as const }]
+      : []),
+    ...effectChips(effectsFor(sheet, gary), gary),
+  ].map((c) => (
     <span
       key={c.text}
       className={cx(SLOT_CHIP, TONE_CHIP[c.tone])}
@@ -1568,7 +1577,7 @@ function EffectRow({
 function ConditionEffectsCard({ sheet }: { sheet: Sheet }) {
   const gary = useGary();
   const e = effectsFor(sheet, gary);
-  if (!e.any) {
+  if (!e.any && !sheet.holdingGrapple) {
     return (
       <Text tone="tertiary">
         No conditions — Gary is at his normal numbers: attack {signed(gary.attack)},
@@ -1660,7 +1669,13 @@ function ConditionEffectsCard({ sheet }: { sheet: Sheet }) {
                     {label}
                   </span>
                   <span className="text-[0.9rem] font-semibold tabular-nums">
-                    {fail ? "Fail" : signed(gary.saves[id] - pen)}
+                    {fail
+                      ? "Fail"
+                      : signed(
+                          gary.saves[id] -
+                            pen +
+                            (id === "dex" && sheet.holdingGrapple ? 2 : 0),
+                        )}
                     {!fail && s.effect.roll === "disadvantage" ? " Dis" : ""}
                   </span>
                 </div>
@@ -1676,6 +1691,9 @@ function ConditionEffectsCard({ sheet }: { sheet: Sheet }) {
                 ? `Dex Dis: ${reasonText(e.saves.dex.effect.disadvantage)}`
                 : undefined,
               penaltyNote,
+              sheet.holdingGrapple
+                ? "Dex +2 from Meat Shield half cover (not vs the creature you are grappling)"
+                : undefined,
             ) ?? "Unchanged"}
           </div>
         </div>
@@ -1718,6 +1736,14 @@ function ConditionEffectsCard({ sheet }: { sheet: Sheet }) {
           icon={ShieldCheck}
           value="Resist all"
           detail={`${reasonText(e.resistAll)} — the Hit tab halves damage automatically`}
+        />
+      ) : null}
+      {sheet.holdingGrapple ? (
+        <EffectRow
+          label="AC"
+          icon={ShieldHalf}
+          value={gary.ac + 2}
+          detail="Meat Shield half cover is free while you hold a grapple. +2 AC and +2 Dex saves against anyone you are not grappling. Attacks against the creature you are holding have Advantage (Grappler)."
         />
       ) : null}
       {e.notes.length > 0 ? (
@@ -1820,6 +1846,42 @@ function StatusBar({
             ))}
           </Row>
         </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={sheet.holdingGrapple}
+          className={cx(
+            "flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-3 text-left text-sm",
+            sheet.holdingGrapple
+              ? "border-gold/60 bg-gold/10 text-gold-soft"
+              : "border-line bg-well/60 text-muted hover:border-gold/40",
+          )}
+          onClick={() =>
+            setSheet((s) => ({ ...s, holdingGrapple: !s.holdingGrapple }))
+          }
+        >
+          <span
+            className={cx(
+              "relative h-6 w-10 shrink-0 rounded-full border",
+              sheet.holdingGrapple ? "border-gold bg-gold/80" : "border-line bg-well",
+            )}
+          >
+            <span
+              className={cx(
+                "absolute top-0.5 left-0.5 size-[1.125rem] rounded-full",
+                sheet.holdingGrapple ? "translate-x-4 bg-void" : "translate-x-0 bg-faint",
+              )}
+            />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-medium">Holding a grapple</span>
+            <span className="block text-xs text-faint">
+              {sheet.holdingGrapple
+                ? "Half cover +2 vs everyone else. Free."
+                : "Turn on while you have someone grappled."}
+            </span>
+          </span>
+        </button>
       </div>
       <div className="flex flex-col gap-2.5 border-t border-line/80 bg-well/30 px-4 pt-2.5 pb-3">
         <StatusPanels sheet={sheet} onDetails={onEffectsDetails} />
@@ -1860,7 +1922,6 @@ function ConditionsPanel({
   }
 
   const active = activeConditions(sheet);
-  const [referenceOpen, setReferenceOpen] = useState(false);
 
   return (
     <Stack gap={14}>
@@ -1924,25 +1985,30 @@ function ConditionsPanel({
         {CONDITION_DEFS.map((c) => {
           const on = Boolean(conditions[c.id]);
           return (
-            <button
+            <div
               key={c.id}
-              type="button"
               className={cx(
-                "flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-3 text-left text-sm transition-colors",
+                "flex min-h-11 items-center gap-1 rounded-lg border pr-1.5 pl-2",
                 on
-                  ? "border-gold/70 bg-gold/12 font-semibold text-gold-soft"
-                  : "border-line bg-well/60 text-muted hover:border-gold/40 hover:text-ink",
+                  ? "border-gold/70 bg-gold/12 text-gold-soft"
+                  : "border-line bg-well/60 text-muted",
               )}
-              aria-pressed={on}
-              onClick={() => toggle(c.id)}
             >
-              {on ? (
-                <CircleCheck className="size-4 shrink-0 text-gold" aria-hidden />
-              ) : (
-                <Circle className="size-4 shrink-0 text-faint" aria-hidden />
-              )}
-              {c.label}
-            </button>
+              <button
+                type="button"
+                className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 py-2 text-left text-sm"
+                aria-pressed={on}
+                onClick={() => toggle(c.id)}
+              >
+                {on ? (
+                  <CircleCheck className="size-4 shrink-0 text-gold" aria-hidden />
+                ) : (
+                  <Circle className="size-4 shrink-0 text-faint" aria-hidden />
+                )}
+                <span className="min-w-0 truncate">{c.label}</span>
+              </button>
+              <Tip id={`cond-${c.id}` as keyof typeof GLOSSARY}>{null}</Tip>
+            </div>
           );
         })}
       </div>
@@ -1974,47 +2040,14 @@ function ConditionsPanel({
         </div>
       ) : null}
 
-      <Row gap={8} wrap>
-        <Button
-          variant="ghost"
-          icon={Eraser}
-          disabled={active.length === 0 && exhaustion === 0}
-          onClick={clearConditions}
-        >
-          Clear all conditions
-        </Button>
-        <Button
-          variant="ghost"
-          icon={BookOpen}
-          onClick={() => setReferenceOpen(true)}
-        >
-          What every condition does
-        </Button>
-      </Row>
-
-      <Drawer
-        open={referenceOpen}
-        onClose={() => setReferenceOpen(false)}
-        title="Conditions"
-        icon={BookOpen}
+      <Button
+        variant="ghost"
+        icon={Eraser}
+        disabled={active.length === 0 && exhaustion === 0}
+        onClick={clearConditions}
       >
-        <Stack gap={10}>
-          <Text tone="tertiary">
-            From the 2024 rules on D&D Beyond.{" "}
-            <a
-              className="inline-flex items-center gap-1"
-              href={RULES_GLOSSARY_URL}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Rules Glossary
-              <ExternalLink className="size-3" aria-hidden />
-            </a>
-          </Text>
-          <GlossaryItem label="Exhaustion" summary={EXHAUSTION_SUMMARY} />
-          <GlossaryList kind="condition" />
-        </Stack>
-      </Drawer>
+        Clear all conditions
+      </Button>
     </Stack>
   );
 }
@@ -2423,7 +2456,10 @@ function RollPanel({
   const saves: D20Spec[] = ABILITIES.map(({ id, label }) => ({
     id: `save-${id}`,
     label: `${label} save`,
-    bonus: gary.saves[id] - penalty,
+    bonus:
+      gary.saves[id] -
+      penalty +
+      (id === "dex" && sheet.holdingGrapple ? 2 : 0),
     effect: effects.saves[id].effect,
     autoFail: effects.saves[id].autoFail,
     swagger: false,
@@ -3653,8 +3689,11 @@ export function GaryCombatTool() {
                   icon={ShieldHalf}
                   label="AC"
                   value={
-                    <span key={gary.ac} className="inline-block animate-pop-in">
-                      {gary.ac}
+                    <span
+                      key={`${gary.ac}-${sheet.holdingGrapple}`}
+                      className="inline-block animate-pop-in"
+                    >
+                      {gary.ac + (sheet.holdingGrapple ? 2 : 0)}
                     </span>
                   }
                 />
@@ -3819,6 +3858,10 @@ export function GaryCombatTool() {
                 </CardBody>
               </Card>
             )}
+
+            {!effects.dead && phase === "timing" ? (
+              <ActionBrowser customActions={customActions} />
+            ) : null}
 
             {!effects.dead && phase === "reaction" && (
               <Card>

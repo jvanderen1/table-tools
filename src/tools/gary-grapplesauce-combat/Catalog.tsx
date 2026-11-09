@@ -13,7 +13,7 @@ import {
   type CustomPlaybook,
   type PlaybookWhen,
 } from "./playbooks";
-import { Button, Drawer, Stack, Text } from "../../ui";
+import { Button, Card, CardBody, CardHeader, Drawer, Stack, Text } from "../../ui";
 
 const FIELD =
   "w-full appearance-none rounded-lg border border-line bg-well px-3 py-2 text-sm text-ink outline-none transition-colors placeholder:text-faint focus:border-gold/70";
@@ -28,6 +28,79 @@ const WHEN: { id: PlaybookWhen; label: string }[] = [
   { id: "reaction", label: "Reaction" },
   { id: "check", label: "Failed roll" },
 ];
+
+const BROWSER_PARTS: { id: ActionPart; label: string }[] = [
+  { id: "action", label: "Action" },
+  { id: "bonus", label: "Bonus" },
+  { id: "reaction", label: "Reaction" },
+  { id: "free", label: "Other" },
+];
+
+/** Grouped list of everything Gary can do, on the Play tab. */
+export function ActionBrowser({ customActions }: { customActions: CustomAction[] }) {
+  const [part, setPart] = useState<ActionPart>("action");
+  const [picked, setPicked] = useState<string | null>(null);
+  const items = [...ACTIONS, ...customActions].filter((action) => action.part === part);
+  const current = items.find((action) => action.id === picked) ?? null;
+
+  return (
+    <Card>
+      <CardHeader icon={BookOpen}>What you can do</CardHeader>
+      <CardBody>
+        <Stack gap={10}>
+          <div className="grid grid-cols-4 gap-1 rounded-lg border border-line bg-well/70 p-1" role="tablist">
+            {BROWSER_PARTS.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={part === item.id}
+                className={
+                  part === item.id
+                    ? "min-h-10 cursor-pointer rounded-md bg-surface text-sm font-semibold text-gold-soft"
+                    : "min-h-10 cursor-pointer rounded-md text-sm font-semibold text-muted hover:text-ink"
+                }
+                onClick={() => {
+                  setPart(item.id);
+                  setPicked(null);
+                }}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+          <ul className="m-0 flex h-52 list-none flex-col gap-1 overflow-y-auto rounded-lg border border-line bg-well/30 p-1">
+            {items.map((action) => {
+              const on = current?.id === action.id;
+              return (
+                <li key={action.id}>
+                  <button
+                    type="button"
+                    className={
+                      on
+                        ? "flex min-h-10 w-full cursor-pointer items-center gap-2 rounded-md bg-gold/10 px-2 text-left text-sm text-gold-soft"
+                        : "flex min-h-10 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left text-sm text-ink hover:bg-raised/60"
+                    }
+                    aria-pressed={on}
+                    onClick={() => setPicked(action.id)}
+                  >
+                    <span className="min-w-0 flex-1 truncate">{action.name}</span>
+                    <span className="shrink-0 text-xs text-faint">
+                      {action.moxie > 0 ? `${action.moxie} Moxie` : "Free"}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="flex min-h-16 items-center rounded-lg border border-dashed border-line px-3 py-2 text-sm leading-snug text-muted">
+            {current ? current.summary || "No details yet." : "Tap a move to read it."}
+          </div>
+        </Stack>
+      </CardBody>
+    </Card>
+  );
+}
 
 export function ActionCatalog({
   open,

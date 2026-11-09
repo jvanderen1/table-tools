@@ -168,7 +168,7 @@ export const ACTIONS: GameAction[] = [
     name: "Meat Shield",
     part: "reaction",
     summary:
-      "While you have someone grappled, you have Half Cover against everyone else. If one of them misses you, spend 1 Moxie to make them roll that same attack against the creature you are grappling.",
+      "A creature you are not grappling misses you. Spend 1 Moxie and they make that same attack against a creature you have grappled. Half cover while you hold someone is free and is not this button.",
     moxie: 1,
     apply: "moxie",
     group: "reaction",

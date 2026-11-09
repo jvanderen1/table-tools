@@ -109,6 +109,8 @@ The sheet and the inventory use `useUndoableState` (`src/lib/useUndoableState.ts
 - **Magical** toggle (B/P/S only, remembered like the type): notes the hit. It does not bypass Dig Deep. Petrified still resists everything.
 - Manual override: normal / resistant / immune / vulnerable.
 - Temp HP absorbs before real HP; alerts explain immune / resist / vuln / bloodied.
+- At 0 HP, Heal shows death saves (3 successes stabilize, 3 failures kill, a 20 wakes him at 1 HP, a 1 is two failures). Healing that raises HP clears them. A hit while already at 0 HP is one failure, or two if Critical hit is on. Damage equal to his max HP kills outright.
+- **Rest:** Spend hit die rolls 1d10 + Con (minimum 0), adds it to HP, and uses one of 9 dice. Short rest does not refill them. Long rest does.
 
 ### Conditions behavior
 

@@ -261,6 +261,11 @@ type Sheet = {
   exhaustion: number;
   /** Unspent Pugilist hit dice (d10), max 9 */
   hitDice: number;
+  /** Death saving throws while at 0 HP. Three failures is death. */
+  deathSuccesses: number;
+  deathFailures: number;
+  /** Three successes: unconscious, but no longer dying. */
+  stable: boolean;
 };
 
 const MOXIE_MAX = 5;
@@ -289,6 +294,9 @@ const DEFAULT_SHEET: Sheet = {
   conditions: emptyConditions(),
   exhaustion: 0,
   hitDice: HIT_DICE_MAX,
+  deathSuccesses: 0,
+  deathFailures: 0,
+  stable: false,
 };
 
 function clamp(n: number, min: number, max: number) {
@@ -305,6 +313,9 @@ function normalizeSheet(raw: Sheet): Sheet {
     downButNotOut: raw.downButNotOut ?? true,
     holdingGrapple: raw.holdingGrapple ?? false,
     hitDice: clamp(raw.hitDice ?? HIT_DICE_MAX, 0, HIT_DICE_MAX),
+    deathSuccesses: clamp(raw.deathSuccesses ?? 0, 0, 3),
+    deathFailures: clamp(raw.deathFailures ?? 0, 0, 3),
+    stable: raw.stable ?? false,
   };
 }
 
@@ -318,6 +329,8 @@ const SHEET_NUMBERS: [keyof Sheet, string][] = [
   ["moxie", "Moxie"],
   ["exhaustion", "Exhaustion"],
   ["hitDice", "Hit dice"],
+  ["deathSuccesses", "Death successes"],
+  ["deathFailures", "Death failures"],
 ];
 const SHEET_FLAGS: [keyof Sheet, string, on: string, off: string][] = [
   ["digDeep", "Dig Deep", "restored", "used"],
@@ -327,6 +340,7 @@ const SHEET_FLAGS: [keyof Sheet, string, on: string, off: string][] = [
   ["guardedMind", "Guarded Mind", "ready", "used"],
   ["downButNotOut", "Down But Not Out", "ready", "used"],
   ["holdingGrapple", "Grappling", "holding", "let go"],
+  ["stable", "Death saves", "stable", "dying"],
 ];
 
 /** Plain-language summary of one sheet change, for the undo timeline. */
@@ -418,12 +432,38 @@ function exhaustionForEffects(sheet: Sheet) {
   return level;
 }
 
+function diedOf(sheet: Sheet): "exhaustion" | "saves" | null {
+  if ((sheet.exhaustion ?? 0) >= EXHAUSTION_DEATH) return "exhaustion";
+  if ((sheet.deathFailures ?? 0) >= 3) return "saves";
+  return null;
+}
+
+/** At 0 HP Gary is Unconscious even if that condition box is off. */
 function effectsFor(sheet: Sheet, gary: GaryStats): ConditionEffects {
-  return computeConditionEffects(
-    sheet.conditions,
+  const conditions =
+    sheet.hp <= 0
+      ? { ...sheet.conditions, unconscious: true as const }
+      : sheet.conditions;
+  const effects = computeConditionEffects(
+    conditions,
     exhaustionForEffects(sheet),
     gary.speed,
   );
+  if (diedOf(sheet)) return { ...effects, dead: true };
+  return effects;
+}
+
+/** Healing that raises HP off 0 ends the death saves and the unconsciousness. */
+function wake(sheet: Sheet, hp: number): Sheet {
+  if (sheet.hp > 0 || hp <= 0) return { ...sheet, hp };
+  return {
+    ...sheet,
+    hp,
+    deathSuccesses: 0,
+    deathFailures: 0,
+    stable: false,
+    conditions: { ...sheet.conditions, unconscious: false },
+  };
 }
 
 function signed(n: number) {
@@ -906,6 +946,142 @@ function applyIncomingDamage(
 
 const OUTCOME_SLOT = "min-h-[6.5rem]";
 
+function DeathPips({ filled, tone }: { filled: number; tone: "good" | "bad" }) {
+  return (
+    <div className="grid grid-cols-3 gap-1">
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          className={cx(
+            "h-9 rounded-full border",
+            i < filled
+              ? tone === "good"
+                ? "border-verdant/70 bg-verdant/30"
+                : "border-crimson/70 bg-crimson/40"
+              : "border-line bg-well/60",
+          )}
+        />
+      ))}
+    </div>
+  );
+}
+
+function DeathSaves({
+  sheet,
+  setSheet,
+  amount,
+  hpMax,
+  onNote,
+}: {
+  sheet: Sheet;
+  setSheet: (next: Sheet | ((prev: Sheet) => Sheet)) => void;
+  amount: number;
+  hpMax: number;
+  onNote: (outcome: DamageOutcome) => void;
+}) {
+  const { record } = useRollLog();
+  const dead = sheet.deathFailures >= 3;
+  const canRoll = sheet.hp <= 0 && !dead && !sheet.stable;
+
+  function roll() {
+    if (!canRoll) return;
+    const face = rollDie(20);
+    if (face === 20) {
+      setSheet((s) => wake(s, Math.max(s.hp, 1)));
+      record({
+        label: "Death save",
+        expression: "1d20",
+        breakdown: "d20 (20)",
+        total: 20,
+        result: "Wake",
+        flag: "crit",
+      });
+      onNote({
+        tone: "info",
+        title: "Natural 20",
+        detail: "Gary is back at 1 HP. Death saves cleared.",
+      });
+      return;
+    }
+    const addSuccess = face >= 10 ? 1 : 0;
+    const addFailure = face === 1 ? 2 : face >= 10 ? 0 : 1;
+    const successes = Math.min(3, sheet.deathSuccesses + addSuccess);
+    const failures = Math.min(3, sheet.deathFailures + addFailure);
+    const stable = successes >= 3 && failures < 3;
+    setSheet((s) => ({
+      ...s,
+      deathSuccesses: successes,
+      deathFailures: failures,
+      stable,
+      conditions: { ...s.conditions, unconscious: true },
+    }));
+    record({
+      label: "Death save",
+      expression: "1d20",
+      breakdown: `d20 (${face})`,
+      total: face,
+      result: face === 1 ? "Fail ×2" : face >= 10 ? "Success" : "Fail",
+      flag: face < 10 ? "fail" : undefined,
+    });
+    onNote({
+      tone: failures >= 3 ? "warning" : "info",
+      title:
+        failures >= 3 ? "Dead" : stable ? "Stable" : face >= 10 ? "Success" : "Failure",
+      detail:
+        failures >= 3
+          ? `Rolled ${face}. Three failures. Gary is dead.`
+          : stable
+            ? `Rolled ${face}. Three successes. He is unconscious, but stable.`
+            : face === 1
+              ? `Rolled 1. Two failures (${failures}/3).`
+              : `Rolled ${face}. ${face >= 10 ? "Success" : "Failure"} ${face >= 10 ? successes : failures}/3.`,
+    });
+  }
+
+  function bringBack() {
+    const hp = clamp(Math.max(1, amount), 1, hpMax);
+    setSheet((s) => wake({ ...s, hp: 0 }, hp));
+    onNote({
+      tone: "info",
+      title: "Brought back",
+      detail: `HP 0 → ${hp}. Death saves cleared.`,
+    });
+  }
+
+  const hint = dead
+    ? "Ordinary healing does nothing. Brought back is for a spell that restores life."
+    : sheet.stable
+      ? "Unconscious, but not dying. Healing wakes him. Any damage starts the saves again."
+      : "Roll at the start of his turn. 10 or higher is a success. A 1 is two failures. A 20 wakes him at 1 HP.";
+
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-crimson/40 bg-crimson/10 p-3">
+      <div className="text-sm font-semibold text-crimson-soft">
+        {dead ? "Dead" : sheet.stable ? "Stable" : "Dying"}
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-1">
+          <span className="text-xs text-muted">Successes</span>
+          <DeathPips filled={sheet.deathSuccesses} tone="good" />
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-xs text-muted">Failures</span>
+          <DeathPips filled={sheet.deathFailures} tone="bad" />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <Button variant="danger" icon={Skull} disabled={!canRoll} onClick={roll}>
+          Roll save
+        </Button>
+        <Button variant="secondary" disabled={!dead} onClick={bringBack}>
+          Brought back
+        </Button>
+      </div>
+      <p className="min-h-10 text-xs leading-5 text-faint">{hint}</p>
+    </div>
+  );
+}
+
 function DamageAdjuster({
   sheet,
   setSheet,
@@ -919,6 +1095,8 @@ function DamageAdjuster({
     DEFAULT_DAMAGE_UI,
   );
   const [outcome, setOutcome] = useState<DamageOutcome | null>(null);
+  const [zeroCrit, setZeroCrit] = useState(false);
+  if (sheet.hp > 0 && zeroCrit) setZeroCrit(false);
 
   const raw = Math.max(0, Number.parseInt(ui.amount || "0", 10) || 0);
   const physical = isWeaponPhysical(ui.type);
@@ -970,7 +1148,32 @@ function DamageAdjuster({
     const finalDamage = preview;
     const before = { hp: sheet.hp, tempHp: sheet.tempHp };
     const after = applyIncomingDamage(sheet.hp, sheet.tempHp, finalDamage);
-    setSheet((s) => ({ ...s, hp: after.hp, tempHp: after.tempHp }));
+    const massive = after.toHp >= gary.hpMax && after.toHp > 0;
+    const alreadyDown = before.hp <= 0;
+    const failuresAdded =
+      after.hp === 0 && !massive && alreadyDown && sheet.deathFailures < 3
+        ? zeroCrit
+          ? 2
+          : 1
+        : 0;
+    setSheet((s) => {
+      const next = { ...s, hp: after.hp, tempHp: after.tempHp };
+      if (after.hp > 0) return wake(next, after.hp);
+      next.conditions = { ...s.conditions, unconscious: true };
+      if (massive) {
+        return { ...next, deathFailures: 3, stable: false };
+      }
+      if (failuresAdded > 0) {
+        const base = s.stable ? 0 : s.deathFailures;
+        return {
+          ...next,
+          stable: false,
+          deathSuccesses: s.stable ? 0 : s.deathSuccesses,
+          deathFailures: Math.min(3, base + failuresAdded),
+        };
+      }
+      return next;
+    });
 
     let title = "Damage applied";
     let tone: "info" | "warning" = "info";
@@ -1003,11 +1206,38 @@ function DamageAdjuster({
     if (autoReason && ui.effectiveness === "auto") {
       bits.push(`${autoReason} resistance applied`);
     }
+    if (massive && after.hp === 0) {
+      bits.push("massive damage — dead");
+      tone = "warning";
+      title = "Dead";
+    } else if (after.hp === 0 && before.hp > 0) {
+      bits.push("at 0 HP — death saves are here");
+      tone = "warning";
+    } else if (failuresAdded > 0) {
+      bits.push(
+        failuresAdded === 2
+          ? "critical hit at 0 HP — two death save failures"
+          : "hit at 0 HP — one death save failure",
+      );
+      tone = "warning";
+    }
 
+    if (after.hp === 0) setUi((u) => ({ ...u, intent: "heal" }));
     setOutcome({ tone, title, detail: bits.join(" · ") });
   }
 
   function heal() {
+    if (diedOf(sheet)) {
+      setOutcome({
+        tone: "warning",
+        title: "Healing doesn’t restore the dead",
+        detail:
+          diedOf(sheet) === "exhaustion"
+            ? "Exhaustion 6 is death. Lower it on Conds if the DM revives him."
+            : "Three death saves failed. Brought back is for a spell that restores life.",
+      });
+      return;
+    }
     if (raw <= 0) {
       setOutcome({
         tone: "warning",
@@ -1017,11 +1247,12 @@ function DamageAdjuster({
       return;
     }
     const next = clamp(sheet.hp + raw, 0, gary.hpMax);
-    setSheet((s) => ({ ...s, hp: next }));
+    const wasDown = sheet.hp <= 0;
+    setSheet((s) => wake(s, next));
     setOutcome({
       tone: "info",
       title: "Healed",
-      detail: `+${raw} HP (${sheet.hp} → ${next}).`,
+      detail: `+${raw} HP (${sheet.hp} → ${next})${wasDown ? ". Death saves cleared." : "."}`,
     });
   }
 
@@ -1166,8 +1397,37 @@ function DamageAdjuster({
               {HIT_MODES.find((mode) => mode.id === ui.effectiveness)?.hint}
             </p>
           </div>
+          {sheet.hp <= 0 && sheet.deathFailures < 3 ? (
+            <button
+              type="button"
+              aria-pressed={zeroCrit}
+              className={cx(
+                "flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg border px-3 text-left",
+                zeroCrit
+                  ? "border-crimson/60 bg-crimson/15 text-crimson-soft"
+                  : "border-line bg-well/60 text-ink",
+              )}
+              onClick={() => setZeroCrit((v) => !v)}
+            >
+              <Skull className="size-4 shrink-0" aria-hidden />
+              <span className="flex-1 text-sm font-medium">Critical hit</span>
+              <span className="text-xs text-faint">
+                {zeroCrit ? "two death save failures" : "one failure at 0 HP"}
+              </span>
+            </button>
+          ) : null}
         </>
       ) : (
+        <>
+        {sheet.hp <= 0 || sheet.deathFailures >= 3 ? (
+          <DeathSaves
+            sheet={sheet}
+            setSheet={setSheet}
+            amount={raw}
+            hpMax={gary.hpMax}
+            onNote={setOutcome}
+          />
+        ) : null}
         <div className="flex flex-col gap-2 rounded-lg border border-line bg-well/40 p-3">
           <div className="flex h-7 items-center justify-between gap-2">
             <span className="inline-flex items-center gap-1.5 text-sm text-muted">
@@ -1215,6 +1475,7 @@ function DamageAdjuster({
             </Button>
           </div>
         </div>
+        </>
       )}
 
       <div className="flex min-h-14 items-center gap-2 rounded-lg border border-line bg-well/60 px-3 py-2 text-sm text-muted tabular-nums">
@@ -1240,18 +1501,32 @@ function DamageAdjuster({
         </Button>
       ) : (
         <div className="grid grid-cols-2 gap-2">
-          <Button variant="secondary" icon={HeartPulse} onClick={heal}>
+          <Button
+            variant="secondary"
+            icon={HeartPulse}
+            disabled={diedOf(sheet) != null}
+            onClick={heal}
+          >
             Heal
           </Button>
           <Button
             variant="secondary"
             icon={Heart}
             onClick={() => {
-              setSheet((s) => ({ ...s, hp: gary.hpMax }));
+              if (diedOf(sheet)) {
+                setOutcome({
+                  tone: "warning",
+                  title: "Healing doesn’t restore the dead",
+                  detail: "Brought back is for a spell that restores life.",
+                });
+                return;
+              }
+              const wasDown = sheet.hp <= 0;
+              setSheet((s) => wake(s, gary.hpMax));
               setOutcome({
                 tone: "info",
                 title: "Full HP",
-                detail: `HP set to ${gary.hpMax}. Temporary hit points stay.`,
+                detail: `HP set to ${gary.hpMax}. Temporary hit points stay.${wasDown ? " Death saves cleared." : ""}`,
               });
             }}
           >
@@ -1330,8 +1605,12 @@ const CHIP =
 
 type EffectChip = { text: string; tone: "bad" | "good" };
 
-function effectChips(e: ConditionEffects, gary: GaryStats): EffectChip[] {
-  if (e.dead) return [{ text: "Exhaustion 6 — Gary is dead", tone: "bad" }];
+function effectChips(
+  e: ConditionEffects,
+  gary: GaryStats,
+  deadLabel = "Exhaustion 6 — Gary is dead",
+): EffectChip[] {
+  if (e.dead) return [{ text: deadLabel, tone: "bad" }];
   const chips: EffectChip[] = [];
   if (e.d20Penalty === 2 * (EXHAUSTION_DEATH - 1)) {
     chips.push({ text: "1 Exhaustion from death", tone: "bad" });
@@ -1531,6 +1810,13 @@ function StatusPanels({
       </span>,
     );
   }
+  if (sheet.hp <= 0 && diedOf(sheet) == null) {
+    now.push(
+      <span key="dying" className={NOW_CHIP.bad}>
+        {sheet.stable ? "Stable" : "Dying"}
+      </span>,
+    );
+  }
   if ((sheet.exhaustion ?? 0) > 0) {
     now.push(
       <span key="exhaustion" className={NOW_CHIP.bad}>
@@ -1559,7 +1845,13 @@ function StatusPanels({
     (sheet.exhaustion ?? 0) < EXHAUSTION_DEATH
       ? [{ text: "Exhaustion ignored", tone: "good" as const }]
       : []),
-    ...effectChips(effectsFor(sheet, gary), gary),
+    ...effectChips(
+      effectsFor(sheet, gary),
+      gary,
+      diedOf(sheet) === "saves"
+        ? "Death saves — Gary is dead"
+        : "Exhaustion 6 — Gary is dead",
+    ),
   ].map((c) => (
     <span
       key={c.text}
@@ -2176,8 +2468,31 @@ function RestPanel({
   sheet: Sheet;
   setSheet: (next: Sheet | ((prev: Sheet) => Sheet)) => void;
 }) {
+  const gary = useGary();
+  const { record } = useRollLog();
+  const [hitDieLine, setHitDieLine] = useState<string | null>(null);
+  const down = sheet.hp <= 0 || diedOf(sheet) != null;
+  const con = gary.conMod;
+
   function patch(partial: Partial<Sheet>) {
     setSheet((s) => ({ ...s, ...partial }));
+  }
+
+  function spendHitDie() {
+    if (sheet.hitDice <= 0 || down) return;
+    const face = rollDie(10);
+    const gained = Math.max(0, face + con);
+    const nextHp = clamp(sheet.hp + gained, 0, gary.hpMax);
+    setSheet((s) => wake({ ...s, hitDice: s.hitDice - 1 }, nextHp));
+    record({
+      label: "Hit die",
+      expression: withModifier("1d10", con),
+      breakdown: withModifier(`d10 (${face})`, con),
+      total: gained,
+    });
+    setHitDieLine(
+      `d10 ${face} ${signed(con)} = ${gained} HP (${sheet.hp} → ${nextHp}). ${sheet.hitDice - 1} dice left.`,
+    );
   }
 
   return (
@@ -2279,10 +2594,35 @@ function RestPanel({
               : `Dig Deep ${digDeepAgainNote(sheet.exhaustion)}`}
         </Text>
       </Stack>
+      <div className="flex flex-col gap-2 rounded-lg border border-line bg-well/40 p-3">
+        <div className="flex h-7 items-center justify-between gap-2">
+          <span className="text-sm text-muted">Hit dice</span>
+          <span className="text-lg leading-none font-semibold tabular-nums text-ink">
+            {sheet.hitDice}/{HIT_DICE_MAX}
+          </span>
+        </div>
+        <Button
+          variant="secondary"
+          icon={HeartPulse}
+          disabled={sheet.hitDice <= 0 || down || sheet.hp >= gary.hpMax}
+          onClick={spendHitDie}
+        >
+          Spend 1d10{signed(con)}
+        </Button>
+        <p className="min-h-10 text-xs leading-5 text-faint">
+          {hitDieLine ??
+            (down
+              ? "He can’t rest or spend a die at 0 HP."
+              : sheet.hp >= gary.hpMax
+                ? "Already at full HP. A long rest refills any dice he has spent."
+                : "A short rest can spend dice. Each one is 1d10 plus Constitution, minimum 0. A long rest refills them.")}
+        </p>
+      </div>
       <div className="grid grid-cols-2 gap-2">
         <Button
           variant="secondary"
           icon={Coffee}
+          disabled={down}
           onClick={() =>
             setSheet((s) => ({
               ...normalizeSheet(s),
@@ -2300,7 +2640,7 @@ function RestPanel({
         <Button
           variant="secondary"
           icon={Moon}
-          disabled={sheet.exhaustion >= EXHAUSTION_DEATH}
+          disabled={diedOf(sheet) != null}
           onClick={() =>
             setSheet((s) => ({
               ...DEFAULT_SHEET,
@@ -2312,9 +2652,11 @@ function RestPanel({
         </Button>
       </div>
       <Text tone="tertiary">
-        {sheet.exhaustion >= EXHAUSTION_DEATH
+        {diedOf(sheet) === "saves"
+          ? "Gary is dead from three failed death saves. Brought back is on Heal."
+          : sheet.exhaustion >= EXHAUSTION_DEATH
           ? "Gary is dead at Exhaustion 6 — no long rest. If the DM revives him, set Exhaustion on the Conds tab."
-          : "Short restores Moxie, Bloodied, Swagger, and Guarded Mind. Long restores HP, hit dice, and uses, clears conditions, and reduces Exhaustion by 1."}
+          : "Spend hit dice during a short rest, then tap Short rest. Short restores Moxie, Bloodied, Swagger, and Guarded Mind. Long restores HP, hit dice, and uses, clears conditions, and reduces Exhaustion by 1."}
       </Text>
     </Stack>
   );
@@ -2741,7 +3083,9 @@ function RollPanel({
   if (effects.dead) {
     return (
       <Text tone="secondary">
-        Gary is dead at Exhaustion 6, so there’s nothing to roll.
+        {diedOf(sheet) === "saves"
+          ? "Gary is dead from three failed death saves, so there’s nothing to roll."
+          : "Gary is dead at Exhaustion 6, so there’s nothing to roll."}
       </Text>
     );
   }
@@ -3540,6 +3884,7 @@ type MainTab = "play" | "hit" | "roll" | "conds" | "rest" | "gear" | "bio";
 /** Plain-language state for the AI voice prompt. */
 function personaStatus(sheet: Sheet, gary: GaryStats) {
   const effects = effectsFor(sheet, gary);
+  if (diedOf(sheet) === "saves") return "Gary is dead (three failed death saves).";
   if (effects.dead) return "Gary is dead (Exhaustion 6).";
   const parts = [
     `HP ${sheet.hp} of ${gary.hpMax}${isBloodied(sheet.hp, gary) ? " (bloodied, hurting)" : ""}`,
@@ -4034,7 +4379,7 @@ export function GaryCombatTool() {
             {effects.dead ? (
               <div className="absolute inset-0 z-10 flex animate-pop-in items-center justify-center gap-2 rounded-lg border border-crimson/60 bg-void/85 text-sm font-semibold text-crimson-soft backdrop-blur-[2px]">
                 <Skull className="size-4" aria-hidden />
-                Dead · Exhaustion 6
+                {diedOf(sheet) === "saves" ? "Dead · three failed saves" : "Dead · Exhaustion 6"}
               </div>
             ) : null}
             <div className={cx("flex flex-col gap-1.5", effects.dead && "opacity-30")} aria-hidden={effects.dead || undefined}>
@@ -4169,11 +4514,19 @@ export function GaryCombatTool() {
         {(effects.dead && tab !== "conds" && tab !== "gear" && tab !== "bio") ||
         (tab === "play" && cantAct) ? (
           <Callout
-            title={effects.dead ? "Gary is dead — Exhaustion 6" : "Gary can’t act"}
+            title={
+              diedOf(sheet) === "saves"
+                ? "Gary is dead — three failed death saves"
+                : effects.dead
+                  ? "Gary is dead — Exhaustion 6"
+                  : "Gary can’t act"
+            }
             tone="warning"
             icon={effects.dead ? Skull : Ban}
           >
-            {effects.dead
+            {diedOf(sheet) === "saves"
+              ? "Three failures. The decision tree is off. If a spell restores him to life, use Brought back on Heal."
+              : effects.dead
               ? "Exhaustion 6 is instant death (no death saves). The decision tree is off. If the DM revives him, lower Exhaustion on the Conds tab."
               : `${reasonText(effects.cantAct)}: no Action, Bonus Action, or Reaction — Moxie options are off until this ends.`}
           </Callout>

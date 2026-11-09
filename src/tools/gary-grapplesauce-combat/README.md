@@ -44,9 +44,10 @@ Three tabs so the screen isn’t a wall of controls:
 |---|---|
 | **Play** | Combat decision tree (timing → goal/reaction → Action / BA / Reaction) |
 | **Hit** | Take damage / heal (amount + type; Dig Deep auto-resists B/P/S) |
+| **Conds** | 5e conditions + Exhaustion 0–6 (active ones show on the status bar) |
 | **Rest** | Once-per-rest toggles + Short / Long rest |
 
-Always visible above tabs: **HP bar**, **Moxie dots**, status pills (Bloodied, Dig Deep, ready uses).
+Always visible above tabs: **HP bar**, **Moxie dots**, status pills (Bloodied, Dig Deep, conditions, ready uses).
 
 Advanced damage options (override resistance, custom ± steps, temp HP) stay under **More damage options**.
 
@@ -77,8 +78,8 @@ Everything important is in `localStorage` under `table-tools:gary-grapplesauce-c
 | Swagger Streak | 1 / short rest | Add 1d10 to a failed Str/Dex/Con/Cha check |
 | Dig Deep | 1 / long rest | BA → resist B/P/S ~10 min; toggle “active” while up |
 
-Short rest: Moxie full, Bloodied + Swagger ready, clear Dig Deep active + temp HP.  
-Long rest: full reset including HP 103.
+Short rest: Moxie full, Bloodied + Swagger ready, clear Dig Deep active + temp HP (conditions stay).  
+Long rest: full HP/uses reset, clear conditions, Exhaustion −1 (2024-style).
 
 ## Table voice (optional)
 

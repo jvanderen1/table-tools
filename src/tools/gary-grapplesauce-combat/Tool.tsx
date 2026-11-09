@@ -43,6 +43,26 @@ type Plan = {
   apply?: "moxie" | "bloodied-unbowed" | "dig-deep" | "swagger" | "none";
 };
 
+const CONDITION_DEFS = [
+  { id: "blinded", label: "Blinded" },
+  { id: "charmed", label: "Charmed" },
+  { id: "deafened", label: "Deafened" },
+  { id: "frightened", label: "Frightened" },
+  { id: "grappled", label: "Grappled" },
+  { id: "incapacitated", label: "Incapacitated" },
+  { id: "invisible", label: "Invisible" },
+  { id: "paralyzed", label: "Paralyzed" },
+  { id: "petrified", label: "Petrified" },
+  { id: "poisoned", label: "Poisoned" },
+  { id: "prone", label: "Prone" },
+  { id: "restrained", label: "Restrained" },
+  { id: "stunned", label: "Stunned" },
+  { id: "unconscious", label: "Unconscious" },
+] as const;
+
+type ConditionId = (typeof CONDITION_DEFS)[number]["id"];
+type ConditionFlags = Record<ConditionId, boolean>;
+
 type Sheet = {
   moxie: number;
   hp: number;
@@ -52,11 +72,20 @@ type Sheet = {
   digDeepActive: boolean;
   bloodiedUnbowed: boolean;
   swagger: boolean;
+  conditions: ConditionFlags;
+  /** 0 = none, 1–6 = Exhaustion level */
+  exhaustion: number;
 };
 
 const MOXIE_MAX = 5;
 const HP_MAX = 103;
 const BLOODIED_AT = Math.floor(HP_MAX / 2); // ≤ 51
+
+function emptyConditions(): ConditionFlags {
+  return Object.fromEntries(
+    CONDITION_DEFS.map((c) => [c.id, false]),
+  ) as ConditionFlags;
+}
 
 const DEFAULT_SHEET: Sheet = {
   moxie: MOXIE_MAX,
@@ -66,7 +95,26 @@ const DEFAULT_SHEET: Sheet = {
   digDeepActive: false,
   bloodiedUnbowed: true,
   swagger: true,
+  conditions: emptyConditions(),
+  exhaustion: 0,
 };
+
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
+
+function normalizeSheet(raw: Sheet): Sheet {
+  return {
+    ...DEFAULT_SHEET,
+    ...raw,
+    conditions: { ...emptyConditions(), ...(raw.conditions ?? {}) },
+    exhaustion: clamp(raw.exhaustion ?? 0, 0, 6),
+  };
+}
+
+function activeConditions(sheet: Sheet): { id: ConditionId; label: string }[] {
+  return CONDITION_DEFS.filter((c) => sheet.conditions?.[c.id]);
+}
 
 const CHEAT = {
   attack: "+9 / 1d10+5 bludgeoning",
@@ -323,10 +371,6 @@ function checkFailPlan(swaggerAvailable: boolean): Plan {
     gym: "One more rep.",
     apply: "swagger",
   };
-}
-
-function clamp(n: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, n));
 }
 
 const DAMAGE_TYPES = [
@@ -761,6 +805,14 @@ function StatusBar({
         <Row gap={8} wrap style={{ marginTop: 12 }}>
           {isBloodied(sheet.hp) ? <Pill active>Bloodied</Pill> : null}
           {sheet.digDeepActive ? <Pill active>Dig Deep</Pill> : null}
+          {(sheet.exhaustion ?? 0) > 0 ? (
+            <Pill active>Exhaustion {sheet.exhaustion}</Pill>
+          ) : null}
+          {activeConditions(sheet).map((c) => (
+            <Pill key={c.id} active>
+              {c.label}
+            </Pill>
+          ))}
           {sheet.bloodiedUnbowed ? <Pill>Bloodied ready</Pill> : null}
           {sheet.swagger ? <Pill>Swagger ready</Pill> : null}
           {sheet.digDeep ? <Pill>Dig Deep ready</Pill> : null}
@@ -769,6 +821,90 @@ function StatusBar({
         </Row>
       </CardBody>
     </Card>
+  );
+}
+
+function ConditionsPanel({
+  sheet,
+  setSheet,
+}: {
+  sheet: Sheet;
+  setSheet: (next: Sheet | ((prev: Sheet) => Sheet)) => void;
+}) {
+  const conditions = sheet.conditions ?? emptyConditions();
+  const exhaustion = sheet.exhaustion ?? 0;
+
+  function toggle(id: ConditionId) {
+    setSheet((s) => {
+      const next = normalizeSheet(s);
+      return {
+        ...next,
+        conditions: {
+          ...next.conditions,
+          [id]: !next.conditions[id],
+        },
+      };
+    });
+  }
+
+  function clearConditions() {
+    setSheet((s) => ({
+      ...normalizeSheet(s),
+      conditions: emptyConditions(),
+      exhaustion: 0,
+    }));
+  }
+
+  return (
+    <Stack gap={14}>
+      <Text tone="secondary">
+        Tap what currently applies. Active ones also show on the status bar.
+      </Text>
+
+      <label className="field">
+        <span className="field-label">Exhaustion</span>
+        <Row gap={8} wrap>
+          {Array.from({ length: 7 }, (_, level) => (
+            <Button
+              key={level}
+              variant={exhaustion === level ? "primary" : "secondary"}
+              onClick={() =>
+                setSheet((s) => ({ ...normalizeSheet(s), exhaustion: level }))
+              }
+            >
+              {level === 0 ? "None" : String(level)}
+            </Button>
+          ))}
+        </Row>
+      </label>
+
+      <div className="condition-grid">
+        {CONDITION_DEFS.map((c) => {
+          const on = Boolean(conditions[c.id]);
+          return (
+            <button
+              key={c.id}
+              type="button"
+              className={`condition-chip${on ? " on" : ""}`}
+              aria-pressed={on}
+              onClick={() => toggle(c.id)}
+            >
+              {c.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <Row gap={8} wrap>
+        <Button
+          variant="ghost"
+          disabled={activeConditions(sheet).length === 0 && exhaustion === 0}
+          onClick={clearConditions}
+        >
+          Clear all conditions
+        </Button>
+      </Row>
+    </Stack>
   );
 }
 
@@ -842,7 +978,7 @@ function RestPanel({
           variant="secondary"
           onClick={() =>
             setSheet((s) => ({
-              ...s,
+              ...normalizeSheet(s),
               moxie: MOXIE_MAX,
               bloodiedUnbowed: true,
               swagger: true,
@@ -853,29 +989,45 @@ function RestPanel({
         >
           Short rest
         </Button>
-        <Button variant="secondary" onClick={() => setSheet({ ...DEFAULT_SHEET })}>
+        <Button
+          variant="secondary"
+          onClick={() =>
+            setSheet((s) => ({
+              ...DEFAULT_SHEET,
+              exhaustion: Math.max(0, (normalizeSheet(s).exhaustion || 0) - 1),
+            }))
+          }
+        >
           Long rest
         </Button>
       </Row>
       <Text tone="tertiary">
-        Short restores Moxie, Bloodied, Swagger. Long restores everything + full
-        HP.
+        Short restores Moxie, Bloodied, Swagger. Long restores HP/uses, clears
+        conditions, and reduces Exhaustion by 1.
       </Text>
     </Stack>
   );
 }
 
-type MainTab = "play" | "hit" | "rest";
+type MainTab = "play" | "hit" | "conds" | "rest";
 
 export function GaryCombatTool() {
   const [phase, setPhase] = useState<Phase>("timing");
   const [timing, setTiming] = useState<Timing | null>(null);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
   const [staticPlan, setStaticPlan] = useState<Plan | null>(null);
-  const [sheet, setSheet] = usePersistentState<Sheet>(
+  const [sheetRaw, setSheetRaw] = usePersistentState<Sheet>(
     "gary-grapplesauce-combat:sheet",
     DEFAULT_SHEET,
   );
+  const sheet = normalizeSheet(sheetRaw);
+  const setSheet: typeof setSheetRaw = (next) => {
+    if (typeof next === "function") {
+      setSheetRaw((prev) => normalizeSheet(next(normalizeSheet(prev))));
+    } else {
+      setSheetRaw(normalizeSheet(next));
+    }
+  };
   const [tab, setTab] = usePersistentState<MainTab>(
     "gary-grapplesauce-combat:tab",
     "play",
@@ -1054,6 +1206,7 @@ export function GaryCombatTool() {
           [
             ["play", "Play"],
             ["hit", "Hit"],
+            ["conds", "Conds"],
             ["rest", "Rest"],
           ] as const
         ).map(([id, label]) => (
@@ -1275,6 +1428,15 @@ export function GaryCombatTool() {
           <CardHeader>I took a hit</CardHeader>
           <CardBody>
             <DamageAdjuster sheet={sheet} setSheet={setSheet} />
+          </CardBody>
+        </Card>
+      ) : null}
+
+      {tab === "conds" ? (
+        <Card>
+          <CardHeader>Conditions</CardHeader>
+          <CardBody>
+            <ConditionsPanel sheet={sheet} setSheet={setSheet} />
           </CardBody>
         </Card>
       ) : null}

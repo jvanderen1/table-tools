@@ -153,6 +153,10 @@ const GARY = {
     { id: "insight", label: "Insight", ability: "wis" as const, bonus: 6 },
   ],
   conMod: 3,
+  /** Unarmed damage and Brace Up both use the d10 Fisticuffs die */
+  fisticuffsDie: 10,
+  fisticuffsBonus: 5,
+  braceBonus: 12,
 };
 
 /** Re-using Dig Deep costs 1 Exhaustion; reaching level 6 kills Gary. */
@@ -432,6 +436,20 @@ function reactionPlan(kind: ReactionKind): Plan {
         apply: "none",
       };
   }
+}
+
+type LineDie = "attack" | "damage" | "brace" | "swagger" | "hit-die";
+
+/** Dice buttons that belong on one Action / Bonus / Reaction line. */
+function lineDice(text: string): LineDie[] {
+  const dice: LineDie[] = [];
+  const noAction = /^(no action|no forced|—)/i.test(text.trim());
+  if (!noAction && /unarmed|attack|punch/i.test(text)) {
+    dice.push("attack", "damage");
+  }
+  if (/brace up/i.test(text) && !/locked/i.test(text)) dice.push("brace");
+  if (/add 1d10/i.test(text)) dice.push("swagger");
+  return dice;
 }
 
 function checkFailPlan(swaggerAvailable: boolean): Plan {
@@ -1562,7 +1580,7 @@ type ShownRoll =
       swagger: boolean;
       swaggerDie?: number;
     }
-  | {
+      | {
       kind: "hit-die";
       die: number;
       bonus: number;
@@ -1571,6 +1589,21 @@ type ShownRoll =
       hpBefore: number;
       hpAfter: number;
       left: number;
+    }
+      | {
+      kind: "damage";
+      dice: number[];
+      bonus: number;
+      total: number;
+      crit: boolean;
+    }
+      | {
+      kind: "brace";
+      die: number;
+      bonus: number;
+      total: number;
+      tempBefore: number;
+      tempAfter: number;
     };
 
 function rollDie(sides: number) {
@@ -1608,15 +1641,15 @@ function rollCaption(spec: D20Spec) {
 function RollButtons({
   specs,
   disabled,
+  bare = false,
   onRoll,
 }: {
   specs: D20Spec[];
   disabled?: boolean;
+  bare?: boolean;
   onRoll: (spec: D20Spec) => void;
 }) {
-  return (
-    <div className="roll-grid">
-      {specs.map((spec) => {
+  const buttons = specs.map((spec) => {
         const caption = rollCaption(spec);
         const tone =
           spec.autoFail.length > 0 || spec.effect.roll === "disadvantage"
@@ -1638,9 +1671,9 @@ function RollButtons({
             </span>
           </button>
         );
-      })}
-    </div>
-  );
+  });
+  if (bare) return <>{buttons}</>;
+  return <div className="roll-grid">{buttons}</div>;
 }
 
 function RollPanel({
@@ -1764,6 +1797,25 @@ function RollPanel({
     });
   }
 
+  function rollDamage() {
+    const crit =
+      result?.kind === "d20" &&
+      result.attack &&
+      !result.autoFail &&
+      result.kept === 20;
+    const dice = Array.from({ length: crit ? 2 : 1 }, () =>
+      rollDie(GARY.fisticuffsDie),
+    );
+    const bonus = GARY.fisticuffsBonus;
+    setResult({
+      kind: "damage",
+      dice,
+      bonus,
+      total: dice.reduce((sum, n) => sum + n, 0) + bonus,
+      crit,
+    });
+  }
+
   if (effects.dead) {
     return (
       <Text tone="secondary">
@@ -1797,34 +1849,52 @@ function RollPanel({
       </div>
 
       <div className="field">
-        <span className="field-label">Attack</span>
-        <RollButtons specs={[attack]} disabled={cantAct} onRoll={rollD20} />
-        {attackNote ? <Text tone="tertiary">{attackNote}</Text> : null}
-      </div>
-
-      <div className="field">
         <span className="field-label">
-          Hit dice · {sheet.hitDice}/{HIT_DICE_MAX}
+          Attack and healing · hit dice {sheet.hitDice}/{HIT_DICE_MAX}
         </span>
-        <button
-          type="button"
-          className="roll-btn roll-btn-wide"
-          disabled={sheet.hitDice <= 0 || sheet.hp >= HP_MAX}
-          onClick={spendHitDie}
-        >
-          <span>
-            {sheet.hitDice <= 0
-              ? "No hit dice left"
-              : sheet.hp >= HP_MAX
-                ? "Already at full HP"
-                : `Spend 1d${HIT_DIE_SIDES} + ${GARY.conMod}`}
-          </span>
-          <span className="roll-btn-bonus">
-            {sheet.hitDice} left · heals and spends one
-          </span>
-        </button>
+        <div className="roll-grid">
+          <RollButtons
+            bare
+            specs={[attack]}
+            disabled={cantAct}
+            onRoll={rollD20}
+          />
+          <button
+            type="button"
+            className="roll-btn"
+            disabled={cantAct}
+            onClick={rollDamage}
+          >
+            <span>Damage</span>
+            <span className="roll-btn-bonus">
+              {result?.kind === "d20" &&
+              result.attack &&
+              result.kept === 20 &&
+              !result.autoFail
+                ? `2d${GARY.fisticuffsDie}+${GARY.fisticuffsBonus}`
+                : `1d${GARY.fisticuffsDie}+${GARY.fisticuffsBonus}`}
+            </span>
+          </button>
+          <button
+            type="button"
+            className="roll-btn"
+            disabled={sheet.hitDice <= 0 || sheet.hp >= HP_MAX}
+            onClick={spendHitDie}
+          >
+            <span>Hit die</span>
+            <span className="roll-btn-bonus">
+              {sheet.hitDice <= 0
+                ? "none left"
+                : sheet.hp >= HP_MAX
+                  ? "full HP"
+                  : `${sheet.hitDice} left`}
+            </span>
+          </button>
+        </div>
+        {attackNote ? <Text tone="tertiary">{attackNote}</Text> : null}
         <Text tone="tertiary">
-          Short rest healing. A long rest refills all {HIT_DICE_MAX}.
+          A critical hit rolls damage twice. A hit die heals 1d{HIT_DIE_SIDES}+
+          {GARY.conMod} and spends one. A long rest refills them.
         </Text>
       </div>
     </Stack>
@@ -1838,6 +1908,36 @@ function RollReadout({
   result: ShownRoll;
   onSwagger: () => void;
 }) {
+  if (result.kind === "damage") {
+    return (
+      <div className="roll-result">
+        <div className="roll-result-label">
+          {result.crit ? "Damage · critical hit" : "Damage"}
+        </div>
+        <div className="roll-total">{result.total}</div>
+        <div className="roll-math">
+          {result.dice.length}d{GARY.fisticuffsDie} {result.dice.join("+")} +{" "}
+          {result.bonus} = {result.total} bludgeoning
+        </div>
+      </div>
+    );
+  }
+
+  if (result.kind === "brace") {
+    return (
+      <div className="roll-result">
+        <div className="roll-result-label">Brace Up</div>
+        <div className="roll-total">+{result.total}</div>
+        <div className="roll-math">
+          d{GARY.fisticuffsDie} {result.die} + {result.bonus} = {result.total} temp
+        </div>
+        <div className="roll-notes">
+          Temp HP {result.tempBefore} → {result.tempAfter}
+        </div>
+      </div>
+    );
+  }
+
   if (result.kind === "hit-die") {
     return (
       <div className="roll-result">
@@ -1888,6 +1988,168 @@ function RollReadout({
       ) : null}
     </div>
   );
+}
+
+function ActionRolls({
+  dice,
+  sheet,
+  setSheet,
+}: {
+  dice: LineDie[];
+  sheet: Sheet;
+  setSheet: (next: Sheet | ((prev: Sheet) => Sheet)) => void;
+}) {
+  const [line, setLine] = useState<string | null>(null);
+  const [crit, setCrit] = useState(false);
+  const effects = effectsFor(sheet);
+  const cantAct = effects.cantAct.length > 0;
+  const attackBonus = GARY.attack - effects.d20Penalty;
+  const attackMode = ROLL_SHORT[effects.attack.roll];
+
+  function rollAttack() {
+    const mode = effects.attack.roll;
+    const first = rollDie(20);
+    const diceRoll = mode === "normal" ? [first] : [first, rollDie(20)];
+    const kept =
+      mode === "advantage"
+        ? Math.max(...diceRoll)
+        : mode === "disadvantage"
+          ? Math.min(...diceRoll)
+          : first;
+    const isCrit = kept === 20;
+    const isMiss = kept === 1;
+    setCrit(isCrit);
+    const shown =
+      diceRoll.length === 1
+        ? `d20 ${kept}`
+        : `${diceRoll[0]} & ${diceRoll[1]} → ${kept}`;
+    setLine(
+      isMiss
+        ? `To hit ${shown} · natural 1, miss`
+        : `To hit ${shown} ${signed(attackBonus)} = ${kept + attackBonus}${isCrit ? " · critical hit" : ""}`,
+    );
+  }
+
+  function rollDamage() {
+    const faces = crit ? 2 : 1;
+    const rolled = Array.from({ length: faces }, () => rollDie(GARY.fisticuffsDie));
+    const total = rolled.reduce((sum, n) => sum + n, 0) + GARY.fisticuffsBonus;
+    setCrit(false);
+    setLine(
+      `${crit ? "Crit " : ""}${faces}d${GARY.fisticuffsDie} ${rolled.join("+")} + ${GARY.fisticuffsBonus} = ${total} bludgeoning`,
+    );
+  }
+
+  function rollBrace() {
+    const die = rollDie(GARY.fisticuffsDie);
+    const total = die + GARY.braceBonus;
+    const next = Math.max(sheet.tempHp, total);
+    setSheet((s) => ({ ...s, tempHp: Math.max(s.tempHp, total) }));
+    setLine(
+      `Brace Up d${GARY.fisticuffsDie} ${die} + ${GARY.braceBonus} = ${total} temp${
+        next === sheet.tempHp ? ` · kept ${sheet.tempHp}` : ` · temp ${sheet.tempHp} → ${next}`
+      }`,
+    );
+  }
+
+  function rollSwagger() {
+    if (!sheet.swagger) return;
+    const die = rollDie(10);
+    setSheet((s) => ({ ...s, swagger: false }));
+    setLine(`Swagger +${die}`);
+  }
+
+  function rollHitDie() {
+    if (sheet.hitDice <= 0 || sheet.hp >= HP_MAX) return;
+    const die = rollDie(HIT_DIE_SIDES);
+    const raw = Math.max(0, die + GARY.conMod);
+    const gained = Math.min(raw, HP_MAX - sheet.hp);
+    setSheet((s) => ({
+      ...s,
+      hp: s.hp + gained,
+      hitDice: s.hitDice - 1,
+    }));
+    setLine(
+      `Hit die d${HIT_DIE_SIDES} ${die} + ${GARY.conMod} = ${raw} · HP ${sheet.hp} → ${sheet.hp + gained} · ${sheet.hitDice - 1} left`,
+    );
+  }
+
+  return (
+    <Stack gap={6}>
+      <Row gap={8} wrap>
+        {dice.includes("attack") ? (
+          <button
+            type="button"
+            className="roll-btn compact"
+            disabled={cantAct}
+            onClick={rollAttack}
+          >
+            To hit {signed(attackBonus)}
+            {attackMode ? ` ${attackMode}` : ""}
+          </button>
+        ) : null}
+        {dice.includes("damage") ? (
+          <button
+            type="button"
+            className="roll-btn compact"
+            disabled={cantAct}
+            onClick={rollDamage}
+          >
+            {crit
+              ? `Crit 2d${GARY.fisticuffsDie}+${GARY.fisticuffsBonus}`
+              : `Damage 1d${GARY.fisticuffsDie}+${GARY.fisticuffsBonus}`}
+          </button>
+        ) : null}
+        {dice.includes("brace") ? (
+          <button type="button" className="roll-btn compact" onClick={rollBrace}>
+            Brace Up 1d{GARY.fisticuffsDie}+{GARY.braceBonus}
+          </button>
+        ) : null}
+        {dice.includes("swagger") ? (
+          <button
+            type="button"
+            className="roll-btn compact"
+            disabled={!sheet.swagger}
+            onClick={rollSwagger}
+          >
+            {sheet.swagger ? "Swagger +1d10" : "Swagger used"}
+          </button>
+        ) : null}
+        {dice.includes("hit-die") ? (
+          <button
+            type="button"
+            className="roll-btn compact"
+            disabled={sheet.hitDice <= 0 || sheet.hp >= HP_MAX}
+            onClick={rollHitDie}
+          >
+            {sheet.hitDice <= 0
+              ? "No hit dice"
+              : sheet.hp >= HP_MAX
+                ? "Hit die · full HP"
+                : `Hit die 1d${HIT_DIE_SIDES}+${GARY.conMod} · ${sheet.hitDice} left`}
+          </button>
+        ) : null}
+      </Row>
+      {line ? <div className="line-roll">{line}</div> : null}
+    </Stack>
+  );
+}
+
+function planSections(plan: Plan) {
+  const sections: { heading: string; text: string; dice: LineDie[] }[] = [
+    { heading: "Action", text: plan.action, dice: lineDice(plan.action) },
+    { heading: "Bonus Action", text: plan.bonus, dice: lineDice(plan.bonus) },
+  ];
+  if (plan.reaction) {
+    sections.push({
+      heading: "Reaction",
+      text: plan.reaction,
+      dice: lineDice(plan.reaction),
+    });
+  }
+  const host = sections.find((section) => section.dice.length > 0) ?? sections[0];
+  if (!host.dice.includes("hit-die")) host.dice = [...host.dice, "hit-die"];
+  return sections;
 }
 
 type MainTab = "play" | "hit" | "roll" | "conds" | "rest";
@@ -2266,24 +2528,20 @@ export function GaryCombatTool() {
               </CardHeader>
               <CardBody>
                 <Stack gap={14}>
-                  <Stack gap={4}>
-                    <h3>Action</h3>
-                    <Text>{plan.action}</Text>
-                  </Stack>
-                  <Divider />
-                  <Stack gap={4}>
-                    <h3>Bonus Action</h3>
-                    <Text>{plan.bonus}</Text>
-                  </Stack>
-                  {plan.reaction ? (
-                    <>
-                      <Divider />
-                      <Stack gap={4}>
-                        <h3>Reaction</h3>
-                        <Text>{plan.reaction}</Text>
-                      </Stack>
-                    </>
-                  ) : null}
+                  {planSections(plan).map((section, index) => (
+                    <Stack key={section.heading} gap={6}>
+                      {index > 0 ? <Divider /> : null}
+                      <h3>{section.heading}</h3>
+                      <Text>{section.text}</Text>
+                      {section.dice.length > 0 ? (
+                        <ActionRolls
+                          dice={section.dice}
+                          sheet={sheet}
+                          setSheet={setSheet}
+                        />
+                      ) : null}
+                    </Stack>
+                  ))}
                   <Text tone="secondary">{plan.gym}</Text>
                   <PlanTips plan={plan} />
                   <Row gap={8} wrap>

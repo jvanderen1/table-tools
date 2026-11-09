@@ -93,8 +93,10 @@ Buttons use the same condition math as the effects card (Exhaustion −2 per lev
 | Ability checks | Str +5, Dex +3, Con +3, Int +0, Wis +2, Cha +1 |
 | Skills | Athletics +13, Perception +6, Insight +6 |
 | Initiative | +3 |
-| Unarmed | +9 to hit (nat 20 crit, nat 1 miss) |
-| Hit die | 1d10 + 3, pool of 9. Spending one heals immediately. Long rest refills them. |
+| Unarmed | +9 to hit (nat 20 crit, nat 1 miss), with Damage 1d10+5 beside it (2d10+5 after a crit) |
+| Hit die | 1d10 + 3, pool of 9, beside the attack. Spending one heals immediately. Long rest refills them. |
+
+On a Play plan, the same buttons sit under the Action, Bonus Action, or Reaction they belong to (to hit, damage, Brace Up 1d10+12, Swagger 1d10). Hit die sits on the first line that has a roll.
 
 Str/Dex/Con/Cha checks (including Athletics) offer **Add Swagger +1d10** while that use is ready. Blinded/Deafened don’t auto-fail every check — the tab says which ones need sight or hearing.
 

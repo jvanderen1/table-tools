@@ -831,8 +831,17 @@ a.tip-source-link {
   cursor: default;
 }
 
-.roll-btn-wide {
-  width: 100%;
+.roll-btn.compact {
+  min-height: 40px;
+  width: auto;
+  flex-direction: row;
+  padding: 8px 12px;
+}
+
+.line-roll {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  line-height: 1.4;
 }
 
 .roll-btn-bonus {

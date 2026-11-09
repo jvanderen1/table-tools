@@ -111,9 +111,8 @@ export function Tip({
                 </button>
               </div>
               <div className="tip-bubble-body">{entry.summary}</div>
-              {entry.source ? (
-                <div className="tip-source">{entry.source}</div>
-              ) : null}
+              <SourceLine source={entry.source} href={entry.href} />
+
             </div>,
             document.body,
           )
@@ -122,15 +121,40 @@ export function Tip({
   );
 }
 
-export function GlossaryList() {
-  const entries = Object.values(GLOSSARY);
+export function SourceLine({
+  source,
+  href,
+}: {
+  source?: string;
+  href?: string;
+}) {
+  if (!source) return null;
+  if (!href) return <div className="tip-source">{source}</div>;
+  return (
+    <a
+      className="tip-source tip-source-link"
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+    >
+      {source} ↗
+    </a>
+  );
+}
+
+export function GlossaryList({
+  kind = "feature",
+}: {
+  kind?: "feature" | "condition";
+}) {
+  const entries = Object.values(GLOSSARY).filter((e) => e.kind === kind);
   return (
     <div className="glossary-list">
       {entries.map((entry) => (
         <details key={entry.id} className="glossary-item">
           <summary>{entry.label}</summary>
           <p>{entry.summary}</p>
-          {entry.source ? <p className="tip-source">{entry.source}</p> : null}
+          <SourceLine source={entry.source} href={entry.href} />
         </details>
       ))}
     </div>

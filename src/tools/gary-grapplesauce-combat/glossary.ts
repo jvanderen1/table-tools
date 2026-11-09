@@ -5,11 +5,21 @@
  * Gary-specific numbers (level 9, Con +3, Fisticuffs d10) called out where relevant.
  */
 
+import {
+  CONDITION_DEFS,
+  EXHAUSTION_SUMMARY,
+  PUGILIST_POST_URL,
+  RULES_GLOSSARY_URL,
+  conditionHref,
+} from "./conditions";
+
 export type GlossaryEntry = {
   id: string;
   label: string;
   summary: string;
   source?: string;
+  href?: string;
+  kind?: "feature" | "condition";
 };
 
 export const GLOSSARY: Record<string, GlossaryEntry> = {
@@ -122,17 +132,36 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
     id: "bloodied",
     label: "Bloodied",
     summary:
-      "You have the Bloodied condition while at half Hit Points or fewer (Gary: HP ≤ 51). Many Pugilist comeback features key off this.",
-    source: "5e · Bloodied condition",
+      "A creature is Bloodied while it has half its Hit Points or fewer (Gary: HP ≤ 51). Many Pugilist comeback features key off this.",
+    source: "2024 Rules Glossary · Bloodied",
+    href: `${RULES_GLOSSARY_URL}#Bloodied`,
   },
   exhaustion: {
     id: "exhaustion",
     label: "Exhaustion",
-    summary:
-      "A stacking condition (levels 1–6) with growing penalties. Dig Deep’s extra uses can cost Exhaustion. A Long Rest typically reduces Exhaustion by 1.",
-    source: "5e · Exhaustion",
+    summary: `${EXHAUSTION_SUMMARY} Dig Deep’s extra uses cost 1 level each.`,
+    source: "2024 Rules Glossary · Exhaustion",
+    href: conditionHref("Exhaustion"),
   },
+  ...Object.fromEntries(
+    CONDITION_DEFS.map((c) => [
+      `cond-${c.id}`,
+      {
+        id: `cond-${c.id}`,
+        label: c.label,
+        summary: c.summary,
+        source: `2024 Rules Glossary · ${c.label}`,
+        href: conditionHref(c.label),
+        kind: "condition",
+      } satisfies GlossaryEntry,
+    ]),
+  ),
 };
+
+for (const entry of Object.values(GLOSSARY)) {
+  entry.kind ??= "feature";
+  entry.href ??= PUGILIST_POST_URL;
+}
 
 /** Keys that appear in UI labels → glossary id */
 export const TIP_ALIASES: Record<string, keyof typeof GLOSSARY> = {

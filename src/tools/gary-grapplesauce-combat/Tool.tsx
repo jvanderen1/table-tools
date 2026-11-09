@@ -19,6 +19,22 @@ import {
   Stack,
   Text,
 } from "../../ui";
+import {
+  ABILITIES,
+  CONDITION_DEFS,
+  EXHAUSTION_DEATH,
+  EXHAUSTION_SUMMARY,
+  PUGILIST_POST_URL,
+  RULES_GLOSSARY_URL,
+  computeConditionEffects,
+  conditionHref,
+  type Ability,
+  type ConditionEffects,
+  type ConditionFlags,
+  type ConditionId,
+  type Reason,
+  type RollEffect,
+} from "./conditions";
 import { GLOSSARY } from "./glossary";
 import { GlossaryList, Tip } from "./Tip";
 
@@ -43,28 +59,14 @@ type Plan = {
   why: string;
   gym: string;
   /** What “Apply” does to the tracker */
-  apply?: "moxie" | "bloodied-unbowed" | "dig-deep" | "swagger" | "none";
+  apply?:
+    | "moxie"
+    | "bloodied-unbowed"
+    | "dig-deep"
+    | "dig-deep-exhaustion"
+    | "swagger"
+    | "none";
 };
-
-const CONDITION_DEFS = [
-  { id: "blinded", label: "Blinded" },
-  { id: "charmed", label: "Charmed" },
-  { id: "deafened", label: "Deafened" },
-  { id: "frightened", label: "Frightened" },
-  { id: "grappled", label: "Grappled" },
-  { id: "incapacitated", label: "Incapacitated" },
-  { id: "invisible", label: "Invisible" },
-  { id: "paralyzed", label: "Paralyzed" },
-  { id: "petrified", label: "Petrified" },
-  { id: "poisoned", label: "Poisoned" },
-  { id: "prone", label: "Prone" },
-  { id: "restrained", label: "Restrained" },
-  { id: "stunned", label: "Stunned" },
-  { id: "unconscious", label: "Unconscious" },
-] as const;
-
-type ConditionId = (typeof CONDITION_DEFS)[number]["id"];
-type ConditionFlags = Record<ConditionId, boolean>;
 
 type Sheet = {
   moxie: number;
@@ -115,16 +117,58 @@ function normalizeSheet(raw: Sheet): Sheet {
   };
 }
 
-function activeConditions(sheet: Sheet): { id: ConditionId; label: string }[] {
+function activeConditions(sheet: Sheet) {
   return CONDITION_DEFS.filter((c) => sheet.conditions?.[c.id]);
 }
 
-const CHEAT = {
-  attack: "+9 / 1d10+5 bludgeoning",
-  ac: "18",
-  athletics: "+13",
-  saves: "Str +10 · Con +8 · others +1 from Towel",
+/** Live D&D Beyond numbers with attuned items (Towel adds +1 to every save) */
+const GARY = {
+  attack: 9,
+  damage: "1d10+5 bludgeoning",
+  ac: 18,
+  athletics: 13,
+  initiative: 3,
+  speed: 30,
+  saves: { str: 10, dex: 4, con: 8, int: 1, wis: 3, cha: 2 } satisfies Record<
+    Ability,
+    number
+  >,
 };
+
+/** Re-using Dig Deep costs 1 Exhaustion; reaching level 6 kills Gary. */
+function canDigDeepAgain(exhaustion: number) {
+  return exhaustion + 1 < EXHAUSTION_DEATH;
+}
+
+function digDeepAgainNote(exhaustion: number) {
+  return canDigDeepAgain(exhaustion)
+    ? `again costs 1 Exhaustion (→ ${exhaustion + 1}).`
+    : `again would be Exhaustion ${EXHAUSTION_DEATH}: Gary dies. Don’t.`;
+}
+
+function effectsFor(sheet: Sheet): ConditionEffects {
+  return computeConditionEffects(
+    sheet.conditions,
+    sheet.exhaustion ?? 0,
+    GARY.speed,
+  );
+}
+
+function signed(n: number) {
+  return n >= 0 ? `+${n}` : `−${Math.abs(n)}`;
+}
+
+const ROLL_SHORT = {
+  advantage: "Adv",
+  disadvantage: "Dis",
+  normal: "",
+} as const;
+
+function reasonText(reasons: Reason[]) {
+  return reasons
+    .map((x) => (x.note ? `${x.label} (${x.note})` : x.label))
+    .join(", ");
+}
 
 type GoalOption = {
   id: Goal;
@@ -201,7 +245,7 @@ function planFor(goal: Goal, sheet: Sheet): Plan {
             "Attack only if safe. Prefer holding position or Disengaging later.",
           bonus: sheet.digDeep
             ? "Brace Up (1 Moxie): temp HP = 1d10 + 12. Dig Deep still available (1/long rest)."
-            : "Brace Up (1 Moxie): temp HP = 1d10 + 12. Dig Deep already used.",
+            : `Brace Up (1 Moxie): temp HP = 1d10 + 12. Dig Deep already used — ${digDeepAgainNote(sheet.exhaustion)}`,
           reaction: sheet.bloodiedUnbowed
             ? "If bloodied and you take damage: Bloodied But Unbowed still available."
             : "Bloodied But Unbowed already used this short rest.",
@@ -226,12 +270,32 @@ function planFor(goal: Goal, sheet: Sheet): Plan {
           apply: "dig-deep",
         };
       }
+      if (!sheet.digDeepActive && canDigDeepAgain(sheet.exhaustion)) {
+        const next = sheet.exhaustion + 1;
+        return {
+          title: "Stay standing — Dig Deep again",
+          action:
+            "Attack only if safe. Hold position behind allies if possible.",
+          bonus: `Dig Deep again by taking 1 Exhaustion (${sheet.exhaustion} → ${next}): resistance to B/P/S.`,
+          cost: 0,
+          costLabel: "+1 Exhaustion",
+          why:
+            next === EXHAUSTION_DEATH - 1
+              ? `Exhaustion ${next} is one level from death (−${2 * next} to d20 tests, −${5 * next} ft). Only if the alternative is going down.`
+              : `Exhaustion ${next}: −${2 * next} to every d20 test and −${5 * next} ft speed until long rests clear it.`,
+          gym: "One More Rep.",
+          apply: "dig-deep-exhaustion",
+        };
+      }
       return {
         title: "Stay standing (no tools left)",
         action:
           "Attack only if safe. Hold position behind allies if possible.",
-        bonus:
-          "Brace Up locked (no Moxie). Dig Deep already used. Hope for Bloodied But Unbowed or cover.",
+        bonus: `Brace Up locked (no Moxie). Dig Deep already used — ${digDeepAgainNote(sheet.exhaustion)} ${
+          sheet.bloodiedUnbowed
+            ? "Hope for Bloodied But Unbowed or cover."
+            : "Find cover."
+        }`,
         cost: 0,
         costLabel: "0",
         why: "You’re on fumes — play scared and wait for a rest or refill reaction.",
@@ -423,14 +487,19 @@ function isWeaponPhysical(type: DamageType) {
   );
 }
 
+function autoResistReason(sheet: Sheet, type: DamageType): string | null {
+  if (sheet.conditions.petrified) return "Petrified";
+  if (sheet.digDeepActive && isWeaponPhysical(type)) return "Dig Deep";
+  return null;
+}
+
 function resolveEffectiveness(
   type: DamageType,
-  digDeepActive: boolean,
+  sheet: Sheet,
   mode: Effectiveness,
 ): Exclude<Effectiveness, "auto"> {
   if (mode !== "auto") return mode;
-  if (digDeepActive && isWeaponPhysical(type)) return "resistant";
-  return "normal";
+  return autoResistReason(sheet, type) ? "resistant" : "normal";
 }
 
 function modifyDamage(
@@ -478,11 +547,8 @@ function DamageAdjuster({
   const [outcome, setOutcome] = useState<DamageOutcome | null>(null);
 
   const raw = Math.max(0, Number.parseInt(ui.amount || "0", 10) || 0);
-  const resolved = resolveEffectiveness(
-    ui.type,
-    sheet.digDeepActive,
-    ui.effectiveness,
-  );
+  const resolved = resolveEffectiveness(ui.type, sheet, ui.effectiveness);
+  const autoReason = autoResistReason(sheet, ui.type);
   const preview = modifyDamage(raw, resolved);
 
   function setAmount(next: string) {
@@ -559,8 +625,8 @@ function DamageAdjuster({
     if (isBloodied(after.hp) && !isBloodied(before.hp)) {
       bits.push(`now bloodied (≤${BLOODIED_AT})`);
     }
-    if (sheet.digDeepActive && isWeaponPhysical(ui.type) && ui.effectiveness === "auto") {
-      bits.push("Dig Deep resistance applied");
+    if (autoReason && ui.effectiveness === "auto") {
+      bits.push(`${autoReason} resistance applied`);
     }
 
     setOutcome({ tone, title, detail: bits.join(" · ") });
@@ -586,8 +652,8 @@ function DamageAdjuster({
 
   const effHint =
     ui.effectiveness === "auto"
-      ? sheet.digDeepActive && isWeaponPhysical(ui.type)
-        ? "Dig Deep → resistant"
+      ? autoReason
+        ? `${autoReason} → resistant`
         : "Normal"
       : ui.effectiveness;
 
@@ -808,7 +874,7 @@ function StatusPills({ sheet }: { sheet: Sheet }) {
   for (const c of activeConditions(sheet)) {
     active.push(
       <Pill key={c.id} active>
-        {c.label}
+        <Tip id={`cond-${c.id}`}>{c.label}</Tip>
       </Pill>,
     );
   }
@@ -859,10 +925,273 @@ function StatusPills({ sheet }: { sheet: Sheet }) {
   );
 }
 
+type EffectChip = { text: string; tone: "bad" | "good" };
+
+function effectChips(e: ConditionEffects): EffectChip[] {
+  if (e.dead) return [{ text: "Exhaustion 6 — Gary is dead", tone: "bad" }];
+  const chips: EffectChip[] = [];
+  if (e.d20Penalty === 2 * (EXHAUSTION_DEATH - 1)) {
+    chips.push({ text: "1 Exhaustion from death", tone: "bad" });
+  }
+  if (e.cantAct.length > 0) {
+    chips.push({ text: "Can’t act or react", tone: "bad" });
+  }
+  const atk = GARY.attack - e.d20Penalty;
+  if (e.cantAct.length === 0 && (e.d20Penalty > 0 || e.attack.roll !== "normal")) {
+    const mode = ROLL_SHORT[e.attack.roll];
+    chips.push({
+      text: `Attack ${signed(atk)}${mode ? ` ${mode}` : ""}`,
+      tone: e.attack.roll === "advantage" && e.d20Penalty === 0 ? "good" : "bad",
+    });
+  }
+  if (e.speed.value !== e.speed.base) {
+    chips.push({ text: `Speed ${e.speed.value} ft`, tone: "bad" });
+  }
+  if (e.saves.str.autoFail.length > 0) {
+    chips.push({ text: "Str/Dex saves fail", tone: "bad" });
+  } else if (e.d20Penalty > 0) {
+    chips.push({ text: `Saves −${e.d20Penalty}`, tone: "bad" });
+  }
+  if (e.checks.roll === "disadvantage") {
+    chips.push({ text: "Checks Dis", tone: "bad" });
+  }
+  if (e.autoCritNear.length > 0) {
+    chips.push({ text: "Melee hits crit you", tone: "bad" });
+  } else if (e.againstNear.roll === "advantage") {
+    chips.push({
+      text:
+        e.againstFar.roll === "advantage"
+          ? "Foes have Adv"
+          : "Foes within 5 ft have Adv",
+      tone: "bad",
+    });
+  } else if (
+    e.againstNear.roll === "disadvantage" &&
+    e.againstFar.roll === "disadvantage"
+  ) {
+    chips.push({ text: "Foes have Dis", tone: "good" });
+  }
+  if (e.resistAll.length > 0) {
+    chips.push({ text: "Resist all damage", tone: "good" });
+  }
+  return chips;
+}
+
+function StatusEffects({
+  sheet,
+  onDetails,
+}: {
+  sheet: Sheet;
+  onDetails: () => void;
+}) {
+  const chips = effectChips(effectsFor(sheet));
+  if (chips.length === 0) return null;
+  return (
+    <div className="status-effects">
+      <span className="status-pills-label">Effects</span>
+      {chips.map((c) => (
+        <span key={c.text} className={`effect-chip ${c.tone}`}>
+          {c.text}
+        </span>
+      ))}
+      <button type="button" className="link-btn" onClick={onDetails}>
+        Details
+      </button>
+    </div>
+  );
+}
+
+/** `againstGary`: the roll belongs to an enemy, so Advantage is bad news */
+function rollBadge(effect: RollEffect, againstGary = false) {
+  if (effect.roll === "normal") {
+    if (effect.advantage.length > 0 && effect.disadvantage.length > 0) {
+      return <span className="roll-badge">Adv + Dis cancel</span>;
+    }
+    return null;
+  }
+  const good = (effect.roll === "advantage") !== againstGary;
+  return (
+    <span className={`roll-badge ${good ? "good" : "bad"}`}>
+      {effect.roll === "advantage" ? "Advantage" : "Disadvantage"}
+    </span>
+  );
+}
+
+function rollReasons(effect: RollEffect) {
+  const parts: string[] = [];
+  if (effect.advantage.length > 0) parts.push(`Adv: ${reasonText(effect.advantage)}`);
+  if (effect.disadvantage.length > 0) {
+    parts.push(`Dis: ${reasonText(effect.disadvantage)}`);
+  }
+  return parts.join(" · ");
+}
+
+function EffectRow({
+  label,
+  value,
+  badge,
+  detail,
+}: {
+  label: ReactNode;
+  value: ReactNode;
+  badge?: ReactNode;
+  detail?: string;
+}) {
+  return (
+    <div className="effect-row">
+      <div className="effect-label">{label}</div>
+      <div className="effect-value">
+        <span className="effect-number">{value}</span>
+        {badge}
+        {detail ? <div className="effect-detail">{detail}</div> : null}
+      </div>
+    </div>
+  );
+}
+
+function ConditionEffectsCard({ sheet }: { sheet: Sheet }) {
+  const e = effectsFor(sheet);
+  if (!e.any) {
+    return (
+      <Text tone="tertiary">
+        No conditions — Gary is at his normal numbers: attack {signed(GARY.attack)},
+        Athletics {signed(GARY.athletics)}, speed {GARY.speed} ft, AC {GARY.ac}.
+      </Text>
+    );
+  }
+
+  if (e.dead) {
+    return (
+      <Text tone="secondary">
+        Gary is dead at Exhaustion 6, so none of his numbers apply.
+      </Text>
+    );
+  }
+
+  const pen = e.d20Penalty;
+  const penaltyNote = pen > 0 ? `Exhaustion −${pen}` : undefined;
+  const joinDetail = (...parts: (string | undefined)[]) =>
+    parts.filter(Boolean).join(" · ") || undefined;
+
+  return (
+    <div className="effects-list">
+      <EffectRow
+        label="Actions"
+        value={e.cantAct.length > 0 ? "None" : "Normal"}
+        badge={
+          e.cantAct.length > 0 ? (
+            <span className="roll-badge bad">No Action / BA / Reaction</span>
+          ) : null
+        }
+        detail={
+          e.cantAct.length > 0
+            ? `${reasonText(e.cantAct)} — Moxie options and Bloodied But Unbowed are off`
+            : undefined
+        }
+      />
+      <EffectRow
+        label="Your attacks"
+        value={`${signed(GARY.attack - pen)} to hit`}
+        badge={rollBadge(e.attack)}
+        detail={joinDetail(rollReasons(e.attack), penaltyNote)}
+      />
+      <EffectRow
+        label="Athletics"
+        value={signed(GARY.athletics - pen)}
+        badge={rollBadge(e.checks)}
+        detail={joinDetail(
+          rollReasons(e.checks),
+          penaltyNote,
+          e.checkAutoFail.length > 0
+            ? `Auto-fail: ${reasonText(e.checkAutoFail)}`
+            : undefined,
+          e.checks.roll !== "normal" || pen > 0 ? "applies to all ability checks" : undefined,
+        )}
+      />
+      <div className="effect-row">
+        <div className="effect-label">Saves</div>
+        <div className="effect-value">
+          <div className="save-grid">
+            {ABILITIES.map(({ id, label }) => {
+              const s = e.saves[id];
+              const fail = s.autoFail.length > 0;
+              const changed = fail || pen > 0 || s.effect.roll !== "normal";
+              return (
+                <div
+                  key={id}
+                  className={`save-cell${fail ? " fail" : changed ? " changed" : ""}`}
+                >
+                  <span className="save-label">{label}</span>
+                  <span className="save-value">
+                    {fail ? "Fail" : signed(GARY.saves[id] - pen)}
+                    {!fail && s.effect.roll === "disadvantage" ? " Dis" : ""}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="effect-detail">
+            {joinDetail(
+              e.saves.str.autoFail.length > 0
+                ? `Str/Dex auto-fail: ${reasonText(e.saves.str.autoFail)}`
+                : undefined,
+              e.saves.dex.effect.disadvantage.length > 0
+                ? `Dex Dis: ${reasonText(e.saves.dex.effect.disadvantage)}`
+                : undefined,
+              penaltyNote,
+            ) ?? "Unchanged"}
+          </div>
+        </div>
+      </div>
+      <EffectRow
+        label="Attacks vs. Gary"
+        value={`AC ${GARY.ac}`}
+        badge={rollBadge(e.againstNear, true)}
+        detail={joinDetail(
+          e.againstNear.roll !== e.againstFar.roll
+            ? `Within 5 ft: ${e.againstNear.roll} · Farther: ${e.againstFar.roll}`
+            : undefined,
+          rollReasons(e.againstNear),
+          e.autoCritNear.length > 0
+            ? `Any hit from within 5 ft is a Critical Hit (${reasonText(e.autoCritNear)})`
+            : undefined,
+        )}
+      />
+      <EffectRow
+        label="Speed"
+        value={`${e.speed.value} ft`}
+        detail={joinDetail(
+          e.speed.zeroBy.length > 0 ? `0 from ${reasonText(e.speed.zeroBy)}` : undefined,
+          pen > 0 ? `Exhaustion −${5 * (sheet.exhaustion ?? 0)} ft` : undefined,
+          ...e.speed.notes,
+        )}
+      />
+      <EffectRow
+        label="Initiative"
+        value={signed(GARY.initiative - pen)}
+        badge={rollBadge(e.initiative)}
+        detail={joinDetail(rollReasons(e.initiative), penaltyNote)}
+      />
+      {e.resistAll.length > 0 ? (
+        <EffectRow
+          label="Damage"
+          value="Resist all"
+          detail={`${reasonText(e.resistAll)} — the Hit tab halves damage automatically`}
+        />
+      ) : null}
+      {e.notes.length > 0 ? (
+        <EffectRow label="Also" value="" detail={e.notes.join(" · ")} />
+      ) : null}
+    </div>
+  );
+}
+
 function StatusBar({
   sheet,
   setSheet,
+  onEffectsDetails,
 }: {
+  onEffectsDetails: () => void;
   sheet: Sheet;
   setSheet: (next: Sheet | ((prev: Sheet) => Sheet)) => void;
 }) {
@@ -916,6 +1245,7 @@ function StatusBar({
           </div>
         </div>
         <StatusPills sheet={sheet} />
+        <StatusEffects sheet={sheet} onDetails={onEffectsDetails} />
       </CardBody>
     </Card>
   );
@@ -952,13 +1282,15 @@ function ConditionsPanel({
     }));
   }
 
+  const active = activeConditions(sheet);
+
   return (
     <Stack gap={14}>
       <Text tone="secondary">
-        Tap what currently applies. Active ones also show on the status bar.
+        Tap what currently applies. The numbers above update automatically.
       </Text>
 
-      <label className="field">
+      <div className="field">
         <span className="field-label">
           <Tip id="exhaustion">Exhaustion</Tip>
         </span>
@@ -971,11 +1303,26 @@ function ConditionsPanel({
                 setSheet((s) => ({ ...normalizeSheet(s), exhaustion: level }))
               }
             >
-              {level === 0 ? "None" : String(level)}
+              {level === 0
+                ? "None"
+                : level === EXHAUSTION_DEATH
+                  ? `${level} · dead`
+                  : String(level)}
             </Button>
           ))}
         </Row>
-      </label>
+        {exhaustion > 0 ? (
+          <Text tone="tertiary">
+            {exhaustion >= EXHAUSTION_DEATH
+              ? "Level 6: Gary dies."
+              : `Level ${exhaustion}: −${2 * exhaustion} to every d20 test, −${5 * exhaustion} ft speed.${
+                  exhaustion === EXHAUSTION_DEATH - 1
+                    ? " One more level kills Gary — no more Dig Deep."
+                    : ""
+                }`}
+          </Text>
+        ) : null}
+      </div>
 
       <div className="condition-grid">
         {CONDITION_DEFS.map((c) => {
@@ -994,15 +1341,50 @@ function ConditionsPanel({
         })}
       </div>
 
+      {active.length > 0 ? (
+        <div className="condition-notes">
+          {active.map((c) => (
+            <div key={c.id} className="condition-note">
+              <div className="condition-note-head">
+                <strong>{c.label}</strong>
+                <a href={conditionHref(c.label)} target="_blank" rel="noreferrer">
+                  Rules ↗
+                </a>
+              </div>
+              <Text tone="secondary">{c.summary}</Text>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
       <Row gap={8} wrap>
         <Button
           variant="ghost"
-          disabled={activeConditions(sheet).length === 0 && exhaustion === 0}
+          disabled={active.length === 0 && exhaustion === 0}
           onClick={clearConditions}
         >
           Clear all conditions
         </Button>
       </Row>
+
+      <details className="more-details">
+        <summary>What every condition does</summary>
+        <Stack gap={8}>
+          <Text tone="tertiary">
+            From the 2024 rules on D&D Beyond.{" "}
+            <a href={RULES_GLOSSARY_URL} target="_blank" rel="noreferrer">
+              Rules Glossary ↗
+            </a>
+          </Text>
+          <div className="glossary-list">
+            <details className="glossary-item">
+              <summary>Exhaustion</summary>
+              <p>{EXHAUSTION_SUMMARY}</p>
+            </details>
+          </div>
+          <GlossaryList kind="condition" />
+        </Stack>
+      </details>
     </Stack>
   );
 }
@@ -1075,6 +1457,26 @@ function RestPanel({
           </span>
         </label>
       </div>
+      {!sheet.digDeep && !sheet.digDeepActive ? (
+        <Stack gap={6}>
+          <Row gap={8} wrap>
+            <Button
+              variant="secondary"
+              disabled={!canDigDeepAgain(sheet.exhaustion)}
+              onClick={() =>
+                setSheet((s) =>
+                  canDigDeepAgain(s.exhaustion)
+                    ? { ...s, digDeepActive: true, exhaustion: s.exhaustion + 1 }
+                    : s,
+                )
+              }
+            >
+              Dig Deep again (+1 Exhaustion)
+            </Button>
+          </Row>
+          <Text tone="tertiary">Dig Deep {digDeepAgainNote(sheet.exhaustion)}</Text>
+        </Stack>
+      ) : null}
       <Row gap={8} wrap>
         <Button
           variant="secondary"
@@ -1093,6 +1495,7 @@ function RestPanel({
         </Button>
         <Button
           variant="secondary"
+          disabled={sheet.exhaustion >= EXHAUSTION_DEATH}
           onClick={() =>
             setSheet((s) => ({
               ...DEFAULT_SHEET,
@@ -1104,8 +1507,9 @@ function RestPanel({
         </Button>
       </Row>
       <Text tone="tertiary">
-        Short restores Moxie, Bloodied, Swagger. Long restores HP/uses, clears
-        conditions, and reduces Exhaustion by 1.
+        {sheet.exhaustion >= EXHAUSTION_DEATH
+          ? "Gary is dead at Exhaustion 6 — no long rest. If the DM revives him, set Exhaustion on the Conds tab."
+          : "Short restores Moxie, Bloodied, Swagger. Long restores HP/uses, clears conditions, and reduces Exhaustion by 1."}
       </Text>
     </Stack>
   );
@@ -1248,6 +1652,13 @@ export function GaryCombatTool() {
             digDeep: false,
             digDeepActive: true,
           };
+        case "dig-deep-exhaustion":
+          if (!canDigDeepAgain(s.exhaustion)) return s;
+          return {
+            ...s,
+            digDeepActive: true,
+            exhaustion: s.exhaustion + 1,
+          };
         case "swagger":
           return { ...s, swagger: false };
         default:
@@ -1267,6 +1678,8 @@ export function GaryCombatTool() {
           return "Applied — Moxie full + 36 temp";
         case "dig-deep":
           return "Dig Deep used";
+        case "dig-deep-exhaustion":
+          return "Dig Deep used · +1 Exhaustion";
         case "swagger":
           return "Swagger used";
         default:
@@ -1280,6 +1693,8 @@ export function GaryCombatTool() {
         return "Apply Bloodied But Unbowed";
       case "dig-deep":
         return "Use Dig Deep";
+      case "dig-deep-exhaustion":
+        return "Dig Deep (+1 Exhaustion)";
       case "swagger":
         return "Use Swagger Streak";
       default:
@@ -1287,24 +1702,63 @@ export function GaryCombatTool() {
     }
   }
 
+  const effects = effectsFor(sheet);
+  const cantAct = effects.cantAct.length > 0;
   const canBloodiedReaction =
-    sheet.bloodiedUnbowed && isBloodied(sheet.hp);
-  const bloodiedBlockedReason = !sheet.bloodiedUnbowed
-    ? "Already used this short rest"
-    : !isBloodied(sheet.hp)
-      ? `Not bloodied (need HP ≤ ${BLOODIED_AT})`
-      : null;
+    sheet.bloodiedUnbowed && isBloodied(sheet.hp) && !cantAct;
+  const bloodiedBlockedReason = cantAct
+    ? `Can’t take Reactions (${reasonText(effects.cantAct)})`
+    : !sheet.bloodiedUnbowed
+      ? "Already used this short rest"
+      : !isBloodied(sheet.hp)
+        ? `Not bloodied (need HP ≤ ${BLOODIED_AT})`
+        : null;
+  const penalty = effects.d20Penalty;
+  const attackMode = ROLL_SHORT[effects.attack.roll];
 
   return (
     <Stack gap={16}>
       <Stack gap={4}>
         <h1>Gary Grapplesauce</h1>
         <Text tone="secondary">
-          {CHEAT.attack} · AC {CHEAT.ac} · Athletics {CHEAT.athletics}
+          {effects.dead
+            ? "Dead · Exhaustion 6"
+            : [
+                cantAct
+                  ? "Can’t act"
+                  : `${signed(GARY.attack - penalty)}${attackMode ? ` (${attackMode})` : ""} / ${GARY.damage}`,
+                `AC ${GARY.ac}`,
+                `Athletics ${signed(GARY.athletics - penalty)}`,
+                effects.speed.value !== GARY.speed
+                  ? `Speed ${effects.speed.value} ft`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
         </Text>
       </Stack>
 
-      <StatusBar sheet={sheet} setSheet={setSheet} />
+      <StatusBar
+        sheet={sheet}
+        setSheet={setSheet}
+        onEffectsDetails={() => setTab("conds")}
+      />
+
+      {effects.dead || (tab === "play" && cantAct) ? (
+        <Callout
+          title={effects.dead ? "Gary is dead — Exhaustion 6" : "Gary can’t act"}
+          tone="warning"
+        >
+          {effects.dead
+            ? "Exhaustion 6 is instant death (no death saves). The decision tree is off. If the DM revives him, lower Exhaustion on the Conds tab."
+            : `${reasonText(effects.cantAct)}: no Action, Bonus Action, or Reaction — Moxie options are off until this ends.`}
+        </Callout>
+      ) : effects.d20Penalty === 2 * (EXHAUSTION_DEATH - 1) && tab === "play" ? (
+        <Callout title="Exhaustion 5 — one level from death" tone="warning">
+          Don’t Dig Deep again or take anything else that adds Exhaustion. A
+          long rest drops it to 4.
+        </Callout>
+      ) : null}
 
       <div className="tab-bar" role="tablist" aria-label="Main mode">
         {(
@@ -1330,7 +1784,7 @@ export function GaryCombatTool() {
 
       {tab === "play" ? (
         <Stack gap={12}>
-          {phase === "timing" && (
+          {!effects.dead && phase === "timing" && (
             <Card>
               <CardHeader>What just happened?</CardHeader>
               <CardBody>
@@ -1357,7 +1811,7 @@ export function GaryCombatTool() {
             </Card>
           )}
 
-          {phase === "reaction" && (
+          {!effects.dead && phase === "reaction" && (
             <Card>
               <CardHeader>Reaction</CardHeader>
               <CardBody>
@@ -1399,7 +1853,7 @@ export function GaryCombatTool() {
             </Card>
           )}
 
-          {phase === "goal" && (
+          {!effects.dead && phase === "goal" && (
             <Card>
               <CardHeader>This turn</CardHeader>
               <CardBody>
@@ -1429,7 +1883,7 @@ export function GaryCombatTool() {
             </Card>
           )}
 
-          {phase === "result" && plan && (
+          {!effects.dead && phase === "result" && plan && (
             <Card>
               <CardHeader trailing={<Pill>{plan.costLabel}</Pill>}>
                 {plan.title}
@@ -1531,9 +1985,12 @@ export function GaryCombatTool() {
             <summary>Rules glossary (Pugilist)</summary>
             <Stack gap={8}>
               <Text tone="tertiary">
-                Summaries from the Sterling Vermin Pugilist 2024 D&D Beyond
-                write-up, with Gary’s level-9 numbers where useful. Tap any ? in
-                the UI for the same blurbs.
+                Summaries from the Sterling Vermin Pugilist 2024 write-up, with
+                Gary’s level-9 numbers where useful. Tap any ? in the UI for the
+                same blurbs.{" "}
+                <a href={PUGILIST_POST_URL} target="_blank" rel="noreferrer">
+                  Pugilist on D&D Beyond ↗
+                </a>
               </Text>
               <GlossaryList />
             </Stack>
@@ -1551,12 +2008,20 @@ export function GaryCombatTool() {
       ) : null}
 
       {tab === "conds" ? (
-        <Card>
-          <CardHeader>Conditions</CardHeader>
-          <CardBody>
-            <ConditionsPanel sheet={sheet} setSheet={setSheet} />
-          </CardBody>
-        </Card>
+        <Stack gap={12}>
+          <Card>
+            <CardHeader>Effects on Gary right now</CardHeader>
+            <CardBody>
+              <ConditionEffectsCard sheet={sheet} />
+            </CardBody>
+          </Card>
+          <Card>
+            <CardHeader>Conditions</CardHeader>
+            <CardBody>
+              <ConditionsPanel sheet={sheet} setSheet={setSheet} />
+            </CardBody>
+          </Card>
+        </Stack>
       ) : null}
 
       {tab === "rest" ? (
@@ -1567,6 +2032,16 @@ export function GaryCombatTool() {
           </CardBody>
         </Card>
       ) : null}
+
+      <footer className="tool-sources">
+        <span>Rules:</span>
+        <a href={PUGILIST_POST_URL} target="_blank" rel="noreferrer">
+          Pugilist class on D&D Beyond ↗
+        </a>
+        <a href={RULES_GLOSSARY_URL} target="_blank" rel="noreferrer">
+          Conditions (2024 Rules Glossary) ↗
+        </a>
+      </footer>
     </Stack>
   );
 }

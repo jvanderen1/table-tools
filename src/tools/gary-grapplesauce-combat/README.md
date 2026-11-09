@@ -44,7 +44,7 @@ Three tabs so the screen isn’t a wall of controls:
 |---|---|
 | **Play** | Combat decision tree (timing → goal/reaction → Action / BA / Reaction) |
 | **Hit** | Take damage / heal (amount + type; Dig Deep auto-resists B/P/S) |
-| **Conds** | 5e conditions + Exhaustion 0–6 (active ones show on the status bar) |
+| **Conds** | Effects on Gary (auto-calculated) + 2024 conditions + Exhaustion 0–6 |
 | **Rest** | Once-per-rest toggles + Short / Long rest |
 
 Always visible above tabs: **HP bar**, **Moxie dots**, status pills (Bloodied, Dig Deep, conditions, ready uses).
@@ -69,6 +69,21 @@ Everything important is in `localStorage` under `table-tools:gary-grapplesauce-c
 - Manual override: normal / resistant / immune / vulnerable.
 - Temp HP absorbs before real HP; alerts explain immune / resist / vuln / bloodied.
 
+### Conditions behavior
+
+`conditions.ts` holds the 2024 condition text ([Rules Glossary](https://www.dndbeyond.com/sources/dnd/br-2024/rules-glossary)) and `computeConditionEffects`, which turns active conditions + Exhaustion into Gary’s numbers:
+
+- Attack, Athletics, all six saves, Initiative: Exhaustion −2 × level; Advantage/Disadvantage sources listed (they cancel per the rules).
+- Str/Dex auto-fail (Paralyzed, Petrified, Stunned, Unconscious); Dex save Disadvantage (Restrained).
+- Attacks vs. Gary split by within / beyond 5 ft (Prone), auto-crit within 5 ft (Paralyzed, Unconscious).
+- Speed: 30 − 5 × Exhaustion, 0 from Grappled/Restrained/Paralyzed/Petrified/Unconscious.
+- Incapacitated family → no Action/BA/Reaction: Play tab warns, Bloodied But Unbowed is locked.
+- Petrified → Hit tab auto-resists all damage.
+- **Exhaustion 6 = death** (2024 rule). At 6 the decision tree hides, the header/status say dead, and Long rest is disabled. At 5 the Play tab warns “one level from death”.
+- **Dig Deep again** (after the free use) costs 1 Exhaustion: offered in the Survive plan (no Moxie) and on the Rest tab, and refused when it would reach 6.
+
+The status card shows a short “Effects” chip line; the header line shows adjusted attack/Athletics/speed. Base numbers live in `GARY` in `Tool.tsx` — update there if the sheet changes.
+
 ## Limited uses (track in Rest)
 
 | Feature | Cadence | Notes |
@@ -76,7 +91,7 @@ Everything important is in `localStorage` under `table-tools:gary-grapplesauce-c
 | Moxie | Short rest | Pool of 5 |
 | Bloodied But Unbowed | 1 / short rest | Reaction while bloodied + took damage → refill Moxie + 36 temp HP |
 | Swagger Streak | 1 / short rest | Add 1d10 to a failed Str/Dex/Con/Cha check |
-| Dig Deep | 1 / long rest | BA → resist B/P/S ~10 min; toggle “active” while up |
+| Dig Deep | 1 free / long rest | BA → resist B/P/S ~10 min; toggle “active” while up. Extra uses cost 1 Exhaustion each (never to 6) |
 
 Short rest: Moxie full, Bloodied + Swagger ready, clear Dig Deep active + temp HP (conditions stay).  
 Long rest: full HP/uses reset, clear conditions, Exhaustion −1 (2024-style).

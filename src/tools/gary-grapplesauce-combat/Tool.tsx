@@ -50,8 +50,8 @@ import {
   Moon,
   Pickaxe,
   Plus,
-  Repeat,
   RotateCcw,
+  Undo2,
   ScrollText,
   Shield,
   ShieldAlert,
@@ -360,6 +360,38 @@ function describeSheetChange(prev: Sheet, next: Sheet): Change {
   return { label, key: keys.join("|") };
 }
 
+
+type PlaySnap = { id: string; before: Sheet; after: Sheet };
+
+/** Put back only the fields that one play tap changed, and leave later edits alone. */
+function revertSnap(current: Sheet, snap: PlaySnap): Sheet {
+  const next: Sheet = { ...current, conditions: { ...current.conditions } };
+  for (const [key] of SHEET_NUMBERS) {
+    const before = snap.before[key];
+    const after = snap.after[key];
+    if (typeof before === "number" && typeof after === "number" && before !== after) {
+      const now = current[key];
+      if (typeof now === "number") {
+        (next[key] as number) = now - (after - before);
+      }
+    }
+  }
+  for (const [key] of SHEET_FLAGS) {
+    if (snap.before[key] !== snap.after[key] && current[key] === snap.after[key]) {
+      (next[key] as boolean) = snap.before[key] as boolean;
+    }
+  }
+  for (const c of CONDITION_DEFS) {
+    const id = c.id;
+    if (
+      snap.before.conditions[id] !== snap.after.conditions[id] &&
+      current.conditions[id] === snap.after.conditions[id]
+    ) {
+      next.conditions[id] = snap.before.conditions[id];
+    }
+  }
+  return next;
+}
 
 function unarmedDice(gary: GaryStats) {
   return diceText(gary.fisticuffsDie, gary.fisticuffsBonus);
@@ -3487,6 +3519,7 @@ export function GaryCombatTool() {
     "play",
   );
   const [usedIds, setUsedIds] = useState<string[]>([]);
+  const [snaps, setSnaps] = useState<PlaySnap[]>([]);
   const [playbookId, setPlaybookId] = useState<string | null>(null);
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [customActions, setCustomActions] = usePersistentState<CustomAction[]>(
@@ -3627,6 +3660,7 @@ export function GaryCombatTool() {
     setReceipt(null);
     setHaymakerCall(null);
     setSwaggerCall(null);
+    setSnaps([]);
     setPhase("goal");
   }
 
@@ -3638,6 +3672,7 @@ export function GaryCombatTool() {
     setReceipt(null);
     setHaymakerCall(null);
     setSwaggerCall(null);
+    setSnaps([]);
   }
 
   function resetDecision() {
@@ -3650,6 +3685,44 @@ export function GaryCombatTool() {
     setReceipt(null);
     setHaymakerCall(null);
     setSwaggerCall(null);
+    setSnaps([]);
+  }
+
+  function goBack() {
+    if (phase === "result" && timing === "turn") {
+      setPhase("goal");
+      setPlaybookId(null);
+      setStaticPlan(null);
+      setUsedIds([]);
+      setReceipt(null);
+      setHaymakerCall(null);
+      setSwaggerCall(null);
+      setSnaps([]);
+      return;
+    }
+    if (phase === "result" && timing === "reaction") {
+      setPhase("reaction");
+      setPlaybookId(null);
+      setStaticPlan(null);
+      setUsedIds([]);
+      setReceipt(null);
+      setHaymakerCall(null);
+      setSwaggerCall(null);
+      setSnaps([]);
+      return;
+    }
+    resetDecision();
+  }
+
+  function undoLastMove() {
+    const snap = snaps[snaps.length - 1];
+    if (!snap) return;
+    setSheet((current) => revertSnap(current, snap));
+    setSnaps((list) => list.slice(0, -1));
+    setUsedIds((ids) => ids.filter((id) => id !== snap.id));
+    if (snap.id === "haymaker") setHaymakerCall(null);
+    if (snap.id === "swagger") setSwaggerCall(null);
+    setReceipt(null);
   }
 
   function pickTiming(next: Timing) {
@@ -3661,6 +3734,7 @@ export function GaryCombatTool() {
     setReceipt(null);
     setHaymakerCall(null);
     setSwaggerCall(null);
+    setSnaps([]);
     if (next === "check-fail") {
       setPhase("result");
       return;
@@ -3680,6 +3754,7 @@ export function GaryCombatTool() {
     setReceipt(null);
     setHaymakerCall(null);
     setSwaggerCall(null);
+    setSnaps([]);
     setPhase("result");
   }
 
@@ -3691,6 +3766,7 @@ export function GaryCombatTool() {
     setReceipt(null);
     setHaymakerCall(null);
     setSwaggerCall(null);
+    setSnaps([]);
     setPhase("result");
   }
 
@@ -3741,36 +3817,41 @@ export function GaryCombatTool() {
       });
     }
 
-    setSheet((s) => {
+    const nextSheet = ((): Sheet => {
       switch (choice.apply) {
         case "moxie":
           return {
-            ...s,
-            moxie: clamp(s.moxie - choice.cost, 0, MOXIE_MAX),
-            tempHp: choice.auto === "brace" ? nextTemp : s.tempHp,
+            ...sheet,
+            moxie: clamp(sheet.moxie - choice.cost, 0, MOXIE_MAX),
+            tempHp: choice.auto === "brace" ? nextTemp : sheet.tempHp,
           };
         case "bloodied-unbowed":
           return {
-            ...s,
+            ...sheet,
             moxie: MOXIE_MAX,
             bloodiedUnbowed: false,
-            tempHp: isBloodied(s.hp, gary) ? Math.max(s.tempHp, 36) : s.tempHp,
+            tempHp: isBloodied(sheet.hp, gary) ? Math.max(sheet.tempHp, 36) : sheet.tempHp,
           };
         case "dig-deep":
-          return { ...s, digDeep: false, digDeepActive: true };
+          return { ...sheet, digDeep: false, digDeepActive: true };
         case "dig-deep-exhaustion":
-          if (!canDigDeepAgain(s.exhaustion)) return s;
-          return { ...s, digDeep: true, exhaustion: s.exhaustion + 1 };
+          if (!canDigDeepAgain(sheet.exhaustion)) return sheet;
+          return { ...sheet, digDeep: true, exhaustion: sheet.exhaustion + 1 };
         case "swagger":
-          return { ...s, moxie: clamp(s.moxie - 1, 0, MOXIE_MAX) };
+          return { ...sheet, moxie: clamp(sheet.moxie - 1, 0, MOXIE_MAX) };
         case "guarded-mind":
-          return { ...s, guardedMind: false };
+          return { ...sheet, guardedMind: false };
         case "down-but-not-out":
-          return { ...s, downButNotOut: false };
+          return { ...sheet, downButNotOut: false };
         default:
-          return s;
+          return sheet;
       }
-    });
+    })();
+    setSheet(nextSheet);
+    setSnaps((list) => [
+      ...list.filter((snap) => snap.id !== choice.id),
+      { id: choice.id, before: sheet, after: nextSheet },
+    ]);
 
     const moxieAfter = clamp(moxieBefore - Math.max(choice.cost, choice.apply === "swagger" ? 1 : 0), 0, MOXIE_MAX);
     const bloodiedNow = isBloodied(sheet.hp, gary);
@@ -3803,7 +3884,11 @@ export function GaryCombatTool() {
   function settleHaymaker(hit: boolean) {
     if (haymakerCall !== "pending") return;
     if (hit) {
-      setSheet((s) => ({ ...s, moxie: clamp(s.moxie + 1, 0, MOXIE_MAX) }));
+      const next = { ...sheet, moxie: clamp(sheet.moxie + 1, 0, MOXIE_MAX) };
+      setSheet(next);
+      setSnaps((list) =>
+        list.map((snap) => (snap.id === "haymaker" ? { ...snap, after: next } : snap)),
+      );
       setReceipt("Haymaker hit. The Moxie point is back, and that attack deals maximum damage.");
     } else {
       setReceipt("Haymaker missed. The Moxie point stays spent.");
@@ -3814,11 +3899,15 @@ export function GaryCombatTool() {
   function settleSwagger(kind: "failed" | "succeeded") {
     if (swaggerCall !== "pending") return;
     if (kind === "failed") {
-      setSheet((s) => ({
-        ...s,
-        moxie: clamp(s.moxie + 1, 0, MOXIE_MAX),
+      const next = {
+        ...sheet,
+        moxie: clamp(sheet.moxie + 1, 0, MOXIE_MAX),
         swagger: false,
-      }));
+      };
+      setSheet(next);
+      setSnaps((list) =>
+        list.map((snap) => (snap.id === "swagger" ? { ...snap, after: next } : snap)),
+      );
       setReceipt("The check still failed. The Moxie point is back, and Swagger is used until a rest.");
     } else {
       setReceipt("The check succeeded. The Moxie point stays spent, and Swagger is still ready.");
@@ -3985,7 +4074,10 @@ export function GaryCombatTool() {
                   ? "bg-surface text-gold-soft shadow-[inset_0_-2px_0_0_var(--color-gold)]"
                   : "text-muted hover:bg-surface/60 hover:text-ink",
               )}
-              onClick={() => setTab(id)}
+              onClick={() => {
+                if (id === "play" && tab === "play") resetDecision();
+                else setTab(id);
+              }}
             >
               <Icon className="size-4" aria-hidden />
               {label}
@@ -4008,6 +4100,45 @@ export function GaryCombatTool() {
 
         {tab === "play" ? (
           <Stack gap={12}>
+            {!effects.dead && phase !== "timing" ? (
+              <div
+                className={cx(
+                  "sticky top-0 z-20 grid gap-2 rounded-xl border border-line bg-void/95 p-1.5 backdrop-blur",
+                  phase === "result" ? "grid-cols-3" : "grid-cols-2",
+                )}
+              >
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={ArrowLeft}
+                  className="w-full px-2"
+                  onClick={goBack}
+                >
+                  Back
+                </Button>
+                {phase === "result" ? (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    icon={Undo2}
+                    className="w-full px-2"
+                    disabled={snaps.length === 0}
+                    onClick={undoLastMove}
+                  >
+                    Undo
+                  </Button>
+                ) : null}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  icon={RotateCcw}
+                  className="w-full px-2"
+                  onClick={resetDecision}
+                >
+                  Start over
+                </Button>
+              </div>
+            ) : null}
             {!effects.dead && phase === "timing" && (
               <Card>
                 <CardHeader icon={Compass}>What just happened?</CardHeader>
@@ -4094,14 +4225,6 @@ export function GaryCombatTool() {
                         Bloodied locked: {bloodiedBlockedReason}
                       </Text>
                     ) : null}
-                    <Button
-                      variant="ghost"
-                      icon={ArrowLeft}
-                      className="w-fit"
-                      onClick={resetDecision}
-                    >
-                      Back
-                    </Button>
                   </Stack>
                 </CardBody>
               </Card>
@@ -4134,14 +4257,6 @@ export function GaryCombatTool() {
                       onClick={() => setCatalogOpen(true)}
                     >
                       All actions
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      icon={ArrowLeft}
-                      className="w-fit"
-                      onClick={resetDecision}
-                    >
-                      Back
                     </Button>
                   </Stack>
                 </CardBody>
@@ -4326,32 +4441,6 @@ export function GaryCombatTool() {
                       {plan.gym}
                     </div>
                     <PlanTips plan={plan} />
-                    <Row gap={8} wrap>
-                      <Button
-                        variant="secondary"
-                        icon={RotateCcw}
-                        onClick={resetDecision}
-                      >
-                        New decision
-                      </Button>
-                      {timing === "turn" ? (
-                        <Button
-                          variant="ghost"
-                          icon={Repeat}
-                          onClick={() => {
-                            setSelectedGoal(null);
-                            setStaticPlan(null);
-                            setUsedIds([]);
-                            setReceipt(null);
-                            setHaymakerCall(null);
-                            setSwaggerCall(null);
-                            setPhase("goal");
-                          }}
-                        >
-                          Change goal
-                        </Button>
-                      ) : null}
-                    </Row>
                   </Stack>
                 </CardBody>
               </Card>

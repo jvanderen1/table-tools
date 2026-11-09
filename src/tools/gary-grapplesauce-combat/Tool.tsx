@@ -669,13 +669,70 @@ type DamageUi = {
   magical?: boolean;
 };
 
+const DEFAULT_INCREMENTS = [1, 5, 10, 20];
+
 const DEFAULT_DAMAGE_UI: DamageUi = {
   amount: "0",
   type: "bludgeoning",
   effectiveness: "auto",
-  increments: [1, 5, 10, 20],
+  increments: [...DEFAULT_INCREMENTS],
   customIncrement: "15",
 };
+
+function isDefaultIncrement(n: number) {
+  return DEFAULT_INCREMENTS.includes(n);
+}
+
+function IncrementChips({
+  values,
+  sign,
+  onBump,
+  onRemove,
+  empty,
+}: {
+  values: number[];
+  sign: 1 | -1;
+  onBump: (delta: number) => void;
+  onRemove?: (n: number) => void;
+  empty?: string;
+}) {
+  return (
+    <div className="flex min-h-10 flex-wrap items-center gap-1.5">
+      {values.length === 0 && empty ? (
+        <span className="text-xs text-faint">{empty}</span>
+      ) : null}
+      {values.map((n) => (
+        <span
+          key={`${sign}-${n}`}
+          className="inline-flex h-8 shrink-0 items-stretch overflow-hidden rounded-lg border border-line bg-raised/70"
+        >
+          <button
+            type="button"
+            className="inline-flex h-full cursor-pointer items-center gap-1 px-2.5 text-sm font-medium tabular-nums text-ink hover:bg-raised"
+            onClick={() => onBump(sign * n)}
+          >
+            {sign > 0 ? (
+              <Plus className="size-3.5" aria-hidden />
+            ) : (
+              <Minus className="size-3.5" aria-hidden />
+            )}
+            {n}
+          </button>
+          {onRemove ? (
+            <button
+              type="button"
+              className="grid h-full w-8 shrink-0 cursor-pointer place-items-center border-l border-line text-faint hover:text-crimson-soft"
+              aria-label={`Remove step ${n}`}
+              onClick={() => onRemove(n)}
+            >
+              <X className="size-3.5" aria-hidden />
+            </button>
+          ) : null}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 type DamageOutcome = {
   tone: "info" | "warning";
@@ -773,6 +830,9 @@ function DamageAdjuster({
   const digDeepBypassed =
     magical && sheet.digDeepActive && ui.effectiveness === "auto";
   const preview = modifyDamage(raw, resolved);
+  const customStep = Number.parseInt(ui.customIncrement || "0", 10) || 0;
+  const defaultIncrements = ui.increments.filter(isDefaultIncrement);
+  const savedIncrements = ui.increments.filter((n) => !isDefaultIncrement(n));
 
   function setAmount(next: string) {
     const cleaned = next.replace(/\D/g, "").replace(/^0+(?=\d)/, "");
@@ -811,6 +871,14 @@ function DamageAdjuster({
     setUi((u) => ({
       ...u,
       increments: [...new Set([...u.increments, n])].sort((a, b) => a - b),
+    }));
+  }
+
+  function removeIncrement(n: number) {
+    if (!n || isDefaultIncrement(n)) return;
+    setUi((u) => ({
+      ...u,
+      increments: u.increments.filter((x) => x !== n),
     }));
   }
 
@@ -1009,34 +1077,28 @@ function DamageAdjuster({
             </Select>
           </label>
 
-          <Row gap={6} wrap>
-            {ui.increments.map((n) => (
-              <Button
-                key={n}
-                size="sm"
-                variant="secondary"
-                icon={Plus}
-                className="tabular-nums"
-                onClick={() => bump(n)}
-              >
-                {n}
-              </Button>
-            ))}
-          </Row>
-          <Row gap={6} wrap>
-            {ui.increments.map((n) => (
-              <Button
-                key={`m${n}`}
-                size="sm"
-                variant="ghost"
-                icon={Minus}
-                className="tabular-nums"
-                onClick={() => bump(-n)}
-              >
-                {n}
-              </Button>
-            ))}
-          </Row>
+          <IncrementChips values={defaultIncrements} sign={1} onBump={bump} />
+          <IncrementChips values={defaultIncrements} sign={-1} onBump={bump} />
+          <div className="flex min-h-20 flex-col justify-center gap-1.5">
+            {savedIncrements.length === 0 ? (
+              <span className="text-xs text-faint">No saved steps yet.</span>
+            ) : (
+              <>
+                <IncrementChips
+                  values={savedIncrements}
+                  sign={1}
+                  onBump={bump}
+                  onRemove={removeIncrement}
+                />
+                <IncrementChips
+                  values={savedIncrements}
+                  sign={-1}
+                  onBump={bump}
+                  onRemove={removeIncrement}
+                />
+              </>
+            )}
+          </div>
 
           <Row gap={6} wrap align="center">
             <input
@@ -1075,9 +1137,21 @@ function DamageAdjuster({
               size="sm"
               variant="ghost"
               icon={Save}
+              disabled={
+                !customStep || ui.increments.includes(customStep)
+              }
               onClick={addIncrementPreset}
             >
               Save step
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              icon={Trash2}
+              disabled={!customStep || !ui.increments.includes(customStep) || isDefaultIncrement(customStep)}
+              onClick={() => removeIncrement(customStep)}
+            >
+              Remove step
             </Button>
           </Row>
 

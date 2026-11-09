@@ -94,7 +94,8 @@ Buttons use the same condition math as the effects card (Exhaustion −2 per lev
 | Skills | Athletics +13, Perception +6, Insight +6 |
 | Initiative | +3 |
 | Unarmed | +9 to hit (nat 20 crit, nat 1 miss), with Damage 1d10+5 beside it (2d10+5 after a crit) |
-A **Dice** button floats in the bottom-right corner. It rolls any of d4, d6, d8, d10, d12, d20, or d100, and any count from 1 to 20. The panel above the button shows the latest total, then earlier rolls. It does not change HP.
+
+A **Dice** button floats in the bottom-right corner. Tap dice to build a mixed pool (up to 20 of each of d4, d6, d8, d10, d12, d20, and d100), set a modifier, and roll. The tray has a fixed height: the pool scrolls sideways and only the log scrolls, so nothing moves while you build or roll. **Hide** masks every total (the setting is remembered) and **Clear log** empties the history. It does not change HP.
 
 On a Play plan, to-hit, damage, Brace Up, and Swagger sit under the action they belong to.
 

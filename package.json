@@ -20,6 +20,11 @@
     "react-router-dom": "^7.18.5",
     "tailwindcss": "^4.3.5"
   },
+  "overrides": {
+    "workbox-build": {
+      "glob": "^14.0.4"
+    }
+  },
   "devDependencies": {
     "@types/node": "^24.19.2",
     "@types/react": "^19.3.0",

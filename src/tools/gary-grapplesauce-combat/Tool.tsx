@@ -33,6 +33,7 @@ import {
   Eraser,
   ExternalLink,
   Eye,
+  EyeOff,
   Flame,
   Footprints,
   Grab,
@@ -69,6 +70,7 @@ import {
   Swords,
   Target,
   Tent,
+  Trash2,
   TriangleAlert,
   WandSparkles,
   X,
@@ -682,6 +684,8 @@ function applyIncomingDamage(
   };
 }
 
+const OUTCOME_SLOT = "min-h-[6.5rem]";
+
 function DamageAdjuster({
   sheet,
   setSheet,
@@ -844,7 +848,7 @@ function DamageAdjuster({
         </label>
       </div>
 
-      <div className="flex items-center gap-2 rounded-lg border border-line bg-well/60 px-3 py-2 text-sm text-muted tabular-nums">
+      <div className="flex min-h-14 items-center gap-2 rounded-lg border border-line bg-well/60 px-3 py-2 text-sm text-muted tabular-nums">
         <Calculator className="size-4 shrink-0 text-gold/80" aria-hidden />
         <span>
           {raw} → <strong className="text-ink">{preview}</strong> {ui.type} ({effHint})
@@ -863,13 +867,25 @@ function DamageAdjuster({
 
       {outcome ? (
         <Callout
+          key={`${outcome.title}${outcome.detail}`}
           tone={outcome.tone}
           title={outcome.title}
           icon={outcome.tone === "warning" ? TriangleAlert : CircleCheck}
+          className={cx(OUTCOME_SLOT, "animate-pop-in")}
         >
           {outcome.detail}
         </Callout>
-      ) : null}
+      ) : (
+        <div
+          className={cx(
+            OUTCOME_SLOT,
+            "flex items-center gap-3 rounded-xl border border-dashed border-line px-3.5 text-sm text-faint",
+          )}
+        >
+          <CircleCheck className="size-5 shrink-0" aria-hidden />
+          What happened to Gary’s HP shows here.
+        </div>
+      )}
 
       <Accordion title="More damage options" icon={SlidersHorizontal}>
         <Stack gap={12}>
@@ -1830,27 +1846,35 @@ function RestPanel({
           </span>
         </label>
       </div>
-      {!sheet.digDeep && !sheet.digDeepActive ? (
-        <Stack gap={6}>
-          <Row gap={8} wrap>
-            <Button
-              variant="secondary"
-              icon={Pickaxe}
-              disabled={!canDigDeepAgain(sheet.exhaustion)}
-              onClick={() =>
-                setSheet((s) =>
-                  canDigDeepAgain(s.exhaustion)
-                    ? { ...s, digDeepActive: true, exhaustion: s.exhaustion + 1 }
-                    : s,
-                )
-              }
-            >
-              Dig Deep again (+1 Exhaustion)
-            </Button>
-          </Row>
-          <Text tone="tertiary">Dig Deep {digDeepAgainNote(sheet.exhaustion)}</Text>
-        </Stack>
-      ) : null}
+      <Stack gap={6}>
+        <Row gap={8} wrap>
+          <Button
+            variant="secondary"
+            icon={Pickaxe}
+            disabled={
+              sheet.digDeep ||
+              sheet.digDeepActive ||
+              !canDigDeepAgain(sheet.exhaustion)
+            }
+            onClick={() =>
+              setSheet((s) =>
+                !s.digDeep && !s.digDeepActive && canDigDeepAgain(s.exhaustion)
+                  ? { ...s, digDeepActive: true, exhaustion: s.exhaustion + 1 }
+                  : s,
+              )
+            }
+          >
+            Dig Deep again (+1 Exhaustion)
+          </Button>
+        </Row>
+        <Text tone="tertiary" className="min-h-10">
+          {sheet.digDeepActive
+            ? "Dig Deep is active."
+            : sheet.digDeep
+              ? "The free Dig Deep is still unused — tick it above first."
+              : `Dig Deep ${digDeepAgainNote(sheet.exhaustion)}`}
+        </Text>
+      </Stack>
       <div className="grid grid-cols-2 gap-2">
         <Button
           variant="secondary"
@@ -2019,7 +2043,7 @@ const ROLL_GRID = "grid grid-cols-2 gap-1.5 min-[480px]:grid-cols-3";
 const ROLL_TILE =
   "flex min-h-14 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-lg border border-line bg-well/70 px-1.5 py-2 leading-tight text-muted transition-colors hover:border-gold/50 hover:bg-raised/60 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40";
 const LINE_ROLL_BTN =
-  "inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-lg border border-line bg-well/70 px-3 text-sm tabular-nums text-ink transition-colors hover:border-gold/50 hover:bg-raised/60 disabled:cursor-not-allowed disabled:opacity-40 [&>svg]:size-4 [&>svg]:text-gold/80";
+  "inline-flex min-h-10 min-w-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-line bg-well/70 px-2 text-[0.82rem] tabular-nums text-ink transition-colors hover:border-gold/50 hover:bg-raised/60 disabled:cursor-not-allowed disabled:opacity-40 [&>svg]:size-4 [&>svg]:text-gold/80";
 
 function specIcon(spec: D20Spec): LucideIcon {
   if (spec.attack) return Swords;
@@ -2169,7 +2193,14 @@ function RollPanel({
 
   return (
     <Stack gap={16}>
-      {result ? <RollReadout result={result} onSwagger={addSwagger} /> : null}
+      {result ? (
+        <RollReadout result={result} onSwagger={addSwagger} />
+      ) : (
+        <div className={cx(ROLL_SLOT, ROLL_EMPTY)}>
+          <Dices className="size-6 text-faint" aria-hidden />
+          Tap a save, check, or attack. The result lands here.
+        </div>
+      )}
 
       <div className="flex flex-col gap-1.5">
         <FieldLabel icon={Shield}>Saving throws</FieldLabel>
@@ -2322,14 +2353,19 @@ function RollReadout({
   );
 }
 
-const ROLL_RESULT =
-  "flex animate-pop-in flex-col items-center gap-1.5 rounded-xl border border-gold/30 bg-gradient-to-b from-raised/60 to-well/80 px-4 py-4 text-center shadow-[0_10px_30px_-18px_rgba(197,160,89,0.6)]";
+const ROLL_SLOT =
+  "flex min-h-[15.5rem] flex-col items-center justify-center gap-1.5 rounded-xl border px-4 py-4 text-center";
+const ROLL_EMPTY = "border-dashed border-line text-sm text-faint";
+const ROLL_RESULT = cx(
+  ROLL_SLOT,
+  "animate-pop-in border-gold/30 bg-gradient-to-b from-raised/60 to-well/80 shadow-[0_10px_30px_-18px_rgba(197,160,89,0.6)]",
+);
 const ROLL_RESULT_LABEL =
   "inline-flex items-center gap-1.5 text-[0.72rem] font-semibold uppercase tracking-[0.14em] text-muted";
 const ROLL_TOTAL =
   "font-display text-5xl leading-none font-semibold tabular-nums text-ink";
 const ROLL_MATH = "text-sm tabular-nums text-muted";
-const ROLL_NOTES = "text-[0.8rem] leading-snug text-faint";
+const ROLL_NOTES = "line-clamp-3 text-[0.8rem] leading-snug text-faint";
 const ROLL_FLAG = "inline-flex items-center gap-1.5 text-sm font-semibold";
 
 function ActionRolls({
@@ -2403,7 +2439,7 @@ function ActionRolls({
 
   return (
     <Stack gap={6}>
-      <Row gap={6} wrap>
+      <div className="grid grid-cols-2 gap-1.5">
         {dice.includes("attack") ? (
           <button
             type="button"
@@ -2446,13 +2482,21 @@ function ActionRolls({
             {sheet.swagger ? "Swagger +1d10" : "Swagger used"}
           </button>
         ) : null}
-      </Row>
-      {line ? (
-        <div className="inline-flex w-fit animate-pop-in items-center gap-1.5 rounded-md border border-gold/25 bg-gold/[0.06] px-2.5 py-1 text-sm tabular-nums text-gold-soft">
-          <Dices className="size-3.5 shrink-0" aria-hidden />
-          {line}
-        </div>
-      ) : null}
+      </div>
+      <div
+        className={cx(
+          "flex h-11 items-center gap-1.5 rounded-md border px-2.5 text-[0.8rem] leading-4 tabular-nums",
+          line
+            ? "border-gold/25 bg-gold/[0.06] text-gold-soft"
+            : "border-dashed border-line text-faint",
+        )}
+        aria-live="polite"
+      >
+        <Dices className="size-3.5 shrink-0" aria-hidden />
+        <span key={line ?? ""} className="line-clamp-2 animate-pop-in">
+          {line ?? "Roll results show here."}
+        </span>
+      </div>
     </Stack>
   );
 }
@@ -2528,6 +2572,10 @@ function DiceRoller() {
   const [pool, setPool] = useState<DicePool>({ 20: 1 });
   const [modifier, setModifier] = useState(0);
   const [log, setLog] = useState<DiceLogEntry[]>([]);
+  const [hidden, setHidden] = usePersistentState(
+    "gary-grapplesauce-combat:dice-hidden",
+    false,
+  );
   const latest = log[0];
   const groups = poolGroups(pool);
   const expression = diceExpression(groups, modifier);
@@ -2572,35 +2620,53 @@ function DiceRoller() {
   const DICE_KEY =
     "min-h-10 cursor-pointer rounded-lg border text-sm font-medium tabular-nums transition-colors";
   const STEP =
-    "grid size-8 cursor-pointer place-items-center rounded-md border border-line bg-well/70 text-ink hover:border-gold/50 disabled:cursor-not-allowed disabled:opacity-40";
+    "grid size-7 shrink-0 cursor-pointer place-items-center rounded-md border border-line bg-well/70 text-ink hover:border-gold/50 disabled:cursor-not-allowed disabled:opacity-40";
+  const HEADER_BTN =
+    "inline-flex h-7 cursor-pointer items-center gap-1 rounded-md px-1.5 text-xs text-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-40";
+  const SECTION_LABEL =
+    "text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-faint";
+  const MASK = "•••";
 
   return createPortal(
     <div className="fixed right-3 bottom-3 z-40 flex flex-col items-end gap-2">
       {open ? (
         <div
-          className="flex max-h-[min(78vh,560px)] w-[min(300px,calc(100vw-24px))] animate-pop-in flex-col gap-2.5 overflow-auto rounded-2xl border border-gold/30 bg-surface p-3 shadow-[0_24px_48px_-16px_rgba(0,0,0,0.9)]"
+          className="flex h-[min(80vh,600px)] w-[min(300px,calc(100vw-24px))] animate-pop-in flex-col gap-2.5 overflow-hidden rounded-2xl border border-gold/30 bg-surface p-3 shadow-[0_24px_48px_-16px_rgba(0,0,0,0.9)]"
           role="dialog"
           aria-label="Dice"
         >
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex h-7 shrink-0 items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 font-display text-xs font-semibold uppercase tracking-[0.16em] text-gold-soft">
               <Dices className="size-4 text-gold" aria-hidden />
               Dice tray
             </div>
-            <button
-              type="button"
-              className="inline-flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-1 text-xs text-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
-              disabled={groups.length === 0 && modifier === 0}
-              onClick={clearPool}
-            >
-              <Eraser className="size-3.5" aria-hidden />
-              Clear
-            </button>
+            <div className="flex items-center">
+              <button
+                type="button"
+                className={HEADER_BTN}
+                aria-pressed={hidden}
+                onClick={() => setHidden((h) => !h)}
+              >
+                {hidden ? (
+                  <EyeOff className="size-3.5" aria-hidden />
+                ) : (
+                  <Eye className="size-3.5" aria-hidden />
+                )}
+                {hidden ? "Show" : "Hide"}
+              </button>
+              <button
+                type="button"
+                className={HEADER_BTN}
+                disabled={groups.length === 0 && modifier === 0}
+                onClick={clearPool}
+              >
+                <Eraser className="size-3.5" aria-hidden />
+                Reset
+              </button>
+            </div>
           </div>
-          <Text tone="tertiary" className="text-xs">
-            Tap dice to add them. Mix sizes freely.
-          </Text>
-          <div className="grid grid-cols-4 gap-1.5">
+
+          <div className="grid shrink-0 grid-cols-4 gap-1.5">
             {DICE_SIDES.map((n) => {
               const count = pool[n] ?? 0;
               return (
@@ -2629,41 +2695,34 @@ function DiceRoller() {
             })}
           </div>
 
-          {groups.length > 0 ? (
-            <ul className="m-0 flex list-none flex-col gap-1 p-0">
-              {groups.map((g) => (
-                <li
+          <div className="flex h-9 shrink-0 flex-nowrap items-center gap-1.5 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {groups.length === 0 ? (
+              <span className="text-xs text-faint">
+                Tap dice above to build a roll.
+              </span>
+            ) : (
+              groups.map((g) => (
+                <span
                   key={g.sides}
-                  className="flex items-center justify-between gap-2 rounded-lg bg-well/60 py-1 pr-1 pl-2.5"
+                  className="inline-flex h-8 shrink-0 animate-pop-in items-center gap-1.5 rounded-lg bg-well/70 pr-0.5 pl-2.5"
                 >
                   <span className="text-sm font-semibold tabular-nums">
                     {g.count}d{g.sides}
                   </span>
-                  <span className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      className={STEP}
-                      aria-label={`Remove a d${g.sides}`}
-                      onClick={() => adjust(g.sides, -1)}
-                    >
-                      <Minus className="size-3.5" aria-hidden />
-                    </button>
-                    <button
-                      type="button"
-                      className={STEP}
-                      aria-label={`Add a d${g.sides}`}
-                      disabled={g.count >= MAX_PER_DIE}
-                      onClick={() => adjust(g.sides, 1)}
-                    >
-                      <Plus className="size-3.5" aria-hidden />
-                    </button>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : null}
+                  <button
+                    type="button"
+                    className={STEP}
+                    aria-label={`Remove a d${g.sides}`}
+                    onClick={() => adjust(g.sides, -1)}
+                  >
+                    <Minus className="size-3.5" aria-hidden />
+                  </button>
+                </span>
+              ))
+            )}
+          </div>
 
-          <div className="flex items-center justify-between gap-2 rounded-lg bg-well/60 py-1 pr-1 pl-2.5">
+          <div className="flex h-9 shrink-0 items-center justify-between gap-2 rounded-lg bg-well/60 pr-1 pl-2.5">
             <span className="text-sm text-muted">Modifier</span>
             <span className="flex items-center gap-1">
               <button
@@ -2675,7 +2734,7 @@ function DiceRoller() {
               >
                 <Minus className="size-3.5" aria-hidden />
               </button>
-              <span className="min-w-[3ch] text-center text-sm font-semibold tabular-nums">
+              <span className="w-[3ch] text-center text-sm font-semibold tabular-nums">
                 {signed(modifier)}
               </span>
               <button
@@ -2693,45 +2752,77 @@ function DiceRoller() {
           <Button
             variant="primary"
             icon={Dices}
+            className="w-full shrink-0"
             disabled={groups.length === 0}
             onClick={roll}
           >
-            {groups.length === 0 ? "Add a die" : `Roll ${expression}`}
+            <span className="min-w-0 truncate">
+              {groups.length === 0 ? "Add a die" : `Roll ${expression}`}
+            </span>
           </Button>
 
-          {latest ? (
-            <div className="border-t border-line pt-2 text-center">
-              <div
-                key={latest.id}
-                className="animate-pop-in font-display text-[2.6rem] leading-none font-semibold tabular-nums text-gold-soft"
-              >
-                {latest.total}
-              </div>
-              <div className="mt-1 text-center text-[0.8rem] tabular-nums text-faint">
-                {entryBreakdown(latest)}
-              </div>
-            </div>
-          ) : (
-            <p className="m-0 text-center text-[0.8rem] text-faint">
-              Nothing rolled yet.
-            </p>
-          )}
-          {log.length > 1 ? (
-            <ol className="m-0 flex list-none flex-col gap-1 border-t border-line p-0 pt-2">
-              {log.slice(1).map((entry) => (
+          <div className="flex h-[5.25rem] shrink-0 flex-col items-center justify-center rounded-xl border border-line bg-well/50 px-2 text-center">
+            {latest ? (
+              <>
+                <div
+                  key={`${latest.id}-${hidden}`}
+                  className={cx(
+                    "animate-pop-in font-display text-[2.4rem] leading-none font-semibold tabular-nums",
+                    hidden ? "text-faint" : "text-gold-soft",
+                  )}
+                  aria-label={hidden ? "Result hidden" : undefined}
+                >
+                  {hidden ? MASK : latest.total}
+                </div>
+                <div className="mt-1 line-clamp-2 h-8 w-full text-[0.72rem] leading-4 tabular-nums text-faint">
+                  {hidden ? entryExpression(latest) : entryBreakdown(latest)}
+                </div>
+              </>
+            ) : (
+              <span className="text-[0.8rem] text-faint">Nothing rolled yet.</span>
+            )}
+          </div>
+
+          <div className="flex h-6 shrink-0 items-center justify-between gap-2">
+            <span className={SECTION_LABEL}>
+              Log{log.length > 1 ? ` · ${log.length - 1}` : ""}
+            </span>
+            <button
+              type="button"
+              className={HEADER_BTN}
+              disabled={log.length === 0}
+              onClick={() => setLog([])}
+            >
+              <Trash2 className="size-3.5" aria-hidden />
+              Clear log
+            </button>
+          </div>
+
+          <ol className="m-0 flex min-h-0 flex-1 list-none flex-col gap-1 overflow-y-auto border-t border-line p-0 pt-2">
+            {log.length > 1 ? (
+              log.slice(1).map((entry) => (
                 <li
                   key={entry.id}
-                  className="flex justify-between gap-2 text-[0.8rem] tabular-nums text-muted"
+                  className="flex shrink-0 justify-between gap-2 text-[0.8rem] tabular-nums text-muted"
                 >
                   <span className="inline-flex min-w-0 items-center gap-1.5">
                     <History className="size-3 shrink-0 text-faint" aria-hidden />
                     <span className="truncate">{entryExpression(entry)}</span>
                   </span>
-                  <span className="font-semibold text-ink">{entry.total}</span>
+                  <span
+                    className={cx(
+                      "font-semibold",
+                      hidden ? "text-faint" : "text-ink",
+                    )}
+                  >
+                    {hidden ? MASK : entry.total}
+                  </span>
                 </li>
-              ))}
-            </ol>
-          ) : null}
+              ))
+            ) : (
+              <li className="text-[0.8rem] text-faint">No earlier rolls.</li>
+            )}
+          </ol>
         </div>
       ) : null}
       <button
@@ -3075,15 +3166,6 @@ export function GaryCombatTool() {
               ? "Exhaustion 6 is instant death (no death saves). The decision tree is off. If the DM revives him, lower Exhaustion on the Conds tab."
               : `${reasonText(effects.cantAct)}: no Action, Bonus Action, or Reaction — Moxie options are off until this ends.`}
           </Callout>
-        ) : effects.d20Penalty === 2 * (EXHAUSTION_DEATH - 1) && tab === "play" ? (
-          <Callout
-            title="Exhaustion 5 — one level from death"
-            tone="warning"
-            icon={TriangleAlert}
-          >
-            Don’t Dig Deep again or take anything else that adds Exhaustion. A
-            long rest drops it to 4.
-          </Callout>
         ) : null}
 
         {tab === "play" ? (
@@ -3265,12 +3347,11 @@ export function GaryCombatTool() {
                         </Button>
                       ) : null}
                       {selectedGoal === "survive" &&
-                      sheet.digDeep &&
                       plan.apply === "moxie" ? (
                         <Button
                           variant="secondary"
-                          icon={Pickaxe}
-                          disabled={spentApplied}
+                          icon={sheet.digDeep ? Pickaxe : CircleCheck}
+                          disabled={spentApplied || !sheet.digDeep}
                           onClick={() => {
                             setSheet((s) => ({
                               ...s,
@@ -3279,7 +3360,7 @@ export function GaryCombatTool() {
                             }));
                           }}
                         >
-                          Also Dig Deep
+                          {sheet.digDeep ? "Also Dig Deep" : "Dig Deep used"}
                         </Button>
                       ) : null}
                       <Button
@@ -3308,6 +3389,20 @@ export function GaryCombatTool() {
                 </CardBody>
               </Card>
             )}
+
+            {!effects.dead &&
+            !cantAct &&
+            effects.d20Penalty === 2 * (EXHAUSTION_DEATH - 1) ? (
+              <Callout
+                title="Exhaustion 5 — one level from death"
+                tone="warning"
+                icon={TriangleAlert}
+                className="animate-pop-in"
+              >
+                Don’t Dig Deep again or take anything else that adds Exhaustion.
+                A long rest drops it to 4.
+              </Callout>
+            ) : null}
 
             <div className="grid grid-cols-2 gap-2">
               <Button

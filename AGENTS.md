@@ -49,6 +49,18 @@ Then implement `Tool.tsx`. Prefer:
 | Routing | automatic via registry + `/#/tools/<id>` |
 | Persistence keys | `table-tools:<tool-id>:<name>` |
 
+## No layout jumps
+
+Tapping something must never move the thing being tapped, or the content around it. When a result, notice, or chip appears:
+
+- reserve its space up front (fixed or min height slot with a quiet placeholder)
+- grow sideways inside a fixed-height scroll strip, not by wrapping onto new lines
+- keep buttons rendered and disable them instead of removing them
+- use overlays (drawer, popover, toast) for transient messages
+- give scrolling panels a fixed height and let only their list scroll
+
+Opening a disclosure (accordion, tab switch, drawer) is fine; that’s navigation.
+
 ## Do not
 
 - Put tools only in Cursor `.canvas.tsx` files — those stay local to Cursor

@@ -237,11 +237,13 @@ export function Callout({
   children,
   tone = "info",
   icon: Icon,
+  className,
 }: {
   title: string;
   children: ReactNode;
   tone?: "info" | "warning";
   icon?: LucideIcon;
+  className?: string;
 }) {
   return (
     <div
@@ -250,6 +252,7 @@ export function Callout({
         tone === "warning"
           ? "border-crimson/60 bg-crimson/15"
           : "border-gold/35 bg-gold/[0.07]",
+        className,
       )}
     >
       {Icon ? (

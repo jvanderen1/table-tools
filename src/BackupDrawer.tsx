@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ClipboardCopy,
   ClipboardPaste,
@@ -8,6 +9,7 @@ import {
   ShieldCheck,
   ShieldQuestion,
   TriangleAlert,
+  X,
 } from "lucide-react";
 import {
   backupFileName,
@@ -53,6 +55,12 @@ function BackupPanel() {
   useEffect(() => {
     void isStoragePersisted().then(setPersisted);
   }, []);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(null), 6000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
 
   async function protect() {
     const ok = await requestPersistentStorage();
@@ -171,17 +179,16 @@ function BackupPanel() {
               ? "The browser promised not to clear it on its own."
               : "The browser may clear it if space runs low or the app goes unused."}
           </Text>
-          {!persisted ? (
-            <Button
-              size="sm"
-              variant="secondary"
-              icon={ShieldCheck}
-              className="mt-2"
-              onClick={protect}
-            >
-              Protect storage
-            </Button>
-          ) : null}
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={ShieldCheck}
+            className="mt-2"
+            disabled={persisted === true}
+            onClick={protect}
+          >
+            {persisted ? "Protected" : "Protect storage"}
+          </Button>
         </div>
       </div>
 
@@ -202,15 +209,32 @@ function BackupPanel() {
         </div>
       </Stack>
 
-      {notice ? (
-        <Callout
-          tone={notice.tone}
-          title={notice.title}
-          icon={notice.tone === "warning" ? TriangleAlert : ClipboardCopy}
-        >
-          {notice.detail}
-        </Callout>
-      ) : null}
+      {notice
+        ? createPortal(
+            <div
+              className="fixed inset-x-3 bottom-3 z-[60] animate-pop-in sm:left-auto sm:w-[24rem]"
+              role="status"
+            >
+              <Callout
+                tone={notice.tone}
+                title={notice.title}
+                icon={notice.tone === "warning" ? TriangleAlert : ClipboardCopy}
+                className="bg-surface pr-10 shadow-2xl"
+              >
+                {notice.detail}
+              </Callout>
+              <button
+                type="button"
+                aria-label="Dismiss"
+                className="absolute top-2 right-2 grid size-7 cursor-pointer place-items-center rounded-md text-muted hover:text-ink"
+                onClick={() => setNotice(null)}
+              >
+                <X className="size-4" aria-hidden />
+              </button>
+            </div>,
+            document.body,
+          )
+        : null}
 
       <Divider />
 

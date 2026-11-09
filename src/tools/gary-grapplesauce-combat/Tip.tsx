@@ -1,5 +1,15 @@
-import { useState, type ReactNode } from "react";
-import { GLOSSARY, type GlossaryEntry } from "./glossary";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { createPortal } from "react-dom";
+import { GLOSSARY } from "./glossary";
+
+const BUBBLE_WIDTH = 320;
+const GAP = 6;
 
 export function Tip({
   id,
@@ -9,16 +19,63 @@ export function Tip({
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const bubbleRef = useRef<HTMLDivElement>(null);
   const entry = GLOSSARY[id];
+
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const width = Math.min(BUBBLE_WIDTH, window.innerWidth - 16);
+    const left = Math.max(
+      8,
+      Math.min(rect.left, window.innerWidth - width - 8),
+    );
+    setPos({ top: rect.bottom + GAP, left });
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    function close(e: Event) {
+      const target = e.target as Node | null;
+      if (
+        target &&
+        (triggerRef.current?.contains(target) ||
+          bubbleRef.current?.contains(target))
+      ) {
+        return;
+      }
+      setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    function onScroll() {
+      setOpen(false);
+    }
+    document.addEventListener("pointerdown", close);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
+    return () => {
+      document.removeEventListener("pointerdown", close);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, [open]);
+
   if (!entry) return <>{children}</>;
 
   return (
-    <span className={`tip${open ? " open" : ""}`}>
+    <>
       <button
+        ref={triggerRef}
         type="button"
-        className="tip-trigger"
+        className={`tip-trigger${open ? " open" : ""}`}
         aria-expanded={open}
-        title={`${entry.label}: ${entry.summary}`}
+        aria-label={`${entry.label} — show rules`}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -30,31 +87,38 @@ export function Tip({
           ?
         </span>
       </button>
-      {open ? <TipBubble entry={entry} onClose={() => setOpen(false)} /> : null}
-    </span>
-  );
-}
-
-function TipBubble({
-  entry,
-  onClose,
-}: {
-  entry: GlossaryEntry;
-  onClose: () => void;
-}) {
-  return (
-    <span className="tip-bubble" role="note">
-      <span className="tip-bubble-head">
-        <strong>{entry.label}</strong>
-        <button type="button" className="tip-close" onClick={onClose}>
-          Close
-        </button>
-      </span>
-      <span className="tip-bubble-body">{entry.summary}</span>
-      {entry.source ? (
-        <span className="tip-source">{entry.source}</span>
-      ) : null}
-    </span>
+      {open && pos
+        ? createPortal(
+            <div
+              ref={bubbleRef}
+              className="tip-bubble"
+              role="dialog"
+              aria-label={entry.label}
+              style={{
+                top: pos.top,
+                left: pos.left,
+                width: Math.min(BUBBLE_WIDTH, window.innerWidth - 16),
+              }}
+            >
+              <div className="tip-bubble-head">
+                <strong>{entry.label}</strong>
+                <button
+                  type="button"
+                  className="tip-close"
+                  onClick={() => setOpen(false)}
+                >
+                  Close
+                </button>
+              </div>
+              <div className="tip-bubble-body">{entry.summary}</div>
+              {entry.source ? (
+                <div className="tip-source">{entry.source}</div>
+              ) : null}
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
   );
 }
 

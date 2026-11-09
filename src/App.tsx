@@ -8,8 +8,7 @@ function Home() {
       <Stack gap={6}>
         <h1>Table Tools</h1>
         <Text tone="secondary">
-          Phone-friendly play aids for the table. Add another tool anytime —
-          see AGENTS.md.
+          Phone-friendly play aids for the table.
         </Text>
       </Stack>
       <div className="grid grid-1" style={{ gap: 12 }}>
@@ -53,7 +52,9 @@ export default function App() {
         <Link to="/" style={{ color: "inherit", textDecoration: "none" }}>
           <strong>table-tools</strong>
         </Link>
-        <Text tone="tertiary">{tools.length} tools</Text>
+        <Text tone="tertiary">
+          {tools.length} {tools.length === 1 ? "tool" : "tools"}
+        </Text>
       </header>
       <Routes>
         <Route path="/" element={<Home />} />

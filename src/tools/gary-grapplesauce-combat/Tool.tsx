@@ -1,8 +1,10 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
   useState,
   type KeyboardEvent,
+  type ReactNode,
 } from "react";
 import { usePersistentState } from "../../lib/usePersistentState";
 import {
@@ -14,7 +16,6 @@ import {
   Divider,
   Pill,
   Row,
-  Spacer,
   Stack,
   Text,
 } from "../../ui";
@@ -781,6 +782,83 @@ function PlanTips({ plan }: { plan: Plan }) {
   );
 }
 
+function StatusPills({ sheet }: { sheet: Sheet }) {
+  const active: ReactNode[] = [];
+  if (isBloodied(sheet.hp)) {
+    active.push(
+      <Pill key="bloodied" active>
+        <Tip id="bloodied">Bloodied</Tip>
+      </Pill>,
+    );
+  }
+  if (sheet.digDeepActive) {
+    active.push(
+      <Pill key="dig-active" active>
+        <Tip id="dig-deep">Dig Deep on</Tip>
+      </Pill>,
+    );
+  }
+  if ((sheet.exhaustion ?? 0) > 0) {
+    active.push(
+      <Pill key="exhaustion" active>
+        <Tip id="exhaustion">Exhaustion {sheet.exhaustion}</Tip>
+      </Pill>,
+    );
+  }
+  for (const c of activeConditions(sheet)) {
+    active.push(
+      <Pill key={c.id} active>
+        {c.label}
+      </Pill>,
+    );
+  }
+
+  const ready: ReactNode[] = [];
+  if (sheet.bloodiedUnbowed) {
+    ready.push(
+      <Pill key="bbu">
+        <Tip id="bloodied-but-unbowed">Bloodied But Unbowed</Tip>
+      </Pill>,
+    );
+  }
+  if (sheet.swagger) {
+    ready.push(
+      <Pill key="swagger">
+        <Tip id="swagger-streak">Swagger Streak</Tip>
+      </Pill>,
+    );
+  }
+  if (sheet.digDeep && !sheet.digDeepActive) {
+    ready.push(
+      <Pill key="dig">
+        <Tip id="dig-deep">Dig Deep</Tip>
+      </Pill>,
+    );
+  }
+
+  if (active.length === 0 && ready.length === 0) return null;
+
+  return (
+    <div className="status-pills">
+      {active.length > 0 ? (
+        <>
+          <span className="status-pills-label">Now</span>
+          {active}
+        </>
+      ) : null}
+      {active.length > 0 && ready.length > 0 ? (
+        <span className="status-pills-sep" aria-hidden="true" />
+      ) : null}
+      {ready.length > 0 ? (
+        <>
+          <span className="status-pills-label">Ready</span>
+          {ready}
+        </>
+      ) : null}
+    </div>
+  );
+}
+
 function StatusBar({
   sheet,
   setSheet,
@@ -837,45 +915,7 @@ function StatusBar({
             </Text>
           </div>
         </div>
-        <Row gap={8} wrap style={{ marginTop: 12 }}>
-          {isBloodied(sheet.hp) ? (
-            <Pill active>
-              <Tip id="bloodied">Bloodied</Tip>
-            </Pill>
-          ) : null}
-          {sheet.digDeepActive ? (
-            <Pill active>
-              <Tip id="dig-deep">Dig Deep</Tip>
-            </Pill>
-          ) : null}
-          {(sheet.exhaustion ?? 0) > 0 ? (
-            <Pill active>
-              <Tip id="exhaustion">Exhaustion {sheet.exhaustion}</Tip>
-            </Pill>
-          ) : null}
-          {activeConditions(sheet).map((c) => (
-            <Pill key={c.id} active>
-              {c.label}
-            </Pill>
-          ))}
-          {sheet.bloodiedUnbowed ? (
-            <Pill>
-              <Tip id="bloodied-but-unbowed">Bloodied ready</Tip>
-            </Pill>
-          ) : null}
-          {sheet.swagger ? (
-            <Pill>
-              <Tip id="swagger-streak">Swagger ready</Tip>
-            </Pill>
-          ) : null}
-          {sheet.digDeep ? (
-            <Pill>
-              <Tip id="dig-deep">Dig Deep ready</Tip>
-            </Pill>
-          ) : null}
-          <Spacer />
-          <Text tone="tertiary">Saved here · tap ? for rules</Text>
-        </Row>
+        <StatusPills sheet={sheet} />
       </CardBody>
     </Card>
   );
@@ -1082,14 +1122,17 @@ export function GaryCombatTool() {
     "gary-grapplesauce-combat:sheet",
     DEFAULT_SHEET,
   );
-  const sheet = normalizeSheet(sheetRaw);
-  const setSheet: typeof setSheetRaw = (next) => {
-    if (typeof next === "function") {
-      setSheetRaw((prev) => normalizeSheet(next(normalizeSheet(prev))));
-    } else {
-      setSheetRaw(normalizeSheet(next));
-    }
-  };
+  const sheet = useMemo(() => normalizeSheet(sheetRaw), [sheetRaw]);
+  const setSheet = useCallback<typeof setSheetRaw>(
+    (next) => {
+      if (typeof next === "function") {
+        setSheetRaw((prev) => normalizeSheet(next(normalizeSheet(prev))));
+      } else {
+        setSheetRaw(normalizeSheet(next));
+      }
+    },
+    [setSheetRaw],
+  );
   const [tab, setTab] = usePersistentState<MainTab>(
     "gary-grapplesauce-combat:tab",
     "play",

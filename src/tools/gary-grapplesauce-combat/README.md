@@ -48,6 +48,13 @@ Three tabs so the screen isn’t a wall of controls:
 | **Conds** | Effects on Gary (auto-calculated) + 2024 conditions + Exhaustion 0–6 |
 | **Rest** | Once-per-rest toggles + Short / Long rest |
 | **Gear** | Inventory (`Inventory.tsx`): coins, items with quantity, nickname → real item, notes, attunement (max 3) |
+| **Bio** | Personality & biography, plus optional AI “Say it like Gary” lines (`Persona.tsx`) |
+
+### Bio tab behavior (`Persona.tsx`)
+
+- **Personality & biography**: concept, personality, voice/catchphrases, ideals, bonds, flaws, backstory. Seeded from “Who is Gary?” above; ideals/bonds/flaws start blank for the player. Persisted under `bio` (in backups).
+- **Say it like Gary**: optional situation text + six quick asks (battle cry, taunt, hype ally, reply, took a hit, victory) or a free “fits the situation” line. The prompt includes the whole bio plus live state (`personaStatus`: HP/bloodied, Moxie, temp HP, Dig Deep, Exhaustion, conditions). Last 20 lines persisted under `voice-log`.
+- **AI is bring-your-own-key**, called straight from the browser (`src/lib/ai.ts`): Anthropic (default `claude-haiku-5-5`, uses the `anthropic-dangerous-direct-browser-access` header) or OpenAI (Responses API; model picked from the key’s model list). The key is stored under `table-tools-secret:ai`, outside the `table-tools:` prefix, so backups never include it. No server, no key in the repo.
 
 ### Gear tab behavior
 

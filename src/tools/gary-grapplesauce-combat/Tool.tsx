@@ -73,6 +73,7 @@ import {
   Tent,
   Trash2,
   TriangleAlert,
+  UserRound,
   WandSparkles,
   X,
   Zap,
@@ -114,6 +115,7 @@ import {
 import { GLOSSARY } from "./glossary";
 import { GlossaryItem, GlossaryList, Tip } from "./Tip";
 import { InventoryPanel } from "./Inventory";
+import { PersonaPanel } from "./Persona";
 import {
   ROLL_LOG_MAX,
   RollLogContext,
@@ -3142,7 +3144,25 @@ function DiceRoller() {
   );
 }
 
-type MainTab = "play" | "hit" | "roll" | "conds" | "rest" | "gear";
+type MainTab = "play" | "hit" | "roll" | "conds" | "rest" | "gear" | "bio";
+
+/** Plain-language state for the AI voice prompt. */
+function personaStatus(sheet: Sheet) {
+  const effects = effectsFor(sheet);
+  if (effects.dead) return "Gary is dead (Exhaustion 6).";
+  const parts = [
+    `HP ${sheet.hp} of ${HP_MAX}${isBloodied(sheet.hp) ? " (bloodied, hurting)" : ""}`,
+    `Moxie ${sheet.moxie} of ${MOXIE_MAX}`,
+  ];
+  if (sheet.tempHp > 0) parts.push(`${sheet.tempHp} temp HP`);
+  if (sheet.digDeepActive) parts.push("Dig Deep active (gritting through it)");
+  if (sheet.exhaustion > 0) parts.push(`Exhaustion ${sheet.exhaustion}`);
+  const conditions = activeConditions(sheet).map((c) => c.label);
+  parts.push(
+    conditions.length > 0 ? `conditions: ${conditions.join(", ")}` : "no conditions",
+  );
+  return `${parts.join("; ")}.`;
+}
 
 export function GaryCombatTool() {
   const [phase, setPhase] = useState<Phase>("timing");
@@ -3451,7 +3471,7 @@ export function GaryCombatTool() {
 
       <Stack gap={14} className="min-w-0">
         <div
-          className="grid grid-cols-6 gap-1 rounded-xl border border-line bg-well/80 p-1"
+          className="grid grid-cols-7 gap-1 rounded-xl border border-line bg-well/80 p-1"
           role="tablist"
           aria-label="Main mode"
         >
@@ -3475,7 +3495,7 @@ export function GaryCombatTool() {
           ))}
         </div>
 
-        {(effects.dead && tab !== "conds" && tab !== "gear") ||
+        {(effects.dead && tab !== "conds" && tab !== "gear" && tab !== "bio") ||
         (tab === "play" && cantAct) ? (
           <Callout
             title={effects.dead ? "Gary is dead — Exhaustion 6" : "Gary can’t act"}
@@ -3791,6 +3811,8 @@ export function GaryCombatTool() {
 
         {tab === "gear" ? <InventoryPanel /> : null}
 
+        {tab === "bio" ? <PersonaPanel status={personaStatus(sheet)} /> : null}
+
         <footer className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-1 text-[0.8rem] text-faint">
           <span className="inline-flex items-center gap-1.5">
             <ScrollText className="size-3.5 text-gold/70" aria-hidden />
@@ -3889,6 +3911,7 @@ const MAIN_TABS: { id: MainTab; label: string; icon: LucideIcon }[] = [
   { id: "conds", label: "Conds", icon: ShieldAlert },
   { id: "rest", label: "Rest", icon: Tent },
   { id: "gear", label: "Gear", icon: Backpack },
+  { id: "bio", label: "Bio", icon: UserRound },
 ];
 
 const GOAL_ICONS: Record<Goal, LucideIcon> = {

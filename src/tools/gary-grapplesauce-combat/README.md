@@ -48,7 +48,11 @@ Three tabs so the screen isn’t a wall of controls:
 | **Conds** | Effects on Gary (auto-calculated) + 2024 conditions + Exhaustion 0–6 |
 | **Rest** | Once-per-rest toggles + Short / Long rest |
 
-Always visible above tabs: **HP bar**, **Moxie dots**, status pills (Bloodied, Dig Deep, conditions, ready uses).
+Always visible above tabs: **HP bar**, **Moxie dots**, and three status sections, all fixed-size so changes never move the page (no sideways carousels; everything is visible at a glance):
+
+- **Ready** — three permanent tiles (Unbowed, Swagger, Dig Deep): green check = ready, dim + struck = used, gold = Dig Deep on. Tap for the rules.
+- **Now** — Bloodied, Exhaustion, and conditions in a 3 × 2 slot grid. More than 6 → the last slot becomes “+N more” (opens Conds details).
+- **Effects** — what those mean for Gary’s numbers, 2 × 2 slots, same “+N more” rule, plus **Details**.
 
 Advanced damage options (override resistance, custom ± steps, temp HP) stay under **More damage options**.
 
@@ -106,7 +110,7 @@ On a Play plan, to-hit, damage, Brace Up, and Swagger sit under the action they 
 
 Str/Dex/Con/Cha checks (including Athletics) offer **Add Swagger +1d10** while that use is ready. Blinded/Deafened don’t auto-fail every check — the tab says which ones need sight or hearing.
 
-The status card shows a short “Effects” chip line; the header line shows adjusted attack/Athletics/speed. Base numbers live in `GARY` in `Tool.tsx` — update there if the sheet changes.
+The status card shows short “Effects” chips; the header line shows adjusted attack/Athletics/speed. Base numbers live in `GARY` in `Tool.tsx` — update there if the sheet changes.
 
 ## Limited uses (track in Rest)
 

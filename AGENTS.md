@@ -54,7 +54,7 @@ Then implement `Tool.tsx`. Prefer:
 Tapping something must never move the thing being tapped, or the content around it. When a result, notice, or chip appears:
 
 - reserve its space up front (fixed or min height slot with a quiet placeholder)
-- grow sideways inside a fixed-height scroll strip, not by wrapping onto new lines
+- fill a fixed grid of equal slots (overflow → a “+N more” slot), not by wrapping onto new lines; avoid sideways carousels for status the player needs at a glance
 - keep buttons rendered and disable them instead of removing them
 - use overlays (drawer, popover, toast) for transient messages
 - give scrolling panels a fixed height and let only their list scroll

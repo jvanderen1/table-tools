@@ -16,9 +16,15 @@ const GAP = 6;
 export function Tip({
   id,
   children,
+  fill = false,
+  icon = true,
 }: {
   id: keyof typeof GLOSSARY;
   children: ReactNode;
+  /** Stretch to the parent's width and truncate the label (grid cells). */
+  fill?: boolean;
+  /** Show the ⓘ marker; drop it where the whole tile is obviously tappable. */
+  icon?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -75,7 +81,10 @@ export function Tip({
       <button
         ref={triggerRef}
         type="button"
-        className="group/tip inline-flex cursor-help items-center gap-1.5 rounded border-0 bg-transparent p-0 text-left text-[inherit]"
+        className={cx(
+          "group/tip inline-flex cursor-help items-center gap-1.5 rounded border-0 bg-transparent p-0 text-left text-[inherit]",
+          fill && "h-full w-full min-w-0 justify-between",
+        )}
         aria-expanded={open}
         aria-label={`${entry.label} — show rules`}
         onClick={(e) => {
@@ -84,14 +93,16 @@ export function Tip({
           setOpen((v) => !v);
         }}
       >
-        <span>{children}</span>
-        <Info
-          className={cx(
-            "size-3.5 shrink-0 transition-colors",
-            open ? "text-gold" : "text-faint group-hover/tip:text-gold",
-          )}
-          aria-hidden
-        />
+        <span className={cx(fill && "min-w-0 truncate")}>{children}</span>
+        {icon ? (
+          <Info
+            className={cx(
+              "size-3.5 shrink-0 transition-colors",
+              open ? "text-gold" : "text-faint group-hover/tip:text-gold",
+            )}
+            aria-hidden
+          />
+        ) : null}
       </button>
       {open && pos
         ? createPortal(

@@ -1116,110 +1116,6 @@ function PlanTips({ plan }: { plan: Plan }) {
   );
 }
 
-function StatusPills({ sheet }: { sheet: Sheet }) {
-  const active: ReactNode[] = [];
-  if (isBloodied(sheet.hp)) {
-    active.push(
-      <Pill key="bloodied" active>
-        <Tip id="bloodied">Bloodied</Tip>
-      </Pill>,
-    );
-  }
-  if (sheet.digDeepActive) {
-    active.push(
-      <Pill key="dig-active" active>
-        <Tip id="dig-deep">Dig Deep on</Tip>
-      </Pill>,
-    );
-  }
-  if ((sheet.exhaustion ?? 0) > 0) {
-    active.push(
-      <Pill key="exhaustion" active>
-        <Tip id="exhaustion">Exhaustion {sheet.exhaustion}</Tip>
-      </Pill>,
-    );
-  }
-  for (const c of activeConditions(sheet)) {
-    active.push(
-      <Pill key={c.id} active>
-        <Tip id={`cond-${c.id}`}>{c.label}</Tip>
-      </Pill>,
-    );
-  }
-
-  const ready: ReactNode[] = [];
-  if (sheet.bloodiedUnbowed) {
-    ready.push(
-      <Pill key="bbu">
-        <Tip id="bloodied-but-unbowed">Bloodied But Unbowed</Tip>
-      </Pill>,
-    );
-  }
-  if (sheet.swagger) {
-    ready.push(
-      <Pill key="swagger">
-        <Tip id="swagger-streak">Swagger Streak</Tip>
-      </Pill>,
-    );
-  }
-  if (sheet.digDeep && !sheet.digDeepActive) {
-    ready.push(
-      <Pill key="dig">
-        <Tip id="dig-deep">Dig Deep</Tip>
-      </Pill>,
-    );
-  }
-
-  return (
-    <>
-      <ScrollStrip>
-        <StripLabel icon={CircleDot}>Now</StripLabel>
-        {active.length > 0 ? (
-          active
-        ) : (
-          <span key="none" className="text-xs text-faint">
-            Nothing active
-          </span>
-        )}
-      </ScrollStrip>
-      <ScrollStrip>
-        <StripLabel icon={Sparkles}>Ready</StripLabel>
-        {ready.length > 0 ? (
-          ready
-        ) : (
-          <span key="none" className="text-xs text-faint">
-            All used
-          </span>
-        )}
-      </ScrollStrip>
-    </>
-  );
-}
-
-/** One fixed-height line that scrolls sideways, so status changes never shift the page. */
-function ScrollStrip({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex h-7 flex-nowrap items-center gap-1.5 overflow-x-auto overflow-y-hidden pr-6 [mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>*]:shrink-0 [&>*]:animate-pop-in">
-      {children}
-    </div>
-  );
-}
-
-function StripLabel({
-  icon: Icon,
-  children,
-}: {
-  icon: LucideIcon;
-  children: ReactNode;
-}) {
-  return (
-    <span className="mr-0.5 inline-flex w-[4.6rem] items-center gap-1 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-faint">
-      <Icon className="size-3 text-gold/70" aria-hidden />
-      {children}
-    </span>
-  );
-}
-
 const TONE_CHIP = {
   bad: "border-crimson/40 bg-crimson/15 text-crimson-soft",
   good: "border-verdant/30 bg-verdant/10 text-verdant",
@@ -1266,7 +1162,7 @@ function effectChips(e: ConditionEffects): EffectChip[] {
       text:
         e.againstFar.roll === "advantage"
           ? "Foes have Adv"
-          : "Foes within 5 ft have Adv",
+          : "Foes in 5 ft have Adv",
       tone: "bad",
     });
   } else if (
@@ -1281,40 +1177,242 @@ function effectChips(e: ConditionEffects): EffectChip[] {
   return chips;
 }
 
-function StatusEffects({
+type ReadyState = "ready" | "used" | "on";
+
+const READY_TILE: Record<ReadyState, string> = {
+  ready: "border-verdant/35 bg-verdant/[0.08] text-ink",
+  on: "border-gold/70 bg-gold/15 text-gold-soft",
+  used: "border-line bg-well/50 text-faint",
+};
+
+const READY_WORD: Record<ReadyState, string> = {
+  ready: "ready",
+  on: "on now",
+  used: "used",
+};
+
+function ReadyTile({
+  state,
+  tip,
+  children,
+}: {
+  state: ReadyState;
+  tip: keyof typeof GLOSSARY;
+  children: ReactNode;
+}) {
+  const Icon = state === "used" ? Circle : state === "on" ? ShieldCheck : CircleCheck;
+  return (
+    <div
+      className={cx(
+        "flex h-8 min-w-0 items-center gap-1.5 rounded-lg border px-2 text-[0.78rem] font-medium transition-colors",
+        READY_TILE[state],
+      )}
+    >
+      <Icon
+        className={cx(
+          "size-3.5 shrink-0",
+          state === "ready" && "text-verdant",
+          state === "on" && "text-gold",
+        )}
+        aria-hidden
+      />
+      <span className={cx("min-w-0 flex-1", state === "used" && "line-through decoration-faint/60")}>
+        <Tip id={tip} fill icon={false}>
+          {children}
+          <span className="sr-only"> ({READY_WORD[state]})</span>
+        </Tip>
+      </span>
+    </div>
+  );
+}
+
+const STATUS_LABEL =
+  "inline-flex items-center gap-1 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-faint";
+
+/** Equal-width chip slot; fixed height so a grid of them never reflows. */
+const SLOT_CHIP =
+  "flex h-6 min-w-0 animate-pop-in items-center rounded-full border px-2 text-[0.75rem] leading-none";
+
+const NOW_CHIP = {
+  bad: cx(SLOT_CHIP, TONE_CHIP.bad),
+  active: cx(SLOT_CHIP, "border-gold/55 bg-gold/10 text-gold-soft"),
+};
+
+function StatusSection({
+  icon: Icon,
+  label,
+  trailing,
+  children,
+}: {
+  icon: LucideIcon;
+  label: string;
+  trailing?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className="flex flex-col gap-1" aria-label={label}>
+      <div className="flex h-5 items-center justify-between gap-2">
+        <span className={STATUS_LABEL}>
+          <Icon className="size-3 text-gold/70" aria-hidden />
+          {label}
+        </span>
+        {trailing}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+/**
+ * Two fixed rows of equal slots. New chips fill empty slots instead of
+ * pushing content down; past the last slot, a "+N more" chip opens details.
+ */
+function SlotGrid({
+  items,
+  columns,
+  empty,
+  onMore,
+}: {
+  items: ReactNode[];
+  columns: 2 | 3;
+  empty: string;
+  onMore: () => void;
+}) {
+  const slots = columns * 2;
+  const overflow = items.length > slots;
+  const shown = overflow ? items.slice(0, slots - 1) : items;
+  return (
+    <div
+      className={cx(
+        "grid h-[3.25rem] content-start gap-1",
+        columns === 3 ? "grid-cols-3" : "grid-cols-2",
+      )}
+    >
+      {items.length === 0 ? (
+        <span className="col-span-full flex h-6 items-center text-xs text-faint">
+          {empty}
+        </span>
+      ) : null}
+      {shown}
+      {overflow ? (
+        <button
+          type="button"
+          className={cx(
+            SLOT_CHIP,
+            "cursor-pointer justify-center border-gold/40 bg-gold/10 font-semibold text-gold-soft hover:bg-gold/20",
+          )}
+          onClick={onMore}
+        >
+          +{items.length - shown.length} more
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function StatusPanels({
   sheet,
   onDetails,
 }: {
   sheet: Sheet;
   onDetails: () => void;
 }) {
-  const chips = effectChips(effectsFor(sheet));
+  const now: ReactNode[] = [];
+  if (isBloodied(sheet.hp)) {
+    now.push(
+      <span key="bloodied" className={NOW_CHIP.bad}>
+        <Tip id="bloodied" fill>
+          Bloodied
+        </Tip>
+      </span>,
+    );
+  }
+  if ((sheet.exhaustion ?? 0) > 0) {
+    now.push(
+      <span key="exhaustion" className={NOW_CHIP.bad}>
+        <Tip id="exhaustion" fill>
+          Exhaustion {sheet.exhaustion}
+        </Tip>
+      </span>,
+    );
+  }
+  for (const c of activeConditions(sheet)) {
+    now.push(
+      <span key={c.id} className={NOW_CHIP.active}>
+        <Tip id={`cond-${c.id}`} fill>
+          {c.label}
+        </Tip>
+      </span>,
+    );
+  }
+
+  const effects = effectChips(effectsFor(sheet)).map((c) => (
+    <span
+      key={c.text}
+      className={cx(SLOT_CHIP, TONE_CHIP[c.tone])}
+      title={c.text}
+    >
+      <span className="min-w-0 truncate">{c.text}</span>
+    </span>
+  ));
+
+  const digDeep: ReadyState = sheet.digDeepActive
+    ? "on"
+    : sheet.digDeep
+      ? "ready"
+      : "used";
+
   return (
-    <div className="flex items-center gap-1">
-      <div className="min-w-0 flex-1">
-        <ScrollStrip>
-          <StripLabel icon={Activity}>Effects</StripLabel>
-          {chips.length === 0 ? (
-            <span key="none" className="text-xs text-faint">
-              Normal numbers
-            </span>
-          ) : null}
-          {chips.map((c) => (
-            <span key={c.text} className={cx(CHIP, TONE_CHIP[c.tone])}>
-              {c.text}
-            </span>
-          ))}
-        </ScrollStrip>
-      </div>
-      <button
-        type="button"
-        className="inline-flex h-7 shrink-0 cursor-pointer items-center gap-0.5 rounded px-1 text-[0.78rem] font-medium text-gold-soft hover:text-gold"
-        onClick={onDetails}
+    <>
+      <StatusSection icon={Sparkles} label="Ready">
+        <div className="grid grid-cols-3 gap-1">
+          <ReadyTile
+            state={sheet.bloodiedUnbowed ? "ready" : "used"}
+            tip="bloodied-but-unbowed"
+          >
+            Unbowed
+          </ReadyTile>
+          <ReadyTile
+            state={sheet.swagger ? "ready" : "used"}
+            tip="swagger-streak"
+          >
+            Swagger
+          </ReadyTile>
+          <ReadyTile state={digDeep} tip="dig-deep">
+            Dig Deep
+          </ReadyTile>
+        </div>
+      </StatusSection>
+      <StatusSection icon={CircleDot} label="Now">
+        <SlotGrid
+          items={now}
+          columns={3}
+          empty="Nothing active"
+          onMore={onDetails}
+        />
+      </StatusSection>
+      <StatusSection
+        icon={Activity}
+        label="Effects"
+        trailing={
+          <button
+            type="button"
+            className="inline-flex h-5 cursor-pointer items-center gap-0.5 rounded text-[0.75rem] font-medium text-gold-soft hover:text-gold"
+            onClick={onDetails}
+          >
+            Details
+            <ChevronRight className="size-3.5" aria-hidden />
+          </button>
+        }
       >
-        Details
-        <ChevronRight className="size-3.5" aria-hidden />
-      </button>
-    </div>
+        <SlotGrid
+          items={effects}
+          columns={2}
+          empty="Normal numbers"
+          onMore={onDetails}
+        />
+      </StatusSection>
+    </>
   );
 }
 
@@ -1629,9 +1727,8 @@ function StatusBar({
           </Row>
         </div>
       </div>
-      <div className="flex flex-col gap-1 border-t border-line/80 bg-well/30 py-2 pl-4 pr-2">
-        <StatusPills sheet={sheet} />
-        <StatusEffects sheet={sheet} onDetails={onEffectsDetails} />
+      <div className="flex flex-col gap-2.5 border-t border-line/80 bg-well/30 px-4 pt-2.5 pb-3">
+        <StatusPanels sheet={sheet} onDetails={onEffectsDetails} />
       </div>
     </Card>
   );

@@ -16,7 +16,7 @@ This checkout is **colocated** `jj` + `git` (`.jj` next to `.git`). Prefer **`jj
 | Fetch / push | `jj git fetch` / `jj git push` |
 | Bookmark (branch) | `main` tracks `main@origin` |
 
-Do **not** move or push the local `main` bookmark unless asked. Avoid mutating `git` commands that detach HEAD (`git commit`, `git checkout`, `git rebase`) — they fight colocated jj. Read-only `git` / `gh` is fine.
+After finishing a meaningful change, **describe, move `main` to `@`, and `jj git push --bookmark main`** without waiting to be asked. Avoid mutating `git` commands that detach HEAD (`git commit`, `git checkout`, `git rebase`) — they fight colocated jj. Read-only `git` / `gh` is fine.
 
 On this Mac, `jj` is `/opt/homebrew/bin/jj`.
 

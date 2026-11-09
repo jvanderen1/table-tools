@@ -60,7 +60,7 @@ Three tabs so the screen isn’t a wall of controls:
 
 - Seeded from the attuned items and inventory flavor above (the DDB sheet is private, so coins start at 0 — fill them in). Persisted under `inventory`.
 - Add box on top; new items go to the top of a fixed-height list that scrolls on its own, so adding never moves the page.
-- Tap an item to edit name, real item, notes, attunement, or remove it (with confirm). Quantity 0 keeps the item, dimmed.
+- Tap an item to edit name, real item, notes, attunement, or remove it (no confirm; Undo brings it back). Quantity 0 keeps the item, dimmed.
 - Purely a record: it doesn’t change the numbers in `GARY`. If an attuned item changes, update `GARY` too.
 
 Always visible above tabs: **HP bar**, **Moxie dots**, and three status sections, all fixed-size so changes never move the page (no sideways carousels; everything is visible at a glance):
@@ -74,6 +74,17 @@ Advanced damage options (override resistance, custom ± steps, temp HP) stay und
 ### Persistence
 
 Everything important is in `localStorage` under `table-tools:gary-grapplesauce-combat:*` (sheet, damage UI prefs, active tab). Same browser/phone keeps the last session.
+
+### Undo / history
+
+The sheet and the inventory use `useUndoableState` (`src/lib/useUndoableState.ts`), so every change (damage, rests, plan “Spend” buttons, Moxie taps, conditions, gear edits) lands on a timeline saved next to the value (`sheet-history`, `inventory-history`, last 40 steps each).
+
+- Floating pill, bottom left: **Undo**, **Redo**, **History**. Always rendered; disabled when there’s nothing to do. A short toast says what was undone.
+- **History** drawer merges both timelines by time, labelled in plain words (“HP 103 → 88”, “Added Torch”). **Go back** undoes that change and everything after it; undone steps stay listed with **Redo** until a new change replaces them.
+- Quick repeat taps on the same thing merge into one step (sheet within 0.6 s, gear within 4 s, so typing a note is one step).
+- ⌘Z / Ctrl+Z undo, ⇧⌘Z / Ctrl+Y redo (ignored while typing in a field).
+- Undo/redo re-enables the plan’s apply button. Roll log, dice, tab, and Bio aren’t tracked.
+- Labels come from `describeSheetChange` (Tool.tsx) and `describeInventory` (`inventoryData.ts`); add new sheet fields there.
 
 ### Decision tree behavior
 

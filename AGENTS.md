@@ -36,7 +36,7 @@ That scaffolds:
 Then implement `Tool.tsx`. Prefer:
 
 - shared UI from `src/ui`
-- `usePersistentState` for trackers (Moxie, spell slots, etc.)
+- `usePersistentState` for trackers (Moxie, spell slots, etc.); `useUndoableState` + `UndoBar` (`src/ui/History.tsx`) when mistakes should be one tap to undo
 - short labels, big tap targets, no login
 - a tool-local `README.md` with character/rules context so later agents can pick up cold (see `gary-grapplesauce-combat/README.md`)
 

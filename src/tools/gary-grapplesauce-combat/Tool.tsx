@@ -1,5 +1,4 @@
 import {
-  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -80,6 +79,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { usePersistentState } from "../../lib/usePersistentState";
+import { useUndoableState, type Change } from "../../lib/useUndoableState";
+import { UndoBar } from "../../ui/History";
 import {
   Accordion,
   Button,
@@ -115,6 +116,11 @@ import {
 import { GLOSSARY } from "./glossary";
 import { GlossaryItem, GlossaryList, Tip } from "./Tip";
 import { InventoryPanel } from "./Inventory";
+import {
+  DEFAULT_INVENTORY,
+  describeInventory,
+  type Inventory,
+} from "./inventoryData";
 import { PersonaPanel } from "./Persona";
 import {
   ROLL_LOG_MAX,
@@ -254,6 +260,50 @@ function normalizeSheet(raw: Sheet): Sheet {
 
 function activeConditions(sheet: Sheet) {
   return CONDITION_DEFS.filter((c) => sheet.conditions?.[c.id]);
+}
+
+const SHEET_NUMBERS: [keyof Sheet, string][] = [
+  ["hp", "HP"],
+  ["tempHp", "Temp HP"],
+  ["moxie", "Moxie"],
+  ["exhaustion", "Exhaustion"],
+  ["hitDice", "Hit dice"],
+];
+const SHEET_FLAGS: [keyof Sheet, string, on: string, off: string][] = [
+  ["digDeep", "Dig Deep", "restored", "used"],
+  ["digDeepActive", "Dig Deep", "on", "off"],
+  ["bloodiedUnbowed", "Unbowed", "ready", "used"],
+  ["swagger", "Swagger", "ready", "used"],
+];
+
+/** Plain-language summary of one sheet change, for the undo timeline. */
+function describeSheetChange(prev: Sheet, next: Sheet): Change {
+  const parts: string[] = [];
+  const keys: string[] = [];
+  for (const [k, label] of SHEET_NUMBERS) {
+    if (prev[k] !== next[k]) {
+      parts.push(`${label} ${prev[k]} → ${next[k]}`);
+      keys.push(k);
+    }
+  }
+  for (const [k, label, on, off] of SHEET_FLAGS) {
+    if (prev[k] !== next[k]) {
+      parts.push(`${label} ${next[k] ? on : off}`);
+      keys.push(k);
+    }
+  }
+  for (const c of CONDITION_DEFS) {
+    if (!!prev.conditions[c.id] !== !!next.conditions[c.id]) {
+      parts.push(`${c.label} ${next.conditions[c.id] ? "on" : "off"}`);
+      keys.push(c.id);
+    }
+  }
+  if (parts.length === 0) return null;
+  const label =
+    parts.length > 3
+      ? `${parts.slice(0, 3).join(", ")} +${parts.length - 3} more`
+      : parts.join(", ");
+  return { label, key: keys.join("|") };
 }
 
 /** Live D&D Beyond numbers with attuned items (Towel adds +1 to every save) */
@@ -3169,20 +3219,17 @@ export function GaryCombatTool() {
   const [timing, setTiming] = useState<Timing | null>(null);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
   const [staticPlan, setStaticPlan] = useState<Plan | null>(null);
-  const [sheetRaw, setSheetRaw] = usePersistentState<Sheet>(
+  const sheetHistory = useUndoableState<Sheet>(
     "gary-grapplesauce-combat:sheet",
     DEFAULT_SHEET,
+    { normalize: normalizeSheet, describe: describeSheetChange },
   );
-  const sheet = useMemo(() => normalizeSheet(sheetRaw), [sheetRaw]);
-  const setSheet = useCallback<typeof setSheetRaw>(
-    (next) => {
-      if (typeof next === "function") {
-        setSheetRaw((prev) => normalizeSheet(next(normalizeSheet(prev))));
-      } else {
-        setSheetRaw(normalizeSheet(next));
-      }
-    },
-    [setSheetRaw],
+  const sheet = sheetHistory.value;
+  const setSheet = sheetHistory.set;
+  const inventory = useUndoableState<Inventory>(
+    "gary-grapplesauce-combat:inventory",
+    DEFAULT_INVENTORY,
+    { describe: describeInventory, coalesceMs: 4000 },
   );
   const [tab, setTab] = usePersistentState<MainTab>(
     "gary-grapplesauce-combat:tab",
@@ -3809,7 +3856,12 @@ export function GaryCombatTool() {
           </Card>
         ) : null}
 
-        {tab === "gear" ? <InventoryPanel /> : null}
+        {tab === "gear" ? (
+          <InventoryPanel
+            inventory={inventory.value}
+            setInventory={inventory.set}
+          />
+        ) : null}
 
         {tab === "bio" ? <PersonaPanel status={personaStatus(sheet)} /> : null}
 
@@ -3897,6 +3949,13 @@ export function GaryCombatTool() {
       </Drawer>
 
       <DiceRoller />
+      <UndoBar
+        tracks={[
+          { name: "Sheet", timeline: sheetHistory },
+          { name: "Gear", timeline: inventory },
+        ]}
+        onTravel={() => setSpentApplied(false)}
+      />
     </div>
     </RollLogContext.Provider>
   );

@@ -9,84 +9,15 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
-import { usePersistentState } from "../../lib/usePersistentState";
 import { cx } from "../../lib/cx";
+import {
+  ATTUNE_MAX,
+  COINS,
+  QTY_MAX,
+  type Inventory,
+  type InventoryItem,
+} from "./inventoryData";
 import { Button, Card, CardBody, CardHeader, Pill, Stack, Text } from "../../ui";
-
-const ATTUNE_MAX = 3;
-const QTY_MAX = 999;
-const COINS = ["pp", "gp", "ep", "sp", "cp"] as const;
-
-type Coin = (typeof COINS)[number];
-
-type InventoryItem = {
-  id: string;
-  name: string;
-  /** The rules item behind a table nickname, e.g. "Immovable Rod" */
-  aka: string;
-  qty: number;
-  note: string;
-  attuned: boolean;
-};
-
-type Inventory = {
-  items: InventoryItem[];
-  coins: Record<Coin, number>;
-};
-
-const DEFAULT_INVENTORY: Inventory = {
-  items: [
-    {
-      id: "lifting-belt",
-      name: "Lifting Belt",
-      aka: "Belt of Hill Giant Strength",
-      qty: 1,
-      note: "Strength becomes 21.",
-      attuned: true,
-    },
-    {
-      id: "wrist-wraps",
-      name: "Wrist Wraps",
-      aka: "Bracers of Defense",
-      qty: 1,
-      note: "+2 AC with no armor or shield.",
-      attuned: true,
-    },
-    {
-      id: "the-towel",
-      name: "The Towel",
-      aka: "Cloak of Protection",
-      qty: 1,
-      note: "+1 AC and saving throws.",
-      attuned: true,
-    },
-    {
-      id: "pull-up-bar",
-      name: "Pull-up Bar",
-      aka: "Immovable Rod",
-      qty: 1,
-      note: "Press the button to lock it in place.",
-      attuned: false,
-    },
-    {
-      id: "brass-knuckles",
-      name: "Brass Knuckles",
-      aka: "",
-      qty: 1,
-      note: "",
-      attuned: false,
-    },
-    {
-      id: "water-bottle",
-      name: "Water Bottle",
-      aka: "",
-      qty: 1,
-      note: "",
-      attuned: false,
-    },
-  ],
-  coins: { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 },
-};
 
 const FIELD =
   "w-full appearance-none rounded-lg border border-line bg-well px-3 py-2 text-sm text-ink outline-none transition-colors placeholder:text-faint focus:border-gold/70";
@@ -104,11 +35,13 @@ function clampInt(value: string, max: number) {
   return Math.min(max, Math.max(0, n));
 }
 
-export function InventoryPanel() {
-  const [inventory, setInventory] = usePersistentState<Inventory>(
-    "gary-grapplesauce-combat:inventory",
-    DEFAULT_INVENTORY,
-  );
+export function InventoryPanel({
+  inventory,
+  setInventory,
+}: {
+  inventory: Inventory;
+  setInventory: (next: Inventory | ((prev: Inventory) => Inventory)) => void;
+}) {
   const [draft, setDraft] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
@@ -149,7 +82,6 @@ export function InventoryPanel() {
   }
 
   function removeItem(item: InventoryItem) {
-    if (!window.confirm(`Remove ${item.name} from the inventory?`)) return;
     setEditing(null);
     setInventory((inv) => ({
       ...inv,
@@ -310,8 +242,9 @@ export function InventoryPanel() {
           </ul>
 
           <Text tone="tertiary">
-            Tap an item to rename it, add notes, or set attunement. This list
-            doesn’t change Gary’s numbers; those stay as on the live sheet.
+            Tap an item to rename it, add notes, or set attunement. Removed
+            something by mistake? Undo (bottom left). This list doesn’t change
+            Gary’s numbers; those stay as on the live sheet.
           </Text>
         </Stack>
       </CardBody>

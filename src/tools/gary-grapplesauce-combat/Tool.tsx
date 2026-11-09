@@ -12,12 +12,10 @@ import {
   CardBody,
   CardHeader,
   Divider,
-  Grid,
   Pill,
   Row,
   Spacer,
   Stack,
-  Stat,
   Text,
 } from "../../ui";
 
@@ -542,135 +540,51 @@ function DamageAdjuster({
   const effHint =
     ui.effectiveness === "auto"
       ? sheet.digDeepActive && isWeaponPhysical(ui.type)
-        ? "Auto: resistant (Dig Deep)"
-        : "Auto: normal"
-      : `Manual: ${ui.effectiveness}`;
+        ? "Dig Deep → resistant"
+        : "Normal"
+      : ui.effectiveness;
 
   return (
-    <Stack gap={10}>
-      <Row gap={8} wrap>
-        <Text>HP</Text>
-        {isBloodied(sheet.hp) ? <Pill active>Bloodied</Pill> : null}
-        {sheet.digDeepActive ? <Pill active>Dig Deep on</Pill> : null}
-        <Spacer />
-        <Text tone="tertiary">Saved in this browser</Text>
-      </Row>
-      <div
-        className="hp-bar"
-        role="meter"
-        aria-valuemin={0}
-        aria-valuemax={HP_MAX}
-        aria-valuenow={sheet.hp}
-        aria-label="Hit points"
-      >
-        <div
-          className="hp-bar-fill"
-          style={{ width: `${Math.round((sheet.hp / HP_MAX) * 100)}%` }}
-        />
+    <Stack gap={14}>
+      <Text tone="secondary">
+        Type the total, pick the type, then Take damage. Enter applies.
+      </Text>
+
+      <div className="hit-row">
+        <label className="field hit-amount">
+          <span className="field-label">Amount</span>
+          <input
+            className="field-input amount-input"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={ui.amount}
+            onChange={(e) => setAmount(e.target.value)}
+            onKeyDown={onAmountKeyDown}
+            aria-label="Damage or heal amount"
+            autoFocus
+          />
+        </label>
+        <label className="field hit-type">
+          <span className="field-label">Type</span>
+          <select
+            className="field-input"
+            value={ui.type}
+            onChange={(e) =>
+              setUi((u) => ({ ...u, type: e.target.value as DamageType }))
+            }
+          >
+            {DAMAGE_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
-      <label className="field">
-        <span className="field-label">Amount</span>
-        <input
-          className="field-input amount-input"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          value={ui.amount}
-          onChange={(e) => setAmount(e.target.value)}
-          onKeyDown={onAmountKeyDown}
-          aria-label="Damage or heal amount"
-          autoFocus
-        />
-      </label>
-
-      <Row gap={8} wrap>
-        <Text tone="secondary">Quick adjust</Text>
-        {ui.increments.map((n) => (
-          <Button key={n} variant="secondary" onClick={() => bump(n)}>
-            +{n}
-          </Button>
-        ))}
-        {ui.increments.map((n) => (
-          <Button key={`m${n}`} variant="ghost" onClick={() => bump(-n)}>
-            −{n}
-          </Button>
-        ))}
-      </Row>
-
-      <Row gap={8} wrap align="center">
-        <Text tone="secondary">Custom step</Text>
-        <input
-          className="field-input step-input"
-          inputMode="numeric"
-          value={ui.customIncrement}
-          onChange={(e) =>
-            setUi((u) => ({
-              ...u,
-              customIncrement: e.target.value.replace(/\D/g, ""),
-            }))
-          }
-          aria-label="Custom increment value"
-        />
-        <Button
-          variant="secondary"
-          onClick={() =>
-            bump(Number.parseInt(ui.customIncrement || "0", 10) || 0)
-          }
-        >
-          +step
-        </Button>
-        <Button
-          variant="ghost"
-          onClick={() =>
-            bump(-(Number.parseInt(ui.customIncrement || "0", 10) || 0))
-          }
-        >
-          −step
-        </Button>
-        <Button variant="ghost" onClick={addIncrementPreset}>
-          Save step
-        </Button>
-      </Row>
-
-      <label className="field">
-        <span className="field-label">Damage type</span>
-        <select
-          className="field-input"
-          value={ui.type}
-          onChange={(e) =>
-            setUi((u) => ({ ...u, type: e.target.value as DamageType }))
-          }
-        >
-          {DAMAGE_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <label className="field">
-        <span className="field-label">vs Gary</span>
-        <select
-          className="field-input"
-          value={ui.effectiveness}
-          onChange={(e) =>
-            setUi((u) => ({
-              ...u,
-              effectiveness: e.target.value as Effectiveness,
-            }))
-          }
-        >
-          <option value="auto">Auto (Dig Deep if B/P/S)</option>
-          <option value="normal">Normal</option>
-          <option value="resistant">Resistant (½)</option>
-          <option value="immune">Immune (0)</option>
-          <option value="vulnerable">Vulnerable (×2)</option>
-        </select>
-      </label>
       <Text tone="tertiary">
-        {effHint}. Preview: {raw} → {preview} {ui.type}
-        {sheet.tempHp > 0 ? ` · temp HP ${sheet.tempHp} absorbs first` : ""}
+        {raw} → {preview} {ui.type} ({effHint})
+        {sheet.tempHp > 0 ? ` · temp ${sheet.tempHp} first` : ""}
       </Text>
 
       <Row gap={8} wrap>
@@ -680,33 +594,6 @@ function DamageAdjuster({
         <Button variant="secondary" onClick={heal}>
           Heal
         </Button>
-        <Button
-          variant="ghost"
-          onClick={() =>
-            setSheet((s) => ({ ...s, hp: HP_MAX, tempHp: 0 }))
-          }
-        >
-          Full HP
-        </Button>
-      </Row>
-
-      <Row gap={8} wrap>
-        <Text tone="secondary">Temp HP: {sheet.tempHp}</Text>
-        <Button
-          variant="ghost"
-          onClick={() =>
-            setSheet((s) => ({ ...s, tempHp: s.tempHp + raw }))
-          }
-        >
-          Add amount as temp
-        </Button>
-        <Button
-          variant="ghost"
-          disabled={sheet.tempHp <= 0}
-          onClick={() => setSheet((s) => ({ ...s, tempHp: 0 }))}
-        >
-          Clear temp
-        </Button>
       </Row>
 
       {outcome ? (
@@ -714,11 +601,178 @@ function DamageAdjuster({
           {outcome.detail}
         </Callout>
       ) : null}
+
+      <details className="more-details">
+        <summary>More damage options</summary>
+        <Stack gap={12}>
+          <label className="field">
+            <span className="field-label">Override vs Gary</span>
+            <select
+              className="field-input"
+              value={ui.effectiveness}
+              onChange={(e) =>
+                setUi((u) => ({
+                  ...u,
+                  effectiveness: e.target.value as Effectiveness,
+                }))
+              }
+            >
+              <option value="auto">Auto (Dig Deep if B/P/S)</option>
+              <option value="normal">Normal</option>
+              <option value="resistant">Resistant (½)</option>
+              <option value="immune">Immune (0)</option>
+              <option value="vulnerable">Vulnerable (×2)</option>
+            </select>
+          </label>
+
+          <Row gap={8} wrap>
+            {ui.increments.map((n) => (
+              <Button key={n} variant="secondary" onClick={() => bump(n)}>
+                +{n}
+              </Button>
+            ))}
+            {ui.increments.map((n) => (
+              <Button key={`m${n}`} variant="ghost" onClick={() => bump(-n)}>
+                −{n}
+              </Button>
+            ))}
+          </Row>
+
+          <Row gap={8} wrap align="center">
+            <input
+              className="field-input step-input"
+              inputMode="numeric"
+              value={ui.customIncrement}
+              onChange={(e) =>
+                setUi((u) => ({
+                  ...u,
+                  customIncrement: e.target.value.replace(/\D/g, ""),
+                }))
+              }
+              aria-label="Custom increment value"
+            />
+            <Button
+              variant="ghost"
+              onClick={() =>
+                bump(Number.parseInt(ui.customIncrement || "0", 10) || 0)
+              }
+            >
+              +step
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() =>
+                bump(-(Number.parseInt(ui.customIncrement || "0", 10) || 0))
+              }
+            >
+              −step
+            </Button>
+            <Button variant="ghost" onClick={addIncrementPreset}>
+              Save step
+            </Button>
+          </Row>
+
+          <Row gap={8} wrap>
+            <Text tone="secondary">Temp HP: {sheet.tempHp}</Text>
+            <Button
+              variant="ghost"
+              onClick={() =>
+                setSheet((s) => ({ ...s, tempHp: s.tempHp + raw }))
+              }
+            >
+              Add amount as temp
+            </Button>
+            <Button
+              variant="ghost"
+              disabled={sheet.tempHp <= 0}
+              onClick={() => setSheet((s) => ({ ...s, tempHp: 0 }))}
+            >
+              Clear temp
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() =>
+                setSheet((s) => ({ ...s, hp: HP_MAX, tempHp: 0 }))
+              }
+            >
+              Full HP
+            </Button>
+          </Row>
+        </Stack>
+      </details>
     </Stack>
   );
 }
 
-function ResourcePanel({
+function StatusBar({
+  sheet,
+  setSheet,
+}: {
+  sheet: Sheet;
+  setSheet: (next: Sheet | ((prev: Sheet) => Sheet)) => void;
+}) {
+  return (
+    <Card>
+      <CardBody>
+        <div className="status-bar">
+          <div className="status-hp">
+            <div className="status-hp-value">
+              {sheet.hp}
+              {sheet.tempHp > 0 ? (
+                <span className="status-temp">+{sheet.tempHp}</span>
+              ) : null}
+            </div>
+            <div className="status-hp-label">/ {HP_MAX} HP</div>
+            <div
+              className="hp-bar"
+              role="meter"
+              aria-valuemin={0}
+              aria-valuemax={HP_MAX}
+              aria-valuenow={sheet.hp}
+              aria-label="Hit points"
+            >
+              <div
+                className="hp-bar-fill"
+                style={{ width: `${Math.round((sheet.hp / HP_MAX) * 100)}%` }}
+              />
+            </div>
+          </div>
+          <div className="status-moxie">
+            <div className="field-label">Moxie</div>
+            <Row gap={6} wrap>
+              {Array.from({ length: MOXIE_MAX }, (_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  aria-label={`Set Moxie to ${i + 1}`}
+                  className={`dot${i < sheet.moxie ? " filled" : ""}`}
+                  onClick={() =>
+                    setSheet((s) => ({ ...s, moxie: i + 1 }))
+                  }
+                />
+              ))}
+            </Row>
+            <Text tone="tertiary">
+              {sheet.moxie}/{MOXIE_MAX}
+              {sheet.moxie === 0 ? " · spends locked" : ""}
+            </Text>
+          </div>
+        </div>
+        <Row gap={8} wrap style={{ marginTop: 12 }}>
+          {isBloodied(sheet.hp) ? <Pill active>Bloodied</Pill> : null}
+          {sheet.digDeepActive ? <Pill active>Dig Deep</Pill> : null}
+          {sheet.bloodiedUnbowed ? <Pill>Bloodied ready</Pill> : null}
+          {sheet.swagger ? <Pill>Swagger ready</Pill> : null}
+          {sheet.digDeep ? <Pill>Dig Deep ready</Pill> : null}
+          <Spacer />
+          <Text tone="tertiary">Saved here</Text>
+        </Row>
+      </CardBody>
+    </Card>
+  );
+}
+
+function RestPanel({
   sheet,
   setSheet,
 }: {
@@ -729,177 +783,89 @@ function ResourcePanel({
     setSheet((s) => ({ ...s, ...partial }));
   }
 
-  function shortRest() {
-    setSheet((s) => ({
-      ...s,
-      moxie: MOXIE_MAX,
-      bloodiedUnbowed: true,
-      swagger: true,
-      digDeepActive: false,
-      tempHp: 0,
-    }));
-  }
-
-  function longRest() {
-    setSheet({ ...DEFAULT_SHEET });
-  }
-
-  const lockedMoxie = [
-    { name: "One-Two Punch", cost: 1 },
-    { name: "Brace Up", cost: 1 },
-    { name: "Stick and Move", cost: 1 },
-    { name: "Inescapable", cost: 1 },
-  ].filter((o) => o.cost > sheet.moxie);
-
   return (
-    <Card>
-      <CardHeader
-        trailing={
-          <Pill>
-            {sheet.hp}
-            {sheet.tempHp > 0 ? `+${sheet.tempHp}` : ""} / {HP_MAX}
-          </Pill>
-        }
-      >
-        Session tracker
-      </CardHeader>
-      <CardBody>
-        <Stack gap={16}>
-          <DamageAdjuster sheet={sheet} setSheet={setSheet} />
-
-          <Divider />
-
-          <Stack gap={8}>
-            <Row gap={8} wrap>
-              <Text>Moxie</Text>
-              <Pill>
-                {sheet.moxie} / {MOXIE_MAX}
-              </Pill>
-            </Row>
-            <Row gap={8} wrap>
-              <Button
-                variant="secondary"
-                disabled={sheet.moxie <= 0}
-                onClick={() =>
-                  patch({ moxie: clamp(sheet.moxie - 1, 0, MOXIE_MAX) })
-                }
-              >
-                −1
-              </Button>
-              <Row gap={6} wrap>
-                {Array.from({ length: MOXIE_MAX }, (_, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    aria-label={`Set Moxie to ${i + 1}`}
-                    className={`dot${i < sheet.moxie ? " filled" : ""}`}
-                    onClick={() => patch({ moxie: i + 1 })}
-                  />
-                ))}
-              </Row>
-              <Button
-                variant="secondary"
-                disabled={sheet.moxie >= MOXIE_MAX}
-                onClick={() =>
-                  patch({ moxie: clamp(sheet.moxie + 1, 0, MOXIE_MAX) })
-                }
-              >
-                +1
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => patch({ moxie: MOXIE_MAX })}
-              >
-                Full
-              </Button>
-            </Row>
-            {lockedMoxie.length > 0 ? (
-              <Text tone="tertiary">
-                Locked:{" "}
-                {lockedMoxie.map((o) => `${o.name} (${o.cost})`).join(" · ")}
-              </Text>
-            ) : (
-              <Text tone="tertiary">All Moxie spends available.</Text>
-            )}
-          </Stack>
-
-          <Divider />
-
-          <Stack gap={8}>
-            <Text>Limited uses</Text>
-            <div className="resource-list">
-              <label className="resource-row">
-                <input
-                  type="checkbox"
-                  checked={sheet.bloodiedUnbowed}
-                  onChange={(e) =>
-                    patch({ bloodiedUnbowed: e.target.checked })
-                  }
-                />
-                <span>
-                  Bloodied But Unbowed{" "}
-                  <span className="tertiary">1 / short rest</span>
-                </span>
-              </label>
-              <label className="resource-row">
-                <input
-                  type="checkbox"
-                  checked={sheet.swagger}
-                  onChange={(e) => patch({ swagger: e.target.checked })}
-                />
-                <span>
-                  Swagger Streak{" "}
-                  <span className="tertiary">1 / short rest</span>
-                </span>
-              </label>
-              <label className="resource-row">
-                <input
-                  type="checkbox"
-                  checked={sheet.digDeep}
-                  onChange={(e) =>
-                    patch({
-                      digDeep: e.target.checked,
-                      digDeepActive: e.target.checked
-                        ? sheet.digDeepActive
-                        : false,
-                    })
-                  }
-                />
-                <span>
-                  Dig Deep <span className="tertiary">1 / long rest</span>
-                </span>
-              </label>
-              <label className="resource-row">
-                <input
-                  type="checkbox"
-                  checked={sheet.digDeepActive}
-                  disabled={!sheet.digDeep && !sheet.digDeepActive}
-                  onChange={(e) => patch({ digDeepActive: e.target.checked })}
-                />
-                <span>
-                  Dig Deep active{" "}
-                  <span className="tertiary">resist B/P/S ~10 min</span>
-                </span>
-              </label>
-            </div>
-          </Stack>
-
-          <Row gap={8} wrap>
-            <Button variant="secondary" onClick={shortRest}>
-              Short rest
-            </Button>
-            <Button variant="secondary" onClick={longRest}>
-              Long rest
-            </Button>
-            <Text tone="tertiary">
-              Short: Moxie, Bloodied, Swagger. Long: everything + full HP.
-            </Text>
-          </Row>
-        </Stack>
-      </CardBody>
-    </Card>
+    <Stack gap={14}>
+      <Text tone="secondary">
+        Toggle what’s still available, or take a rest to reset.
+      </Text>
+      <div className="resource-list">
+        <label className="resource-row">
+          <input
+            type="checkbox"
+            checked={sheet.bloodiedUnbowed}
+            onChange={(e) => patch({ bloodiedUnbowed: e.target.checked })}
+          />
+          <span>
+            Bloodied But Unbowed{" "}
+            <span className="tertiary">1 / short rest</span>
+          </span>
+        </label>
+        <label className="resource-row">
+          <input
+            type="checkbox"
+            checked={sheet.swagger}
+            onChange={(e) => patch({ swagger: e.target.checked })}
+          />
+          <span>
+            Swagger Streak <span className="tertiary">1 / short rest</span>
+          </span>
+        </label>
+        <label className="resource-row">
+          <input
+            type="checkbox"
+            checked={sheet.digDeep}
+            onChange={(e) =>
+              patch({
+                digDeep: e.target.checked,
+                digDeepActive: e.target.checked ? sheet.digDeepActive : false,
+              })
+            }
+          />
+          <span>
+            Dig Deep <span className="tertiary">1 / long rest</span>
+          </span>
+        </label>
+        <label className="resource-row">
+          <input
+            type="checkbox"
+            checked={sheet.digDeepActive}
+            disabled={!sheet.digDeep && !sheet.digDeepActive}
+            onChange={(e) => patch({ digDeepActive: e.target.checked })}
+          />
+          <span>
+            Dig Deep active <span className="tertiary">resist B/P/S</span>
+          </span>
+        </label>
+      </div>
+      <Row gap={8} wrap>
+        <Button
+          variant="secondary"
+          onClick={() =>
+            setSheet((s) => ({
+              ...s,
+              moxie: MOXIE_MAX,
+              bloodiedUnbowed: true,
+              swagger: true,
+              digDeepActive: false,
+              tempHp: 0,
+            }))
+          }
+        >
+          Short rest
+        </Button>
+        <Button variant="secondary" onClick={() => setSheet({ ...DEFAULT_SHEET })}>
+          Long rest
+        </Button>
+      </Row>
+      <Text tone="tertiary">
+        Short restores Moxie, Bloodied, Swagger. Long restores everything + full
+        HP.
+      </Text>
+    </Stack>
   );
 }
+
+type MainTab = "play" | "hit" | "rest";
 
 export function GaryCombatTool() {
   const [phase, setPhase] = useState<Phase>("timing");
@@ -909,6 +875,10 @@ export function GaryCombatTool() {
   const [sheet, setSheet] = usePersistentState<Sheet>(
     "gary-grapplesauce-combat:sheet",
     DEFAULT_SHEET,
+  );
+  const [tab, setTab] = usePersistentState<MainTab>(
+    "gary-grapplesauce-combat:tab",
+    "play",
   );
   const [spentApplied, setSpentApplied] = useState(false);
 
@@ -1069,235 +1039,254 @@ export function GaryCombatTool() {
       : null;
 
   return (
-    <Stack gap={20}>
-      <Stack gap={6}>
-        <h1>Gary Grapplesauce — combat tree</h1>
+    <Stack gap={16}>
+      <Stack gap={4}>
+        <h1>Gary Grapplesauce</h1>
         <Text tone="secondary">
-          Pugilist 9 · Squared Circle. Track HP, Moxie, and once-per-rest uses —
-          numbers stick in this browser.
+          {CHEAT.attack} · AC {CHEAT.ac} · Athletics {CHEAT.athletics}
         </Text>
       </Stack>
 
-      <Grid columns={3}>
-        <Stat value={CHEAT.attack} label="Unarmed" />
-        <Stat value={CHEAT.ac} label="AC" />
-        <Stat
-          value={`${sheet.hp}${sheet.tempHp ? `+${sheet.tempHp}` : ""}`}
-          label="HP now"
-        />
-      </Grid>
+      <StatusBar sheet={sheet} setSheet={setSheet} />
 
-      <ResourcePanel sheet={sheet} setSheet={setSheet} />
+      <div className="tab-bar" role="tablist" aria-label="Main mode">
+        {(
+          [
+            ["play", "Play"],
+            ["hit", "Hit"],
+            ["rest", "Rest"],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={tab === id}
+            className={`tab-btn${tab === id ? " active" : ""}`}
+            onClick={() => setTab(id)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
-      <Row gap={8} wrap>
-        <Text tone="tertiary">Athletics {CHEAT.athletics}</Text>
-        <Spacer />
-        <Text tone="tertiary">{CHEAT.saves}</Text>
-      </Row>
+      {tab === "play" ? (
+        <Stack gap={12}>
+          {phase === "timing" && (
+            <Card>
+              <CardHeader>What just happened?</CardHeader>
+              <CardBody>
+                <Stack gap={12}>
+                  <Row gap={8} wrap>
+                    <Button variant="primary" onClick={() => pickTiming("turn")}>
+                      My turn
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={() => pickTiming("reaction")}
+                    >
+                      Reaction
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={() => pickTiming("check-fail")}
+                    >
+                      Failed check
+                    </Button>
+                  </Row>
+                </Stack>
+              </CardBody>
+            </Card>
+          )}
 
-      {phase === "timing" && (
-        <Card>
-          <CardHeader>What just happened?</CardHeader>
-          <CardBody>
-            <Stack gap={12}>
-              <Text>Pick the moment you need a decision for.</Text>
-              <Row gap={8} wrap>
-                <Button variant="primary" onClick={() => pickTiming("turn")}>
-                  My turn
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => pickTiming("reaction")}
-                >
-                  Reaction window
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => pickTiming("check-fail")}
-                >
-                  Failed ability check
-                </Button>
-              </Row>
-            </Stack>
-          </CardBody>
-        </Card>
-      )}
-
-      {phase === "reaction" && (
-        <Card>
-          <CardHeader>What triggered the Reaction?</CardHeader>
-          <CardBody>
-            <Stack gap={12}>
-              <Row gap={8} wrap>
-                <Button
-                  variant="primary"
-                  disabled={!canBloodiedReaction}
-                  onClick={() => pickReaction("bloodied")}
-                >
-                  Bloodied + took damage
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => pickReaction("mage-cast")}
-                >
-                  Spell cast within 5 ft
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => pickReaction("opportunity")}
-                >
-                  Creature left my reach
-                </Button>
-                <Button variant="ghost" onClick={() => pickReaction("other")}>
-                  None of these
-                </Button>
-              </Row>
-              {bloodiedBlockedReason ? (
-                <Text tone="tertiary">
-                  Bloodied But Unbowed locked: {bloodiedBlockedReason}
-                </Text>
-              ) : null}
-              <Button variant="ghost" onClick={resetDecision}>
-                Back
-              </Button>
-            </Stack>
-          </CardBody>
-        </Card>
-      )}
-
-      {phase === "goal" && (
-        <Card>
-          <CardHeader>What do you want this turn?</CardHeader>
-          <CardBody>
-            <Stack gap={12}>
-              <Row gap={8} wrap>
-                {availableGoals.map((g) => (
-                  <Button
-                    key={g.id}
-                    variant={g.variant}
-                    onClick={() => pickGoal(g.id)}
-                  >
-                    {g.cost > 0 ? `${g.label} · ${g.cost} Moxie` : g.label}
+          {phase === "reaction" && (
+            <Card>
+              <CardHeader>Reaction</CardHeader>
+              <CardBody>
+                <Stack gap={12}>
+                  <Row gap={8} wrap>
+                    <Button
+                      variant="primary"
+                      disabled={!canBloodiedReaction}
+                      onClick={() => pickReaction("bloodied")}
+                    >
+                      Bloodied + damage
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={() => pickReaction("mage-cast")}
+                    >
+                      Spell within 5 ft
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={() => pickReaction("opportunity")}
+                    >
+                      Left my reach
+                    </Button>
+                    <Button variant="ghost" onClick={() => pickReaction("other")}>
+                      Hold reaction
+                    </Button>
+                  </Row>
+                  {bloodiedBlockedReason ? (
+                    <Text tone="tertiary">
+                      Bloodied locked: {bloodiedBlockedReason}
+                    </Text>
+                  ) : null}
+                  <Button variant="ghost" onClick={resetDecision}>
+                    Back
                   </Button>
-                ))}
-              </Row>
-              {hiddenGoals.length > 0 ? (
-                <Callout tone="warning" title="Hidden — not enough Moxie">
-                  {hiddenGoals
-                    .map((g) => `${g.label} (needs ${g.cost})`)
-                    .join(" · ")}
-                </Callout>
-              ) : null}
-              <Button variant="ghost" onClick={resetDecision}>
-                Back
-              </Button>
-            </Stack>
-          </CardBody>
-        </Card>
-      )}
+                </Stack>
+              </CardBody>
+            </Card>
+          )}
 
-      {phase === "result" && plan && (
-        <Card>
-          <CardHeader trailing={<Pill>Cost: {plan.costLabel}</Pill>}>
-            {plan.title}
-          </CardHeader>
-          <CardBody>
-            <Stack gap={14}>
-              <Stack gap={4}>
-                <h3>Action</h3>
-                <Text>{plan.action}</Text>
-              </Stack>
-              <Divider />
-              <Stack gap={4}>
-                <h3>Bonus Action</h3>
-                <Text>{plan.bonus}</Text>
-              </Stack>
-              {plan.reaction ? (
-                <>
+          {phase === "goal" && (
+            <Card>
+              <CardHeader>This turn</CardHeader>
+              <CardBody>
+                <Stack gap={12}>
+                  <Row gap={8} wrap>
+                    {availableGoals.map((g) => (
+                      <Button
+                        key={g.id}
+                        variant={g.variant}
+                        onClick={() => pickGoal(g.id)}
+                      >
+                        {g.cost > 0 ? `${g.label} · ${g.cost}` : g.label}
+                      </Button>
+                    ))}
+                  </Row>
+                  {hiddenGoals.length > 0 ? (
+                    <Text tone="tertiary">
+                      Need more Moxie:{" "}
+                      {hiddenGoals.map((g) => g.label).join(", ")}
+                    </Text>
+                  ) : null}
+                  <Button variant="ghost" onClick={resetDecision}>
+                    Back
+                  </Button>
+                </Stack>
+              </CardBody>
+            </Card>
+          )}
+
+          {phase === "result" && plan && (
+            <Card>
+              <CardHeader trailing={<Pill>{plan.costLabel}</Pill>}>
+                {plan.title}
+              </CardHeader>
+              <CardBody>
+                <Stack gap={14}>
+                  <Stack gap={4}>
+                    <h3>Action</h3>
+                    <Text>{plan.action}</Text>
+                  </Stack>
                   <Divider />
                   <Stack gap={4}>
-                    <h3>Reaction</h3>
-                    <Text>{plan.reaction}</Text>
+                    <h3>Bonus Action</h3>
+                    <Text>{plan.bonus}</Text>
                   </Stack>
-                </>
-              ) : null}
-              <Callout tone="info" title="Why">
-                {plan.why}
-              </Callout>
-              <Text tone="secondary">Table line: {plan.gym}</Text>
-              <Row gap={8} wrap>
-                {applyLabel(plan) ? (
-                  <Button
-                    variant="primary"
-                    disabled={
-                      spentApplied ||
-                      (plan.apply === "moxie" && sheet.moxie < plan.cost)
-                    }
-                    onClick={applyPlan}
-                  >
-                    {applyLabel(plan)}
-                  </Button>
-                ) : null}
-                {selectedGoal === "survive" &&
-                sheet.digDeep &&
-                plan.apply === "moxie" ? (
-                  <Button
-                    variant="secondary"
-                    disabled={spentApplied}
-                    onClick={() => {
-                      setSheet((s) => ({
-                        ...s,
-                        digDeep: false,
-                        digDeepActive: true,
-                      }));
-                    }}
-                  >
-                    Also use Dig Deep
-                  </Button>
-                ) : null}
-                <Button variant="secondary" onClick={resetDecision}>
-                  New decision
-                </Button>
-                {timing === "turn" ? (
-                  <Button
-                    variant="ghost"
-                    onClick={() => {
-                      setSelectedGoal(null);
-                      setStaticPlan(null);
-                      setSpentApplied(false);
-                      setPhase("goal");
-                    }}
-                  >
-                    Change goal
-                  </Button>
-                ) : null}
-              </Row>
+                  {plan.reaction ? (
+                    <>
+                      <Divider />
+                      <Stack gap={4}>
+                        <h3>Reaction</h3>
+                        <Text>{plan.reaction}</Text>
+                      </Stack>
+                    </>
+                  ) : null}
+                  <Text tone="secondary">{plan.gym}</Text>
+                  <Row gap={8} wrap>
+                    {applyLabel(plan) ? (
+                      <Button
+                        variant="primary"
+                        disabled={
+                          spentApplied ||
+                          (plan.apply === "moxie" && sheet.moxie < plan.cost)
+                        }
+                        onClick={applyPlan}
+                      >
+                        {applyLabel(plan)}
+                      </Button>
+                    ) : null}
+                    {selectedGoal === "survive" &&
+                    sheet.digDeep &&
+                    plan.apply === "moxie" ? (
+                      <Button
+                        variant="secondary"
+                        disabled={spentApplied}
+                        onClick={() => {
+                          setSheet((s) => ({
+                            ...s,
+                            digDeep: false,
+                            digDeepActive: true,
+                          }));
+                        }}
+                      >
+                        Also Dig Deep
+                      </Button>
+                    ) : null}
+                    <Button variant="secondary" onClick={resetDecision}>
+                      New decision
+                    </Button>
+                    {timing === "turn" ? (
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          setSelectedGoal(null);
+                          setStaticPlan(null);
+                          setSpentApplied(false);
+                          setPhase("goal");
+                        }}
+                      >
+                        Change goal
+                      </Button>
+                    ) : null}
+                  </Row>
+                </Stack>
+              </CardBody>
+            </Card>
+          )}
+
+          <details className="more-details">
+            <summary>Priority cheat sheet</summary>
+            <Stack gap={8}>
+              {[
+                "1. Bloodied But Unbowed if eligible.",
+                "2. Mage Slayer if they cast within 5 ft.",
+                "3. Live? Brace Up or Dig Deep.",
+                "4. Move? Stick and Move.",
+                "5. Else: Attack → Heavy Hitter → free punch.",
+                "6. Lockdown: Stop and Drop → Compression Lock.",
+                "7. Burst with One-Two when Moxie allows.",
+              ].map((line) => (
+                <div key={line} className="cheat-line">
+                  <Text>{line}</Text>
+                </div>
+              ))}
             </Stack>
+          </details>
+        </Stack>
+      ) : null}
+
+      {tab === "hit" ? (
+        <Card>
+          <CardHeader>I took a hit</CardHeader>
+          <CardBody>
+            <DamageAdjuster sheet={sheet} setSheet={setSheet} />
           </CardBody>
         </Card>
-      )}
+      ) : null}
 
-      <Stack gap={10}>
-        <h2>Priority cheat sheet</h2>
-        <Text tone="secondary">
-          When overwhelmed, run top to bottom before picking a fancy combo.
-        </Text>
-        <Grid columns={1}>
-          {[
-            "1. Reaction: Bloodied But Unbowed if eligible (refills Moxie).",
-            "2. Reaction: Mage Slayer if a caster casts within 5 ft.",
-            "3. Need to live? Brace Up (1) or Dig Deep before greed damage.",
-            "4. Need to move? Stick and Move (1) beats Action Dash.",
-            "5. Otherwise: Attack → Heavy Hitter → free Fisticuffs punch.",
-            "6. Want lockdown? Stop and Drop, then Compression Lock next turns.",
-            "7. Burst with One-Two (1) only when Moxie allows.",
-          ].map((line) => (
-            <div key={line} className="cheat-line">
-              <Text>{line}</Text>
-            </div>
-          ))}
-        </Grid>
-      </Stack>
+      {tab === "rest" ? (
+        <Card>
+          <CardHeader>Rests & limited uses</CardHeader>
+          <CardBody>
+            <RestPanel sheet={sheet} setSheet={setSheet} />
+          </CardBody>
+        </Card>
+      ) : null}
     </Stack>
   );
 }

@@ -366,26 +366,3 @@ h3 {
   font-family: var(--mono);
   padding: 8px 10px;
 }
-
-.numpad {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  max-width: 280px;
-}
-
-.numpad-key {
-  appearance: none;
-  border: 1px solid var(--border);
-  background: var(--bg-muted);
-  color: var(--text);
-  border-radius: 8px;
-  padding: 14px 0;
-  font-family: var(--mono);
-  font-size: 1.1rem;
-  cursor: pointer;
-}
-
-.numpad-key:active {
-  background: var(--bg-elevated);
-}

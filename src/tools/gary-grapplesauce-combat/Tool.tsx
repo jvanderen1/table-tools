@@ -1,7 +1,6 @@
 import {
   useEffect,
   useMemo,
-  useRef,
   useState,
   type KeyboardEvent,
 } from "react";
@@ -432,7 +431,6 @@ function DamageAdjuster({
     DEFAULT_DAMAGE_UI,
   );
   const [outcome, setOutcome] = useState<DamageOutcome | null>(null);
-  const amountRef = useRef<HTMLInputElement>(null);
 
   const raw = Math.max(0, Number.parseInt(ui.amount || "0", 10) || 0);
   const resolved = resolveEffectiveness(
@@ -449,11 +447,6 @@ function DamageAdjuster({
 
   function bump(delta: number) {
     setAmount(String(Math.max(0, raw + delta)));
-  }
-
-  function appendDigit(d: string) {
-    if (ui.amount === "0") setAmount(d);
-    else setAmount(ui.amount + d);
   }
 
   function onAmountKeyDown(e: KeyboardEvent<HTMLInputElement>) {
@@ -579,7 +572,6 @@ function DamageAdjuster({
       <label className="field">
         <span className="field-label">Amount</span>
         <input
-          ref={amountRef}
           className="field-input amount-input"
           inputMode="numeric"
           pattern="[0-9]*"
@@ -587,6 +579,7 @@ function DamageAdjuster({
           onChange={(e) => setAmount(e.target.value)}
           onKeyDown={onAmountKeyDown}
           aria-label="Damage or heal amount"
+          autoFocus
         />
       </label>
 
@@ -638,27 +631,6 @@ function DamageAdjuster({
           Save step
         </Button>
       </Row>
-
-      <div className="numpad" role="group" aria-label="Number pad">
-        {["1", "2", "3", "4", "5", "6", "7", "8", "9", "C", "0", "⌫"].map(
-          (key) => (
-            <button
-              key={key}
-              type="button"
-              className="numpad-key"
-              onClick={() => {
-                if (key === "C") setAmount("0");
-                else if (key === "⌫")
-                  setAmount(ui.amount.length <= 1 ? "0" : ui.amount.slice(0, -1));
-                else appendDigit(key);
-                amountRef.current?.focus();
-              }}
-            >
-              {key}
-            </button>
-          ),
-        )}
-      </div>
 
       <label className="field">
         <span className="field-label">Damage type</span>

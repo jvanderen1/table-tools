@@ -24,6 +24,9 @@ export default defineConfig({
         ],
         navigateFallback: "index.html",
         cleanupOutdatedCaches: true,
+        // Prompt mode waits for SKIP_WAITING. Claiming clients lets the
+        // waiting worker take this page so Reload can refresh into it.
+        clientsClaim: true,
         runtimeCaching: [
           {
             urlPattern: ({ url }) => url.pathname.endsWith(".woff2"),

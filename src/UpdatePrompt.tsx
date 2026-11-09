@@ -16,7 +16,6 @@ export function UpdatePrompt() {
 
   const {
     needRefresh: [needRefresh, setNeedRefresh],
-    updateServiceWorker,
   } = useRegisterSW({
     onRegisteredSW(_url, registration) {
       if (!registration) return;
@@ -29,9 +28,38 @@ export function UpdatePrompt() {
       });
     },
     onNeedRefresh() {
-      if (!touched.current) void updateServiceWorker(true);
+      if (!touched.current) void applyUpdate();
     },
   });
+
+  async function applyUpdate() {
+    try {
+      const registration = await navigator.serviceWorker.getRegistration();
+      const waiting = registration?.waiting;
+      if (waiting) {
+        waiting.postMessage({ type: "SKIP_WAITING" });
+        await new Promise<void>((resolve) => {
+          const finish = () => {
+            waiting.removeEventListener("statechange", onState);
+            window.clearTimeout(timer);
+            resolve();
+          };
+          const onState = () => {
+            if (waiting.state === "activated") finish();
+          };
+          if (waiting.state === "activated") {
+            resolve();
+            return;
+          }
+          waiting.addEventListener("statechange", onState);
+          const timer = window.setTimeout(finish, 1500);
+        });
+      }
+    } catch {
+      // Reload anyway so a stuck worker doesn't trap the page.
+    }
+    window.location.reload();
+  }
 
   useEffect(() => {
     const mark = () => {
@@ -57,7 +85,7 @@ export function UpdatePrompt() {
         <div className="text-ink">A new version is ready.</div>
         <div className="text-xs text-faint">Your sheet and notes are kept.</div>
       </div>
-      <Button size="sm" variant="primary" onClick={() => void updateServiceWorker(true)}>
+      <Button size="sm" variant="primary" onClick={() => void applyUpdate()}>
         Reload
       </Button>
       <button

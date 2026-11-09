@@ -90,7 +90,6 @@ const HP_MAX = 103;
 const BLOODIED_AT = Math.floor(HP_MAX / 2); // ≤ 51
 /** Pugilist d10, one per level. A 2024 Long Rest refills all of them. */
 const HIT_DICE_MAX = 9;
-const HIT_DIE_SIDES = 10;
 /** Swagger Streak adds 1d10 to a failed Str/Dex/Con/Cha check. */
 const SWAGGER_ABILITIES = new Set<Ability>(["str", "dex", "con", "cha"]);
 
@@ -1844,7 +1843,7 @@ function RollPanel({
         </div>
         {attackNote ? <Text tone="tertiary">{attackNote}</Text> : null}
         <Text tone="tertiary">
-          A critical hit rolls damage twice. Hit dice are in the corner.
+          A critical hit rolls damage twice. Any other die is the Dice button.
         </Text>
       </div>
     </Stack>
@@ -2053,71 +2052,119 @@ function planSections(plan: Plan) {
   return sections;
 }
 
-type HitDieLogEntry = { id: number; face: number };
+const DICE_SIDES = [4, 6, 8, 10, 12, 20, 100] as const;
 
-function HitDiceTray({
-  sheet,
-  setSheet,
-}: {
-  sheet: Sheet;
-  setSheet: (next: Sheet | ((prev: Sheet) => Sheet)) => void;
-}) {
-  const [log, setLog] = useState<HitDieLogEntry[]>([]);
-  const dead = (sheet.exhaustion ?? 0) >= EXHAUSTION_DEATH;
-  const full = sheet.hp >= HP_MAX;
-  const canRoll = sheet.hitDice > 0 && !full && !dead;
+type DiceLogEntry = {
+  id: number;
+  sides: number;
+  count: number;
+  faces: number[];
+  total: number;
+};
+
+function DiceRoller() {
+  const [open, setOpen] = useState(false);
+  const [sides, setSides] = useState<(typeof DICE_SIDES)[number]>(20);
+  const [count, setCount] = useState(1);
+  const [log, setLog] = useState<DiceLogEntry[]>([]);
+  const latest = log[0];
+
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e: globalThis.KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
 
   function roll() {
-    if (!canRoll) return;
-    const face = rollDie(HIT_DIE_SIDES);
-    const gained = Math.min(
-      Math.max(0, face + GARY.conMod),
-      HP_MAX - sheet.hp,
+    const faces = Array.from({ length: count }, () => rollDie(sides));
+    setLog((prev) =>
+      [
+        {
+          id: Date.now(),
+          sides,
+          count,
+          faces,
+          total: faces.reduce((sum, face) => sum + face, 0),
+        },
+        ...prev,
+      ].slice(0, 12),
     );
-    setSheet((s) => ({
-      ...s,
-      hp: Math.min(HP_MAX, s.hp + gained),
-      hitDice: s.hitDice - 1,
-    }));
-    setLog((prev) => [{ id: Date.now(), face }, ...prev].slice(0, 8));
   }
 
   return createPortal(
-    <aside className="hd-tray" aria-label="Hit dice">
-      <div className="hd-tray-head">
-        <span>Hit Dice</span>
-        <span className="hd-tray-count">
-          {sheet.hitDice}/{HIT_DICE_MAX}
-        </span>
-      </div>
-      <div className="hd-tray-dice">
-        {sheet.hitDice === 0 ? (
-          <span className="hd-empty">None left</span>
-        ) : (
-          Array.from({ length: sheet.hitDice }, (_, i) => (
+    <div className="dice-dock">
+      {open ? (
+        <div className="dice-panel" role="dialog" aria-label="Dice">
+          <div className="dice-sizes">
+            {DICE_SIDES.map((n) => (
+              <button
+                key={n}
+                type="button"
+                className={sides === n ? "on" : ""}
+                aria-pressed={sides === n}
+                onClick={() => setSides(n)}
+              >
+                d{n}
+              </button>
+            ))}
+          </div>
+          <div className="dice-count">
             <button
-              key={i}
               type="button"
-              className="hd-die"
-              disabled={!canRoll}
-              onClick={roll}
+              aria-label="Fewer dice"
+              onClick={() => setCount((n) => Math.max(1, n - 1))}
             >
-              d{HIT_DIE_SIDES}
+              −
             </button>
-          ))
-        )}
-      </div>
-      {log.length > 0 ? (
-        <ol className="hd-log">
-          {log.map((entry) => (
-            <li key={entry.id}>
-              <span>d{HIT_DIE_SIDES}</span>
-              <span className="hd-log-face">{entry.face}</span>
-            </li>
-          ))}
-        </ol>
+            <span>{count}</span>
+            <button
+              type="button"
+              aria-label="More dice"
+              onClick={() => setCount((n) => Math.min(20, n + 1))}
+            >
+              +
+            </button>
+          </div>
+          <button type="button" className="dice-roll" onClick={roll}>
+            Roll {count}d{sides}
+          </button>
+          {latest ? (
+            <div className="dice-latest">
+              <div className="dice-latest-total">{latest.total}</div>
+              <div className="dice-latest-detail">
+                {latest.count}d{latest.sides}
+                {latest.faces.length > 1 ? ` · ${latest.faces.join(" + ")}` : ""}
+              </div>
+            </div>
+          ) : (
+            <p className="dice-latest-detail">Pick a die and roll.</p>
+          )}
+          {log.length > 1 ? (
+            <ol className="dice-log">
+              {log.slice(1).map((entry) => (
+                <li key={entry.id}>
+                  <span>
+                    {entry.count}d{entry.sides}
+                  </span>
+                  <span>{entry.total}</span>
+                </li>
+              ))}
+            </ol>
+          ) : null}
+        </div>
       ) : null}
-    </aside>,
+      <button
+        type="button"
+        className="dice-fab"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        Dice
+      </button>
+    </div>,
     document.body,
   );
 }
@@ -2646,7 +2693,7 @@ export function GaryCombatTool() {
         </Card>
       ) : null}
 
-      <HitDiceTray sheet={sheet} setSheet={setSheet} />
+      <DiceRoller />
 
       <footer className="tool-sources">
         <span>Rules:</span>

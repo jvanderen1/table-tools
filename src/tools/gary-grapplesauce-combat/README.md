@@ -94,9 +94,9 @@ Buttons use the same condition math as the effects card (Exhaustion −2 per lev
 | Skills | Athletics +13, Perception +6, Insight +6 |
 | Initiative | +3 |
 | Unarmed | +9 to hit (nat 20 crit, nat 1 miss), with Damage 1d10+5 beside it (2d10+5 after a crit) |
-| Hit die | Corner tray, separate from the cards. Each remaining die is a plain d10 (no modifier on the die). The log lists the face rolled. Spending one still heals that face + 3 and a long rest refills all 9. |
+A **Dice** button floats in the bottom-right corner. It rolls any of d4, d6, d8, d10, d12, d20, or d100, and any count from 1 to 20. The panel above the button shows the latest total, then earlier rolls. It does not change HP.
 
-On a Play plan, to-hit, damage, Brace Up, and Swagger sit under the action they belong to. Hit dice do not — they stay in the corner tray.
+On a Play plan, to-hit, damage, Brace Up, and Swagger sit under the action they belong to.
 
 Str/Dex/Con/Cha checks (including Athletics) offer **Add Swagger +1d10** while that use is ready. Blinded/Deafened don’t auto-fail every check — the tab says which ones need sight or hearing.
 

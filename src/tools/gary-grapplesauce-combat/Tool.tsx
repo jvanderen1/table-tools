@@ -198,11 +198,15 @@ type PlanApply =
   | "swagger"
   | "none";
 
+type PlanPart = "Action" | "Bonus Action" | "Reaction";
+
 /** A button on a plan. Tapping it spends the cost and shows the payoff. */
 type PlanChoice = {
   id: string;
   label: string;
   detail: string;
+  /** Which part of the turn this spend belongs to. */
+  part: PlanPart;
   /** Moxie spent. 0 for Dig Deep, Swagger, and Bloodied But Unbowed. */
   cost: number;
   apply: Exclude<PlanApply, "none">;
@@ -417,6 +421,7 @@ function planFor(goal: Goal, sheet: Sheet, gary: GaryStats): Plan {
               {
                 id: "one-two",
                 label: "One-Two Punch",
+                part: "Bonus Action",
                 detail: "Two extra Unarmed Strikes. Roll each one below.",
                 cost: 1,
                 apply: "moxie",
@@ -453,6 +458,7 @@ function planFor(goal: Goal, sheet: Sheet, gary: GaryStats): Plan {
               {
                 id: "inescapable",
                 label: "Inescapable",
+                part: "Bonus Action",
                 detail:
                   "Their next check or save to escape the grapple has Disadvantage.",
                 cost: 1,
@@ -480,6 +486,7 @@ function planFor(goal: Goal, sheet: Sheet, gary: GaryStats): Plan {
             {
               id: "brace",
               label: "Brace Up",
+              part: "Bonus Action",
               detail: `Rolls ${braceDice(gary)} and sets temp HP to the result (keeps a higher pool).`,
               cost: 1,
               apply: "moxie",
@@ -504,6 +511,7 @@ function planFor(goal: Goal, sheet: Sheet, gary: GaryStats): Plan {
             {
               id: "dig-deep",
               label: "Dig Deep",
+              part: "Bonus Action",
               detail: "Resistance to nonmagical bludgeoning, piercing, and slashing for about 10 minutes.",
               cost: 0,
               apply: "dig-deep",
@@ -530,6 +538,7 @@ function planFor(goal: Goal, sheet: Sheet, gary: GaryStats): Plan {
             {
               id: "dig-deep-again",
               label: "Dig Deep again",
+              part: "Bonus Action",
               detail: `Resistance to nonmagical B/P/S. Exhaustion ${sheet.exhaustion} → ${next}.`,
               cost: 0,
               apply: "dig-deep-exhaustion",
@@ -567,6 +576,7 @@ function planFor(goal: Goal, sheet: Sheet, gary: GaryStats): Plan {
           {
             id: "stick",
             label: "Stick and Move",
+            part: "Bonus Action",
             detail: "One Unarmed Strike, plus Dash or Disengage.",
             cost: 1,
             apply: "moxie",
@@ -592,6 +602,7 @@ function planFor(goal: Goal, sheet: Sheet, gary: GaryStats): Plan {
               {
                 id: "stick",
                 label: "Stick and Move",
+                part: "Bonus Action",
                 detail: "Close in: one Unarmed Strike, then Dash or Disengage.",
                 cost: 1,
                 apply: "moxie",
@@ -600,6 +611,7 @@ function planFor(goal: Goal, sheet: Sheet, gary: GaryStats): Plan {
               {
                 id: "one-two",
                 label: "One-Two",
+                part: "Bonus Action",
                 detail: "Already adjacent: two Unarmed Strikes. Roll each one.",
                 cost: 1,
                 apply: "moxie",
@@ -652,6 +664,7 @@ function reactionPlan(kind: ReactionKind, gary: GaryStats): Plan {
           {
             id: "unbowed",
             label: "Bloodied But Unbowed",
+            part: "Reaction",
             detail: "Moxie refills to full and temp HP becomes at least 36.",
             cost: 0,
             apply: "bloodied-unbowed",
@@ -740,6 +753,7 @@ function checkFailPlan(swaggerAvailable: boolean): Plan {
       {
         id: "swagger",
         label: "Add 1d10",
+        part: "Reaction",
         detail: "Rolled and added to the failed Str, Dex, Con, or Cha check.",
         cost: 0,
         apply: "swagger",
@@ -2887,15 +2901,15 @@ function ActionRolls({
 }
 
 function planSections(plan: Plan) {
-  const sections: { heading: string; text: string; dice: LineDie[] }[] = [
+  const sections: { heading: PlanPart; text: string; dice: LineDie[] }[] = [
     { heading: "Action", text: plan.action, dice: lineDice(plan.action) },
     { heading: "Bonus Action", text: plan.bonus, dice: lineDice(plan.bonus) },
   ];
-  if (plan.reaction) {
+  if (plan.reaction || plan.choices?.some((choice) => choice.part === "Reaction")) {
     sections.push({
       heading: "Reaction",
-      text: plan.reaction,
-      dice: lineDice(plan.reaction),
+      text: plan.reaction ?? "",
+      dice: lineDice(plan.reaction ?? ""),
     });
   }
   return sections;
@@ -3836,6 +3850,10 @@ export function GaryCombatTool() {
                   <Stack gap={14}>
                     {planSections(plan).map((section, index) => {
                       const Icon = SECTION_ICONS[section.heading] ?? Swords;
+                      const choices = (plan.choices ?? []).filter(
+                        (choice) => choice.part === section.heading,
+                      );
+                      const committedHere = choices.some((choice) => choice.id === committed);
                       return (
                         <Stack key={section.heading} gap={6}>
                           {index > 0 ? <Divider /> : null}
@@ -3843,7 +3861,7 @@ export function GaryCombatTool() {
                             <Icon className="size-3.5 text-gold" aria-hidden />
                             {section.heading}
                           </h3>
-                          <Text>{section.text}</Text>
+                          {section.text ? <Text>{section.text}</Text> : null}
                           {section.dice.length > 0 ? (
                             <ActionRolls
                               dice={section.dice}
@@ -3851,6 +3869,98 @@ export function GaryCombatTool() {
                               setSheet={setSheet}
                             />
                           ) : null}
+                          {choices.map((choice) => {
+                            const used = committed === choice.id;
+                            const cantAfford =
+                              !committed &&
+                              choice.apply === "moxie" &&
+                              sheet.moxie < choice.cost;
+                            return (
+                              <div
+                                key={choice.id}
+                                className={cx(
+                                  "flex flex-col gap-1 rounded-lg border px-3 py-2.5",
+                                  used
+                                    ? "border-gold/50 bg-gold/[0.07]"
+                                    : "border-line bg-well/40",
+                                )}
+                              >
+                                <Button
+                                  variant={used ? "primary" : "secondary"}
+                                  icon={used ? CircleCheck : choice.cost > 0 ? Flame : Check}
+                                  className="w-full"
+                                  disabled={
+                                    !!committed ||
+                                    cantAfford ||
+                                    (choice.apply === "dig-deep" && !sheet.digDeep) ||
+                                    (choice.apply === "dig-deep-exhaustion" &&
+                                      !canDigDeepAgain(sheet.exhaustion)) ||
+                                    (choice.apply === "swagger" && !sheet.swagger) ||
+                                    (choice.apply === "bloodied-unbowed" &&
+                                      !sheet.bloodiedUnbowed)
+                                  }
+                                  onClick={() => commitChoice(choice)}
+                                >
+                                  {used
+                                    ? `${choice.label} · done`
+                                    : choice.cost > 0
+                                      ? `${choice.label} · ${choice.cost} Moxie`
+                                      : choice.label}
+                                </Button>
+                                <Text tone="tertiary">{choice.detail}</Text>
+                              </div>
+                            );
+                          })}
+                          {section.heading === "Bonus Action" &&
+                          selectedGoal === "survive" &&
+                          plan.apply === "moxie" ? (
+                            <Button
+                              variant="secondary"
+                              icon={sheet.digDeep ? Pickaxe : CircleCheck}
+                              disabled={!sheet.digDeep}
+                              onClick={() => {
+                                setSheet((s) => ({
+                                  ...s,
+                                  digDeep: false,
+                                  digDeepActive: true,
+                                }));
+                                setReceipt((current) =>
+                                  current
+                                    ? `${current} Dig Deep is also on.`
+                                    : "Dig Deep is on: nonmagical B/P/S is resisted.",
+                                );
+                              }}
+                            >
+                              {sheet.digDeep ? "Also Dig Deep" : "Dig Deep used"}
+                            </Button>
+                          ) : null}
+                          {choices.length > 0 ? (
+                            <div
+                              className={cx(
+                                "flex min-h-11 items-center rounded-lg border px-3 py-2 text-sm",
+                                (committedHere || !committed) && receipt
+                                  ? "border-gold/30 bg-gold/[0.06] text-gold-soft"
+                                  : "border-dashed border-line text-faint",
+                              )}
+                              aria-live="polite"
+                            >
+                              {(committedHere || !committed) && receipt
+                                ? receipt
+                                : "Tap a move. The cost comes off immediately and the result shows here."}
+                            </div>
+                          ) : null}
+                          {committedHere
+                            ? choices
+                                .filter((choice) => choice.id === committed && choice.dice)
+                                .map((choice) => (
+                                  <ActionRolls
+                                    key={choice.id}
+                                    dice={choice.dice ?? []}
+                                    sheet={sheet}
+                                    setSheet={setSheet}
+                                  />
+                                ))
+                            : null}
                         </Stack>
                       );
                     })}
@@ -3858,98 +3968,7 @@ export function GaryCombatTool() {
                       {plan.gym}
                     </div>
                     <PlanTips plan={plan} />
-                    {plan.choices && plan.choices.length > 0 ? (
-                      <Stack gap={8}>
-                        {plan.choices.map((choice) => {
-                          const used = committed === choice.id;
-                          const cantAfford =
-                            !committed &&
-                            choice.apply === "moxie" &&
-                            sheet.moxie < choice.cost;
-                          return (
-                            <div
-                              key={choice.id}
-                              className={cx(
-                                "flex flex-col gap-1 rounded-lg border px-3 py-2.5",
-                                used
-                                  ? "border-gold/50 bg-gold/[0.07]"
-                                  : "border-line bg-well/40",
-                              )}
-                            >
-                              <Button
-                                variant={used ? "primary" : "secondary"}
-                                icon={used ? CircleCheck : choice.cost > 0 ? Flame : Check}
-                                className="w-full"
-                                disabled={
-                                  !!committed ||
-                                  cantAfford ||
-                                  (choice.apply === "dig-deep" && !sheet.digDeep) ||
-                                  (choice.apply === "dig-deep-exhaustion" &&
-                                    !canDigDeepAgain(sheet.exhaustion)) ||
-                                  (choice.apply === "swagger" && !sheet.swagger) ||
-                                  (choice.apply === "bloodied-unbowed" &&
-                                    !sheet.bloodiedUnbowed)
-                                }
-                                onClick={() => commitChoice(choice)}
-                              >
-                                {used
-                                  ? `${choice.label} · done`
-                                  : choice.cost > 0
-                                    ? `${choice.label} · ${choice.cost} Moxie`
-                                    : choice.label}
-                              </Button>
-                              <Text tone="tertiary">{choice.detail}</Text>
-                            </div>
-                          );
-                        })}
-                        <div
-                          className={cx(
-                            "flex min-h-11 items-center rounded-lg border px-3 py-2 text-sm",
-                            receipt
-                              ? "border-gold/30 bg-gold/[0.06] text-gold-soft"
-                              : "border-dashed border-line text-faint",
-                          )}
-                          aria-live="polite"
-                        >
-                          {receipt ??
-                            "Tap a move. The cost comes off immediately and the result shows here."}
-                        </div>
-                        {committed
-                          ? plan.choices
-                              .filter((choice) => choice.id === committed && choice.dice)
-                              .map((choice) => (
-                                <ActionRolls
-                                  key={choice.id}
-                                  dice={choice.dice ?? []}
-                                  sheet={sheet}
-                                  setSheet={setSheet}
-                                />
-                              ))
-                          : null}
-                      </Stack>
-                    ) : null}
                     <Row gap={8} wrap>
-                      {selectedGoal === "survive" && plan.apply === "moxie" ? (
-                        <Button
-                          variant="secondary"
-                          icon={sheet.digDeep ? Pickaxe : CircleCheck}
-                          disabled={!sheet.digDeep}
-                          onClick={() => {
-                            setSheet((s) => ({
-                              ...s,
-                              digDeep: false,
-                              digDeepActive: true,
-                            }));
-                            setReceipt((current) =>
-                              current
-                                ? `${current} Dig Deep is also on.`
-                                : "Dig Deep is on: nonmagical B/P/S is resisted.",
-                            );
-                          }}
-                        >
-                          {sheet.digDeep ? "Also Dig Deep" : "Dig Deep used"}
-                        </Button>
-                      ) : null}
                       <Button
                         variant="secondary"
                         icon={RotateCcw}

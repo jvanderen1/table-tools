@@ -61,12 +61,12 @@ export const PROVIDERS: Record<AiProvider, ProviderInfo> = {
       "Grok on grok.com / X is free; the developer API is prepaid credits. Some browsers are blocked (CORS). If Check key fails that way, use Groq or an OpenAI-compatible URL such as OpenRouter.",
   },
   groq: {
-    label: "Groq (free tier)",
+    label: "Groq (free)",
     keyUrl: "https://console.groq.com/keys",
-    defaultModel: "llama-3.1-8b-instant",
+    defaultModel: "openai/gpt-oss-20b",
     keyHint: "gsk_…",
     blurb:
-      "A real free API tier, fast, and it works from the browser. Different company from Grok. Good default for table one-liners.",
+      "Free plan, no card. Sign in at console.groq.com with Google, GitHub, or email, and stay on Free. Create a key, paste it here. A different company from Grok.",
   },
   compatible: {
     label: "OpenAI-compatible",
@@ -105,7 +105,23 @@ export const KEY_URLS: Record<AiProvider, string> = {
   compatible: PROVIDERS.compatible.keyUrl,
 };
 
+/** Groq first: it is the free plan that does not ask for a card. */
+export const PROVIDER_ORDER: AiProvider[] = [
+  "groq",
+  "gemini",
+  "anthropic",
+  "openai",
+  "grok",
+  "compatible",
+];
+
 const PROVIDER_IDS = Object.keys(PROVIDERS) as AiProvider[];
+
+/** Groq moved these off the free plan. A saved key should not keep calling them. */
+const RETIRED_GROQ_MODELS = new Set([
+  "llama-3.1-8b-instant",
+  "llama-3.3-70b-versatile",
+]);
 
 function isProvider(value: unknown): value is AiProvider {
   return typeof value === "string" && PROVIDER_IDS.includes(value as AiProvider);
@@ -118,10 +134,14 @@ export function loadAiSettings(): AiSettings | null {
     const parsed = JSON.parse(raw) as Partial<AiSettings>;
     if (!isProvider(parsed.provider)) return null;
     if (!parsed.apiKey && parsed.provider !== "compatible") return null;
+    const model = parsed.model || DEFAULT_MODELS[parsed.provider];
     return {
       provider: parsed.provider,
       apiKey: parsed.apiKey ?? "",
-      model: parsed.model || DEFAULT_MODELS[parsed.provider],
+      model:
+        parsed.provider === "groq" && RETIRED_GROQ_MODELS.has(model)
+          ? DEFAULT_MODELS.groq
+          : model,
       baseUrl: parsed.baseUrl,
     };
   } catch {
@@ -260,7 +280,7 @@ export function suggestModel(provider: AiProvider, ids: string[]): string {
     openai: [/luna/, /mini/, /nano/],
     gemini: [/flash-lite/, /flash/, /lite/],
     grok: [/mini/, /fast/],
-    groq: [/instant/, /8b/, /small/],
+    groq: [/gpt-oss-20b/, /gpt-oss-120b/, /qwen/],
     compatible: [/flash/, /mini/, /instant/, /small/],
   };
   for (const re of prefs[provider]) {
@@ -305,7 +325,8 @@ async function chatCompletions(
     headers: bearerHeaders(apiKey),
     body: JSON.stringify({
       model,
-      max_tokens: 1024,
+      max_tokens: 256,
+      ...(model.includes("gpt-oss") ? { reasoning_effort: "low" } : {}),
       messages: [
         { role: "system", content: system },
         { role: "user", content: prompt },

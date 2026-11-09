@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import {
   DEFAULT_MODELS,
+  PROVIDER_ORDER,
   PROVIDERS,
   generateText,
   listModels,
@@ -283,7 +284,7 @@ function VoiceCard({ bio, status }: { bio: Bio; status: string }) {
               {!ready ? (
                 <div className="flex flex-col items-center gap-2 text-sm text-faint">
                   <KeyRound className="size-5" aria-hidden />
-                  Add an AI key to generate lines.
+                  Add a free Groq key to generate lines.
                   <Button size="sm" icon={Settings} onClick={() => setSettingsOpen(true)}>
                     Set up AI
                   </Button>
@@ -399,12 +400,12 @@ function AiSettingsForm({
   onSave: (next: AiSettings | null) => void;
 }) {
   const [provider, setProvider] = useState<AiProvider>(
-    initial?.provider ?? "anthropic",
+    initial?.provider ?? "groq",
   );
   const [apiKey, setApiKey] = useState(initial?.apiKey ?? "");
   const [baseUrl, setBaseUrl] = useState(initial?.baseUrl ?? "");
   const [model, setModel] = useState(
-    initial?.model ?? DEFAULT_MODELS[initial?.provider ?? "anthropic"],
+    initial?.model ?? DEFAULT_MODELS[initial?.provider ?? "groq"],
   );
   const [models, setModels] = useState<string[]>([]);
   const [checking, setChecking] = useState(false);
@@ -434,9 +435,9 @@ function AiSettingsForm({
   return (
     <Stack gap={14}>
       <Text tone="secondary">
-        Lines come from an AI service using your own API key. The key is
-        stored only in this browser — never in backups, the repo, or the
-        site — and sent only to the provider you pick.
+        Groq is free and does not ask for a card. Sign in at console.groq.com
+        with Google, GitHub, or email, leave the plan on Free, create a key,
+        and paste it here. The key stays in this browser.
       </Text>
 
       <label className="flex flex-col gap-1">
@@ -452,7 +453,7 @@ function AiSettingsForm({
             setCheck(null);
           }}
         >
-          {(Object.keys(PROVIDERS) as AiProvider[]).map((p) => (
+          {PROVIDER_ORDER.map((p) => (
             <option key={p} value={p}>
               {PROVIDERS[p].label}
             </option>
@@ -550,8 +551,11 @@ function AiSettingsForm({
           />
         )}
         <span className="text-xs text-faint">
-          A small, fast model is plenty for one-liners (fractions of a cent
-          each). Set a monthly spend limit on the key.
+          {provider === "groq"
+            ? "This model is on Groq’s free plan. Leave the account on Free. Upgrading to Developer is what starts billing."
+            : provider === "gemini"
+              ? "Gemini’s free tier is a Google AI Studio key, not a Gemini Pro subscription. Skip “Set up billing.”"
+              : "This provider charges. A small model is a fraction of a cent per line. Set a spend limit on the key."}
         </span>
       </label>
 

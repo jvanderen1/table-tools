@@ -3987,11 +3987,7 @@ export function GaryCombatTool() {
               )}
               onClick={() => setTab(id)}
             >
-              <Icon
-                className="size-4"
-                fill={tab === id ? "currentColor" : "none"}
-                aria-hidden
-              />
+              <Icon className="size-4" aria-hidden />
               {label}
             </button>
           ))}

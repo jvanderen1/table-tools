@@ -76,7 +76,7 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
     id: "dig-deep",
     label: "Dig Deep",
     summary:
-      "Temporarily gain Resistance to Bludgeoning, Piercing, and Slashing damage. First use costs nothing; you can use it again by gaining 1 Exhaustion. Track “active” while the resistance is up.",
+      "Temporarily gain Resistance to Bludgeoning, Piercing, and Slashing damage. First use costs nothing; you can use it again by gaining 1 Exhaustion. Track “active” while the resistance is up. At this table it only covers nonmagical hits: mark magical damage on the Hit tab and it gets through.",
     source: "Pugilist 2024 · DDB post",
   },
   "heavy-hitter": {

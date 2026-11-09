@@ -399,7 +399,7 @@ function planFor(goal: Goal, sheet: Sheet): Plan {
           action:
             "Attack only if safe. Hold position behind allies if possible.",
           bonus:
-            "Dig Deep (1/long rest): resistance to B/P/S for 10 minutes. Brace Up locked (no Moxie).",
+            "Dig Deep (1/long rest): resistance to nonmagical B/P/S for 10 minutes. Brace Up locked (no Moxie).",
           cost: 0,
           costLabel: "0 · Dig Deep",
           why: "No Brace Up without Moxie. Burn Dig Deep if the fight is brutal.",
@@ -413,7 +413,7 @@ function planFor(goal: Goal, sheet: Sheet): Plan {
           title: "Stay standing — Dig Deep again",
           action:
             "Attack only if safe. Hold position behind allies if possible.",
-          bonus: `Dig Deep again by taking 1 Exhaustion (${sheet.exhaustion} → ${next}): resistance to B/P/S.`,
+          bonus: `Dig Deep again by taking 1 Exhaustion (${sheet.exhaustion} → ${next}): resistance to nonmagical B/P/S.`,
           cost: 0,
           costLabel: "+1 Exhaustion",
           why:
@@ -616,6 +616,7 @@ type DamageUi = {
   effectiveness: Effectiveness;
   increments: number[];
   customIncrement: string;
+  magical?: boolean;
 };
 
 const DEFAULT_DAMAGE_UI: DamageUi = {
@@ -638,9 +639,16 @@ function isWeaponPhysical(type: DamageType) {
   );
 }
 
-function autoResistReason(sheet: Sheet, type: DamageType): string | null {
+/** Dig Deep only covers nonmagical B/P/S at this table; Petrified covers everything. */
+function autoResistReason(
+  sheet: Sheet,
+  type: DamageType,
+  magical: boolean,
+): string | null {
   if (sheet.conditions.petrified) return "Petrified";
-  if (sheet.digDeepActive && isWeaponPhysical(type)) return "Dig Deep";
+  if (sheet.digDeepActive && isWeaponPhysical(type) && !magical) {
+    return "Dig Deep";
+  }
   return null;
 }
 
@@ -648,9 +656,10 @@ function resolveEffectiveness(
   type: DamageType,
   sheet: Sheet,
   mode: Effectiveness,
+  magical: boolean,
 ): Exclude<Effectiveness, "auto"> {
   if (mode !== "auto") return mode;
-  return autoResistReason(sheet, type) ? "resistant" : "normal";
+  return autoResistReason(sheet, type, magical) ? "resistant" : "normal";
 }
 
 function modifyDamage(
@@ -700,8 +709,18 @@ function DamageAdjuster({
   const [outcome, setOutcome] = useState<DamageOutcome | null>(null);
 
   const raw = Math.max(0, Number.parseInt(ui.amount || "0", 10) || 0);
-  const resolved = resolveEffectiveness(ui.type, sheet, ui.effectiveness);
-  const autoReason = autoResistReason(sheet, ui.type);
+  const physical = isWeaponPhysical(ui.type);
+  const magical = physical && ui.magical === true;
+  const typeLabel = magical ? `magical ${ui.type}` : ui.type;
+  const resolved = resolveEffectiveness(
+    ui.type,
+    sheet,
+    ui.effectiveness,
+    magical,
+  );
+  const autoReason = autoResistReason(sheet, ui.type, magical);
+  const digDeepBypassed =
+    magical && sheet.digDeepActive && ui.effectiveness === "auto";
   const preview = modifyDamage(raw, resolved);
 
   function setAmount(next: string) {
@@ -764,7 +783,7 @@ function DamageAdjuster({
     }
 
     const bits = [
-      `${raw} ${ui.type}`,
+      `${raw} ${typeLabel}`,
       resolved !== "normal" ? `${resolved} → ${finalDamage}` : `${finalDamage} taken`,
     ];
     if (after.absorbedByTemp > 0) {
@@ -780,6 +799,8 @@ function DamageAdjuster({
     }
     if (autoReason && ui.effectiveness === "auto") {
       bits.push(`${autoReason} resistance applied`);
+    } else if (digDeepBypassed) {
+      bits.push("magical, so Dig Deep didn’t resist");
     }
 
     setOutcome({ tone, title, detail: bits.join(" · ") });
@@ -807,7 +828,9 @@ function DamageAdjuster({
     ui.effectiveness === "auto"
       ? autoReason
         ? `${autoReason} → resistant`
-        : "Normal"
+        : digDeepBypassed
+          ? "magical, Dig Deep skipped"
+          : "Normal"
       : ui.effectiveness;
 
   return (
@@ -848,10 +871,37 @@ function DamageAdjuster({
         </label>
       </div>
 
+      <button
+        type="button"
+        aria-pressed={magical}
+        disabled={!physical}
+        onClick={() => setUi((u) => ({ ...u, magical: !u.magical }))}
+        className={cx(
+          "flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg border px-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+          magical
+            ? "border-gold/70 bg-gold/10 text-gold-soft"
+            : "border-line bg-well/60 text-ink hover:border-gold/50",
+        )}
+      >
+        {magical ? (
+          <CircleCheck className="size-4 shrink-0" aria-hidden />
+        ) : (
+          <Circle className="size-4 shrink-0 text-faint" aria-hidden />
+        )}
+        <WandSparkles
+          className={cx("size-4 shrink-0", magical ? "text-gold" : "text-gold/70")}
+          aria-hidden
+        />
+        <span className="flex-1 text-sm font-medium">Magical</span>
+        <span className="text-xs text-faint">
+          {physical ? "skips Dig Deep" : "B/P/S only"}
+        </span>
+      </button>
+
       <div className="flex min-h-14 items-center gap-2 rounded-lg border border-line bg-well/60 px-3 py-2 text-sm text-muted tabular-nums">
         <Calculator className="size-4 shrink-0 text-gold/80" aria-hidden />
         <span>
-          {raw} → <strong className="text-ink">{preview}</strong> {ui.type} ({effHint})
+          {raw} → <strong className="text-ink">{preview}</strong> {typeLabel} ({effHint})
           {sheet.tempHp > 0 ? ` · temp ${sheet.tempHp} first` : ""}
         </span>
       </div>
@@ -900,7 +950,7 @@ function DamageAdjuster({
                 }))
               }
             >
-              <option value="auto">Auto (Dig Deep if B/P/S)</option>
+              <option value="auto">Auto (Dig Deep if nonmagical B/P/S)</option>
               <option value="normal">Normal</option>
               <option value="resistant">Resistant (½)</option>
               <option value="immune">Immune (0)</option>
@@ -1842,7 +1892,7 @@ function RestPanel({
           <ShieldCheck className={RESOURCE_ICON} aria-hidden />
           <span className="min-w-0">
             <Tip id="dig-deep">Dig Deep active</Tip>
-            <span className={RESOURCE_NOTE}>resist B/P/S</span>
+            <span className={RESOURCE_NOTE}>resist nonmagical B/P/S</span>
           </span>
         </label>
       </div>

@@ -43,7 +43,7 @@ Three tabs so the screen isn’t a wall of controls:
 | Tab | Job |
 |---|---|
 | **Play** | Combat decision tree (timing → goal/reaction → Action / BA / Reaction) |
-| **Hit** | Take damage / heal (amount + type; Dig Deep auto-resists B/P/S) |
+| **Hit** | Take damage / heal (amount + type; Dig Deep auto-resists nonmagical B/P/S) |
 | **Roll** | Saves, checks, unarmed attack, and hit dice — bonuses include conditions |
 | **Conds** | Effects on Gary (auto-calculated) + 2024 conditions + Exhaustion 0–6 |
 | **Rest** | Once-per-rest toggles + Short / Long rest |
@@ -67,6 +67,7 @@ Everything important is in `localStorage` under `table-tools:gary-grapplesauce-c
 - Keyboard amount field (Enter = take damage; ↑/↓ = ±1).
 - Damage types: all 13 5e types.
 - **Auto** effectiveness: if Dig Deep is active and type is B/P/S → resistant (½).
+- **Magical** toggle (B/P/S only, remembered like the type): magical hits skip Dig Deep. The Pugilist post just says “Resistance to B/P/S”; the owner chose the nonmagical reading for this table. Petrified still resists everything.
 - Manual override: normal / resistant / immune / vulnerable.
 - Temp HP absorbs before real HP; alerts explain immune / resist / vuln / bloodied.
 
@@ -110,7 +111,7 @@ The status card shows a short “Effects” chip line; the header line shows adj
 | Moxie | Short rest | Pool of 5 |
 | Bloodied But Unbowed | 1 / short rest | Reaction while bloodied + took damage → refill Moxie + 36 temp HP |
 | Swagger Streak | 1 / short rest | Add 1d10 to a failed Str/Dex/Con/Cha check |
-| Dig Deep | 1 free / long rest | BA → resist B/P/S ~10 min; toggle “active” while up. Extra uses cost 1 Exhaustion each (never to 6) |
+| Dig Deep | 1 free / long rest | BA → resist nonmagical B/P/S ~10 min; toggle “active” while up. Extra uses cost 1 Exhaustion each (never to 6) |
 
 Short rest: Moxie full, Bloodied + Swagger ready, clear Dig Deep active + temp HP (conditions stay).  
 Long rest: full HP/uses reset, clear conditions, Exhaustion −1 (2024-style).

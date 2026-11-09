@@ -60,7 +60,6 @@ import {
   ShieldOff,
   ShieldPlus,
   Skull,
-  SlidersHorizontal,
   Sparkles,
   Star,
   Sword,
@@ -812,11 +811,15 @@ const DAMAGE_TYPES = [
 type DamageType = (typeof DAMAGE_TYPES)[number];
 type Effectiveness = "auto" | "normal" | "resistant" | "immune" | "vulnerable";
 
+type HpIntent = "hit" | "heal";
+
 type DamageUi = {
   amount: string;
   type: DamageType;
   effectiveness: Effectiveness;
   magical?: boolean;
+  /** Damage and healing used to share one form. */
+  intent?: HpIntent;
 };
 
 const DEFAULT_DAMAGE_UI: DamageUi = {
@@ -929,6 +932,7 @@ function DamageAdjuster({
   );
   const autoReason = autoResistReason(sheet, ui.type, magical);
   const preview = modifyDamage(raw, resolved);
+  const intent: HpIntent = ui.intent === "heal" ? "heal" : "hit";
 
   function setAmount(next: string) {
     const cleaned = next.replace(/\D/g, "").replace(/^0+(?=\d)/, "");
@@ -953,7 +957,8 @@ function DamageAdjuster({
     }
     if (e.key === "Enter") {
       e.preventDefault();
-      takeDamage();
+      if (intent === "heal") heal();
+      else takeDamage();
       return;
     }
     if (e.key.length === 1 && !/\d/.test(e.key) && !e.metaKey && !e.ctrlKey) {
@@ -1016,7 +1021,7 @@ function DamageAdjuster({
     setOutcome({
       tone: "info",
       title: "Healed",
-      detail: `+${raw} HP (${sheet.hp} → ${next}). Damage type ignored for healing.`,
+      detail: `+${raw} HP (${sheet.hp} → ${next}).`,
     });
   }
 
@@ -1026,14 +1031,55 @@ function DamageAdjuster({
         ? `${autoReason} → resistant`
         : "Normal"
       : ui.effectiveness;
+  const healedHp = clamp(sheet.hp + raw, 0, gary.hpMax);
+
+  function setIntent(next: HpIntent) {
+    setUi((u) => ({ ...u, intent: next }));
+    setOutcome(null);
+  }
 
   return (
     <Stack gap={14}>
+      <div className="grid grid-cols-2 gap-1 rounded-xl border border-line bg-well/80 p-1" role="tablist" aria-label="Hit points">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={intent === "hit"}
+          className={cx(
+            "inline-flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-lg text-sm font-semibold",
+            intent === "hit"
+              ? "bg-surface text-gold-soft shadow-[inset_0_-2px_0_0_var(--color-gold)]"
+              : "text-muted hover:text-ink",
+          )}
+          onClick={() => setIntent("hit")}
+        >
+          <HeartCrack className="size-4" aria-hidden />
+          Damage
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={intent === "heal"}
+          className={cx(
+            "inline-flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-lg text-sm font-semibold",
+            intent === "heal"
+              ? "bg-surface text-gold-soft shadow-[inset_0_-2px_0_0_var(--color-gold)]"
+              : "text-muted hover:text-ink",
+          )}
+          onClick={() => setIntent("heal")}
+        >
+          <HeartPulse className="size-4" aria-hidden />
+          Heal
+        </button>
+      </div>
+
       <Text tone="secondary">
-        Type the total, pick the type, then Take damage. Enter applies.
+        {intent === "hit"
+          ? "Type the total, pick the type, then Take damage. Enter applies."
+          : "Type the hit points coming back, then Heal. Enter applies. Temporary hit points are separate."}
       </Text>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className={cx("grid grid-cols-1 gap-3", intent === "hit" && "sm:grid-cols-2")}>
         <label className="flex flex-col gap-1.5">
           <FieldLabel icon={Hash}>Amount</FieldLabel>
           <input
@@ -1043,96 +1089,59 @@ function DamageAdjuster({
             value={ui.amount}
             onChange={(e) => setAmount(e.target.value)}
             onKeyDown={onAmountKeyDown}
-            aria-label="Damage or heal amount"
+            aria-label={intent === "hit" ? "Damage amount" : "Healing amount"}
             autoFocus
           />
         </label>
-        <label className="flex flex-col gap-1.5">
-          <FieldLabel icon={Flame}>Type</FieldLabel>
-          <Select
-            className="min-h-[3.25rem] capitalize"
-            value={ui.type}
-            onChange={(e) =>
-              setUi((u) => ({ ...u, type: e.target.value as DamageType }))
-            }
+        {intent === "hit" ? (
+          <label className="flex flex-col gap-1.5">
+            <FieldLabel icon={Flame}>Type</FieldLabel>
+            <Select
+              className="min-h-[3.25rem] capitalize"
+              value={ui.type}
+              onChange={(e) =>
+                setUi((u) => ({ ...u, type: e.target.value as DamageType }))
+              }
+            >
+              {DAMAGE_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </Select>
+          </label>
+        ) : null}
+      </div>
+
+      {intent === "hit" ? (
+        <>
+          <button
+            type="button"
+            aria-pressed={magical}
+            disabled={!physical}
+            onClick={() => setUi((u) => ({ ...u, magical: !u.magical }))}
+            className={cx(
+              "flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg border px-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+              magical
+                ? "border-gold/70 bg-gold/10 text-gold-soft"
+                : "border-line bg-well/60 text-ink hover:border-gold/50",
+            )}
           >
-            {DAMAGE_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </Select>
-        </label>
-      </div>
+            {magical ? (
+              <CircleCheck className="size-4 shrink-0" aria-hidden />
+            ) : (
+              <Circle className="size-4 shrink-0 text-faint" aria-hidden />
+            )}
+            <WandSparkles
+              className={cx("size-4 shrink-0", magical ? "text-gold" : "text-gold/70")}
+              aria-hidden
+            />
+            <span className="flex-1 text-sm font-medium">Magical</span>
+            <span className="text-xs text-faint">
+              {physical ? "noted on the hit" : "B/P/S only"}
+            </span>
+          </button>
 
-      <button
-        type="button"
-        aria-pressed={magical}
-        disabled={!physical}
-        onClick={() => setUi((u) => ({ ...u, magical: !u.magical }))}
-        className={cx(
-          "flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg border px-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50",
-          magical
-            ? "border-gold/70 bg-gold/10 text-gold-soft"
-            : "border-line bg-well/60 text-ink hover:border-gold/50",
-        )}
-      >
-        {magical ? (
-          <CircleCheck className="size-4 shrink-0" aria-hidden />
-        ) : (
-          <Circle className="size-4 shrink-0 text-faint" aria-hidden />
-        )}
-        <WandSparkles
-          className={cx("size-4 shrink-0", magical ? "text-gold" : "text-gold/70")}
-          aria-hidden
-        />
-        <span className="flex-1 text-sm font-medium">Magical</span>
-        <span className="text-xs text-faint">
-          {physical ? "noted on the hit" : "B/P/S only"}
-        </span>
-      </button>
-
-      <div className="flex min-h-14 items-center gap-2 rounded-lg border border-line bg-well/60 px-3 py-2 text-sm text-muted tabular-nums">
-        <Calculator className="size-4 shrink-0 text-gold/80" aria-hidden />
-        <span>
-          {raw} → <strong className="text-ink">{preview}</strong> {typeLabel} ({effHint})
-          {sheet.tempHp > 0 ? ` · temp ${sheet.tempHp} first` : ""}
-        </span>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2">
-        <Button variant="danger" icon={HeartCrack} onClick={takeDamage}>
-          Take damage
-        </Button>
-        <Button variant="secondary" icon={HeartPulse} onClick={heal}>
-          Heal
-        </Button>
-      </div>
-
-      {outcome ? (
-        <Callout
-          key={`${outcome.title}${outcome.detail}`}
-          tone={outcome.tone}
-          title={outcome.title}
-          icon={outcome.tone === "warning" ? TriangleAlert : CircleCheck}
-          className={cx(OUTCOME_SLOT, "animate-pop-in")}
-        >
-          {outcome.detail}
-        </Callout>
-      ) : (
-        <div
-          className={cx(
-            OUTCOME_SLOT,
-            "flex items-center gap-3 rounded-xl border border-dashed border-line px-3.5 text-sm text-faint",
-          )}
-        >
-          <CircleCheck className="size-5 shrink-0" aria-hidden />
-          What happened to Gary’s HP shows here.
-        </div>
-      )}
-
-      <Accordion title="Resistance and temp HP" icon={SlidersHorizontal}>
-        <Stack gap={12}>
           <div className="flex flex-col gap-1.5">
             <FieldLabel icon={ShieldHalf}>How this hit lands</FieldLabel>
             <div className="grid grid-cols-5 gap-1" role="group" aria-label="How this hit lands">
@@ -1157,49 +1166,121 @@ function DamageAdjuster({
               {HIT_MODES.find((mode) => mode.id === ui.effectiveness)?.hint}
             </p>
           </div>
-
-          <div className="flex flex-col gap-2 rounded-lg border border-line bg-well/40 p-3">
-            <div className="flex h-7 items-center justify-between gap-2">
-              <span className="inline-flex items-center gap-1.5 text-sm text-muted">
-                <Shield className="size-4 text-gold/80" aria-hidden />
-                Temp HP
-              </span>
-              <span className="text-lg leading-none font-semibold tabular-nums text-ink">
-                {sheet.tempHp}
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                size="sm"
-                variant="secondary"
-                icon={ShieldPlus}
-                disabled={raw <= 0}
-                onClick={() => setSheet((s) => ({ ...s, tempHp: s.tempHp + raw }))}
-              >
-                Add amount
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                icon={ShieldOff}
-                disabled={sheet.tempHp <= 0}
-                onClick={() => setSheet((s) => ({ ...s, tempHp: 0 }))}
-              >
-                Clear
-              </Button>
-            </div>
+        </>
+      ) : (
+        <div className="flex flex-col gap-2 rounded-lg border border-line bg-well/40 p-3">
+          <div className="flex h-7 items-center justify-between gap-2">
+            <span className="inline-flex items-center gap-1.5 text-sm text-muted">
+              <Shield className="size-4 text-gold/80" aria-hidden />
+              Temp HP
+            </span>
+            <span className="text-lg leading-none font-semibold tabular-nums text-ink">
+              {sheet.tempHp}
+            </span>
           </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={ShieldPlus}
+              disabled={raw <= 0}
+              onClick={() => {
+                const next = sheet.tempHp + raw;
+                setSheet((s) => ({ ...s, tempHp: s.tempHp + raw }));
+                setOutcome({
+                  tone: "info",
+                  title: "Temporary hit points",
+                  detail: `Temp ${sheet.tempHp} → ${next}.`,
+                });
+              }}
+            >
+              Add amount
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              icon={ShieldOff}
+              disabled={sheet.tempHp <= 0}
+              onClick={() => {
+                const before = sheet.tempHp;
+                setSheet((s) => ({ ...s, tempHp: 0 }));
+                setOutcome({
+                  tone: "info",
+                  title: "Temporary hit points cleared",
+                  detail: `Temp ${before} → 0.`,
+                });
+              }}
+            >
+              Clear
+            </Button>
+          </div>
+        </div>
+      )}
 
+      <div className="flex min-h-14 items-center gap-2 rounded-lg border border-line bg-well/60 px-3 py-2 text-sm text-muted tabular-nums">
+        <Calculator className="size-4 shrink-0 text-gold/80" aria-hidden />
+        <span>
+          {intent === "hit" ? (
+            <>
+              {raw} → <strong className="text-ink">{preview}</strong> {typeLabel} ({effHint})
+              {sheet.tempHp > 0 ? ` · temp ${sheet.tempHp} first` : ""}
+            </>
+          ) : (
+            <>
+              HP {sheet.hp} → <strong className="text-ink">{healedHp}</strong>
+              {healedHp === sheet.hp && raw > 0 ? " · already full" : ""}
+            </>
+          )}
+        </span>
+      </div>
+
+      {intent === "hit" ? (
+        <Button variant="danger" icon={HeartCrack} onClick={takeDamage}>
+          Take damage
+        </Button>
+      ) : (
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="secondary" icon={HeartPulse} onClick={heal}>
+            Heal
+          </Button>
           <Button
             variant="secondary"
             icon={Heart}
-            className="w-full"
-            onClick={() => setSheet((s) => ({ ...s, hp: gary.hpMax }))}
+            onClick={() => {
+              setSheet((s) => ({ ...s, hp: gary.hpMax }));
+              setOutcome({
+                tone: "info",
+                title: "Full HP",
+                detail: `HP set to ${gary.hpMax}. Temporary hit points stay.`,
+              });
+            }}
           >
             Full HP
           </Button>
-        </Stack>
-      </Accordion>
+        </div>
+      )}
+
+      {outcome ? (
+        <Callout
+          key={`${outcome.title}${outcome.detail}`}
+          tone={outcome.tone}
+          title={outcome.title}
+          icon={outcome.tone === "warning" ? TriangleAlert : CircleCheck}
+          className={cx(OUTCOME_SLOT, "animate-pop-in")}
+        >
+          {outcome.detail}
+        </Callout>
+      ) : (
+        <div
+          className={cx(
+            OUTCOME_SLOT,
+            "flex items-center gap-3 rounded-xl border border-dashed border-line px-3.5 text-sm text-faint",
+          )}
+        >
+          <CircleCheck className="size-5 shrink-0" aria-hidden />
+          What happened to Gary’s HP shows here.
+        </div>
+      )}
     </Stack>
   );
 }
@@ -4481,7 +4562,7 @@ export function GaryCombatTool() {
 
         {tab === "hit" ? (
           <Card>
-            <CardHeader icon={HeartCrack}>I took a hit</CardHeader>
+            <CardHeader icon={HeartCrack}>Hit points</CardHeader>
             <CardBody>
               <DamageAdjuster sheet={sheet} setSheet={setSheet} />
             </CardBody>

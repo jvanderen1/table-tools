@@ -45,7 +45,7 @@ Three tabs so the screen isn’t a wall of controls:
 | Tab | Job |
 |---|---|
 | **Play** | Combat decision tree (timing → goal/reaction → Action / BA / Reaction) |
-| **Hit** | Take damage / heal (amount + type; Dig Deep auto-resists B/P/S) |
+| **Hit** | Hit points, split into Damage and Heal |
 | **Roll** | Saves, checks, unarmed attack, and hit dice — bonuses include conditions |
 | **Conds** | Effects on Gary (auto-calculated) + 2024 conditions + Exhaustion 0–6 |
 | **Rest** | Once-per-rest toggles + Short / Long rest |
@@ -102,8 +102,9 @@ The sheet and the inventory use `useUndoableState` (`src/lib/useUndoableState.ts
 
 ### Hit tab behavior
 
-- Keyboard amount field (Enter = take damage; ↑/↓ = ±1).
-- Damage types: all 13 5e types.
+- **Damage** and **Heal** are separate. The amount carries across. Enter applies the one you’re on.
+- Keyboard amount field (↑/↓ = ±1).
+- Damage types: all 13 5e types, on Damage only.
 - **Auto** effectiveness: if Dig Deep is active and type is B/P/S → resistant (½), magical or not. While it is active, Exhaustion below 6 does not change Gary’s numbers.
 - **Magical** toggle (B/P/S only, remembered like the type): notes the hit. It does not bypass Dig Deep. Petrified still resists everything.
 - Manual override: normal / resistant / immune / vulnerable.

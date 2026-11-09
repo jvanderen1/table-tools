@@ -1,8 +1,12 @@
 // Cloudflare Workers static-assets mirror of the GitHub Pages site.
-// Build with BASE_PATH=/ so asset URLs resolve from the domain root.
+// `wrangler deploy` rebuilds with BASE_PATH=/ so asset URLs resolve from the
+// domain root, regardless of the dashboard's build command.
 {
   "name": "table-tools",
   "compatibility_date": "2026-11-01",
+  "build": {
+    "command": "BASE_PATH=/ npm run build"
+  },
   "assets": {
     "directory": "./dist"
   }

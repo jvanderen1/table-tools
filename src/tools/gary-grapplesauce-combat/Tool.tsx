@@ -3395,21 +3395,26 @@ export function GaryCombatTool() {
 
   const plan = selectedGoal ? liveGoalPlan : staticPlan;
 
-  useEffect(() => {
-    if (!selectedGoal || phase !== "result" || committed) return;
-    const option = GOAL_OPTIONS.find((g) => g.id === selectedGoal);
-    if (!option || option.cost > sheet.moxie) {
-      setSelectedGoal(null);
-      setCommitted(null);
-      setReceipt(null);
-      setPhase("goal");
-    }
-  }, [sheet.moxie, selectedGoal, phase, committed]);
-
-  useEffect(() => {
+  const selectedOption = GOAL_OPTIONS.find((g) => g.id === selectedGoal);
+  const goalUnaffordable =
+    phase === "result" &&
+    selectedGoal != null &&
+    !committed &&
+    (selectedOption == null || selectedOption.cost > sheet.moxie);
+  if (goalUnaffordable) {
+    setSelectedGoal(null);
     setCommitted(null);
     setReceipt(null);
-  }, [liveGoalPlan?.title, staticPlan?.title]);
+    setPhase("goal");
+  }
+
+  const planTitle = (selectedGoal ? liveGoalPlan?.title : staticPlan?.title) ?? "";
+  const [trackedTitle, setTrackedTitle] = useState(planTitle);
+  if (planTitle !== trackedTitle) {
+    setTrackedTitle(planTitle);
+    setCommitted(null);
+    setReceipt(null);
+  }
 
   function resetDecision() {
     setPhase("timing");

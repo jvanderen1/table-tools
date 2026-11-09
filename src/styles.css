@@ -16,8 +16,8 @@
   --color-crimson-soft: #e8837f;
   --color-verdant: #82c08f;
 
-  --font-display: "Cinzel", "Iowan Old Style", Georgia, serif;
-  --font-sans: "Inter", "SF Pro Text", system-ui, sans-serif;
+  --font-display: "Cinzel Variable", "Iowan Old Style", Georgia, serif;
+  --font-sans: "Inter Variable", "SF Pro Text", system-ui, sans-serif;
 
   --animate-drawer-in: drawer-in 180ms ease-out;
   --animate-fade-in: fade-in 150ms ease-out;

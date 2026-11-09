@@ -14,6 +14,12 @@ Hash routes work offline-friendly on phones:
 
 `https://<you>.github.io/table-tools/#/tools/gary-grapplesauce-combat`
 
+### Offline and data safety
+
+- A service worker (`vite-plugin-pwa`, `vite.config.ts`) precaches the app, icons, and fonts, so once opened it loads with no connection. New versions install in the background and take over on the next launch — never a forced reload mid-session.
+- Fonts are self-hosted (`@fontsource-variable/*`), no Google Fonts call.
+- Tool state lives in `localStorage` under `table-tools:*`. The app asks the browser to keep it (`navigator.storage.persist()`), and the **Backup** button in the header saves/restores everything as a JSON file or text. Add the site to the Home Screen on iOS so Safari doesn’t clear it after a week unused.
+
 ## Develop
 
 ```bash
@@ -54,6 +60,16 @@ BASE_PATH=/your-repo-name/ npm run build
 
 (or change the default in `vite.config.ts` / the workflow `BASE_PATH` env).
 
+## Mirror on Cloudflare Pages (backup URL)
+
+Optional second host, deployed from the same `main` pushes. One-time setup in the Cloudflare dashboard:
+
+1. **Workers & Pages → Create → Pages → Connect to Git**, pick this repo.
+2. Production branch `main`, framework preset **None**, build command `npm run build`, output directory `dist`.
+3. Environment variable `BASE_PATH` = `/` (the site lives at the domain root there). Node comes from `.node-version`.
+
+Each origin has its own `localStorage`, so use **Backup → Save backup file** on one and **Restore from file** on the other to move state.
+
 ## Stack
 
-Vite · React · TypeScript · HashRouter (GitHub Pages friendly)
+Vite · React · TypeScript · Tailwind · lucide-react · HashRouter (GitHub Pages friendly) · PWA (Workbox)

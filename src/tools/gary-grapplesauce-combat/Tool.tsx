@@ -1095,25 +1095,37 @@ function StatusPills({ sheet }: { sheet: Sheet }) {
     );
   }
 
-  if (active.length === 0 && ready.length === 0) return null;
-
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {active.length > 0 ? (
-        <>
-          <StripLabel icon={CircleDot}>Now</StripLabel>
-          {active}
-        </>
-      ) : null}
-      {active.length > 0 && ready.length > 0 ? (
-        <span className="mx-1 h-4 w-px bg-line" aria-hidden="true" />
-      ) : null}
-      {ready.length > 0 ? (
-        <>
-          <StripLabel icon={Sparkles}>Ready</StripLabel>
-          {ready}
-        </>
-      ) : null}
+    <>
+      <ScrollStrip>
+        <StripLabel icon={CircleDot}>Now</StripLabel>
+        {active.length > 0 ? (
+          active
+        ) : (
+          <span key="none" className="text-xs text-faint">
+            Nothing active
+          </span>
+        )}
+      </ScrollStrip>
+      <ScrollStrip>
+        <StripLabel icon={Sparkles}>Ready</StripLabel>
+        {ready.length > 0 ? (
+          ready
+        ) : (
+          <span key="none" className="text-xs text-faint">
+            All used
+          </span>
+        )}
+      </ScrollStrip>
+    </>
+  );
+}
+
+/** One fixed-height line that scrolls sideways, so status changes never shift the page. */
+function ScrollStrip({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex h-7 flex-nowrap items-center gap-1.5 overflow-x-auto overflow-y-hidden pr-6 [mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>*]:shrink-0 [&>*]:animate-pop-in">
+      {children}
     </div>
   );
 }
@@ -1126,7 +1138,7 @@ function StripLabel({
   children: ReactNode;
 }) {
   return (
-    <span className="mr-0.5 inline-flex items-center gap-1 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-faint">
+    <span className="mr-0.5 inline-flex w-[4.6rem] items-center gap-1 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-faint">
       <Icon className="size-3 text-gold/70" aria-hidden />
       {children}
     </span>
@@ -1202,18 +1214,26 @@ function StatusEffects({
   onDetails: () => void;
 }) {
   const chips = effectChips(effectsFor(sheet));
-  if (chips.length === 0) return null;
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <StripLabel icon={Activity}>Effects</StripLabel>
-      {chips.map((c) => (
-        <span key={c.text} className={cx(CHIP, TONE_CHIP[c.tone])}>
-          {c.text}
-        </span>
-      ))}
+    <div className="flex items-center gap-1">
+      <div className="min-w-0 flex-1">
+        <ScrollStrip>
+          <StripLabel icon={Activity}>Effects</StripLabel>
+          {chips.length === 0 ? (
+            <span key="none" className="text-xs text-faint">
+              Normal numbers
+            </span>
+          ) : null}
+          {chips.map((c) => (
+            <span key={c.text} className={cx(CHIP, TONE_CHIP[c.tone])}>
+              {c.text}
+            </span>
+          ))}
+        </ScrollStrip>
+      </div>
       <button
         type="button"
-        className="inline-flex cursor-pointer items-center gap-0.5 rounded px-1 py-0.5 text-[0.78rem] font-medium text-gold-soft hover:text-gold"
+        className="inline-flex h-7 shrink-0 cursor-pointer items-center gap-0.5 rounded px-1 text-[0.78rem] font-medium text-gold-soft hover:text-gold"
         onClick={onDetails}
       >
         Details
@@ -1464,7 +1484,7 @@ function StatusBar({
     <Card>
       <div className="flex flex-col gap-4 p-4">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-end gap-x-2 gap-y-1">
+          <div className="flex flex-nowrap items-end gap-2 whitespace-nowrap">
             <Heart
               className={cx(
                 "mb-1 size-6 shrink-0",
@@ -1534,7 +1554,7 @@ function StatusBar({
           </Row>
         </div>
       </div>
-      <div className="flex flex-col gap-2 border-t border-line/80 bg-well/30 px-4 py-2.5 empty:hidden">
+      <div className="flex flex-col gap-1 border-t border-line/80 bg-well/30 py-2 pl-4 pr-2">
         <StatusPills sheet={sheet} />
         <StatusEffects sheet={sheet} onDetails={onEffectsDetails} />
       </div>
@@ -1617,17 +1637,17 @@ function ConditionsPanel({
             );
           })}
         </div>
-        {exhaustion > 0 ? (
-          <Text tone="tertiary">
-            {exhaustion >= EXHAUSTION_DEATH
+        <Text tone="tertiary" className="min-h-10">
+          {exhaustion === 0
+            ? "No Exhaustion."
+            : exhaustion >= EXHAUSTION_DEATH
               ? "Level 6: Gary dies."
               : `Level ${exhaustion}: −${2 * exhaustion} to every d20 test, −${5 * exhaustion} ft speed.${
                   exhaustion === EXHAUSTION_DEATH - 1
                     ? " One more level kills Gary — no more Dig Deep."
                     : ""
                 }`}
-          </Text>
-        ) : null}
+        </Text>
       </div>
 
       <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
@@ -1662,7 +1682,7 @@ function ConditionsPanel({
           {active.map((c) => (
             <div
               key={c.id}
-              className="rounded-lg border border-line border-l-[3px] border-l-gold bg-well/60 px-3 py-2"
+              className="animate-pop-in rounded-lg border border-line border-l-[3px] border-l-gold bg-well/60 px-3 py-2"
             >
               <div className="mb-0.5 flex items-baseline justify-between gap-2">
                 <strong className="text-sm text-gold-soft">{c.label}</strong>
@@ -2453,21 +2473,64 @@ function planSections(plan: Plan) {
 }
 
 const DICE_SIDES = [4, 6, 8, 10, 12, 20, 100] as const;
+const MAX_PER_DIE = 20;
+const MAX_MODIFIER = 30;
+
+type DieSides = (typeof DICE_SIDES)[number];
+type DicePool = Partial<Record<DieSides, number>>;
 
 type DiceLogEntry = {
   id: number;
-  sides: number;
-  count: number;
-  faces: number[];
+  groups: { sides: DieSides; faces: number[] }[];
+  modifier: number;
   total: number;
 };
 
+function poolGroups(pool: DicePool) {
+  return DICE_SIDES.filter((sides) => (pool[sides] ?? 0) > 0)
+    .reverse()
+    .map((sides) => ({ sides, count: pool[sides] ?? 0 }));
+}
+
+function withModifier(text: string, modifier: number) {
+  if (modifier === 0) return text;
+  return `${text} ${modifier > 0 ? "+" : "−"} ${Math.abs(modifier)}`;
+}
+
+function diceExpression(
+  groups: { sides: number; count: number }[],
+  modifier: number,
+) {
+  return withModifier(
+    groups.map((g) => `${g.count}d${g.sides}`).join(" + "),
+    modifier,
+  );
+}
+
+function entryExpression(entry: DiceLogEntry) {
+  return diceExpression(
+    entry.groups.map((g) => ({ sides: g.sides, count: g.faces.length })),
+    entry.modifier,
+  );
+}
+
+function entryBreakdown(entry: DiceLogEntry) {
+  return withModifier(
+    entry.groups
+      .map((g) => `${g.faces.length}d${g.sides} (${g.faces.join(", ")})`)
+      .join(" + "),
+    entry.modifier,
+  );
+}
+
 function DiceRoller() {
   const [open, setOpen] = useState(false);
-  const [sides, setSides] = useState<(typeof DICE_SIDES)[number]>(20);
-  const [count, setCount] = useState(1);
+  const [pool, setPool] = useState<DicePool>({ 20: 1 });
+  const [modifier, setModifier] = useState(0);
   const [log, setLog] = useState<DiceLogEntry[]>([]);
   const latest = log[0];
+  const groups = poolGroups(pool);
+  const expression = diceExpression(groups, modifier);
 
   useEffect(() => {
     if (!open) return;
@@ -2478,92 +2541,179 @@ function DiceRoller() {
     return () => document.removeEventListener("keydown", onKey);
   }, [open]);
 
+  function adjust(sides: DieSides, delta: number) {
+    setPool((p) => ({
+      ...p,
+      [sides]: clamp((p[sides] ?? 0) + delta, 0, MAX_PER_DIE),
+    }));
+  }
+
+  function clearPool() {
+    setPool({});
+    setModifier(0);
+  }
+
   function roll() {
-    const faces = Array.from({ length: count }, () => rollDie(sides));
+    if (groups.length === 0) return;
+    const rolled = groups.map((g) => ({
+      sides: g.sides,
+      faces: Array.from({ length: g.count }, () => rollDie(g.sides)),
+    }));
+    const total =
+      rolled.reduce(
+        (sum, g) => sum + g.faces.reduce((s, face) => s + face, 0),
+        0,
+      ) + modifier;
     setLog((prev) =>
-      [
-        {
-          id: Date.now(),
-          sides,
-          count,
-          faces,
-          total: faces.reduce((sum, face) => sum + face, 0),
-        },
-        ...prev,
-      ].slice(0, 12),
+      [{ id: Date.now(), groups: rolled, modifier, total }, ...prev].slice(0, 12),
     );
   }
 
   const DICE_KEY =
     "min-h-10 cursor-pointer rounded-lg border text-sm font-medium tabular-nums transition-colors";
+  const STEP =
+    "grid size-8 cursor-pointer place-items-center rounded-md border border-line bg-well/70 text-ink hover:border-gold/50 disabled:cursor-not-allowed disabled:opacity-40";
 
   return createPortal(
     <div className="fixed right-3 bottom-3 z-40 flex flex-col items-end gap-2">
       {open ? (
         <div
-          className="flex max-h-[min(70vh,480px)] w-[min(288px,calc(100vw-24px))] animate-pop-in flex-col gap-2.5 overflow-auto rounded-2xl border border-gold/30 bg-surface p-3 shadow-[0_24px_48px_-16px_rgba(0,0,0,0.9)]"
+          className="flex max-h-[min(78vh,560px)] w-[min(300px,calc(100vw-24px))] animate-pop-in flex-col gap-2.5 overflow-auto rounded-2xl border border-gold/30 bg-surface p-3 shadow-[0_24px_48px_-16px_rgba(0,0,0,0.9)]"
           role="dialog"
           aria-label="Dice"
         >
-          <div className="flex items-center gap-1.5 font-display text-xs font-semibold uppercase tracking-[0.16em] text-gold-soft">
-            <Dices className="size-4 text-gold" aria-hidden />
-            Dice tray
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 font-display text-xs font-semibold uppercase tracking-[0.16em] text-gold-soft">
+              <Dices className="size-4 text-gold" aria-hidden />
+              Dice tray
+            </div>
+            <button
+              type="button"
+              className="inline-flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-1 text-xs text-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={groups.length === 0 && modifier === 0}
+              onClick={clearPool}
+            >
+              <Eraser className="size-3.5" aria-hidden />
+              Clear
+            </button>
           </div>
+          <Text tone="tertiary" className="text-xs">
+            Tap dice to add them. Mix sizes freely.
+          </Text>
           <div className="grid grid-cols-4 gap-1.5">
-            {DICE_SIDES.map((n) => (
+            {DICE_SIDES.map((n) => {
+              const count = pool[n] ?? 0;
+              return (
+                <button
+                  key={n}
+                  type="button"
+                  className={cx(
+                    DICE_KEY,
+                    "relative",
+                    count > 0
+                      ? "border-gold/80 bg-gold/15 text-gold-soft"
+                      : "border-line bg-well/70 text-ink hover:border-gold/50",
+                  )}
+                  aria-label={`Add a d${n} (${count} in pool)`}
+                  disabled={count >= MAX_PER_DIE}
+                  onClick={() => adjust(n, 1)}
+                >
+                  d{n}
+                  {count > 0 ? (
+                    <span className="absolute -top-1.5 -right-1.5 grid min-w-5 place-items-center rounded-full bg-gold px-1 text-[0.68rem] font-bold text-void">
+                      {count}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+
+          {groups.length > 0 ? (
+            <ul className="m-0 flex list-none flex-col gap-1 p-0">
+              {groups.map((g) => (
+                <li
+                  key={g.sides}
+                  className="flex items-center justify-between gap-2 rounded-lg bg-well/60 py-1 pr-1 pl-2.5"
+                >
+                  <span className="text-sm font-semibold tabular-nums">
+                    {g.count}d{g.sides}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      className={STEP}
+                      aria-label={`Remove a d${g.sides}`}
+                      onClick={() => adjust(g.sides, -1)}
+                    >
+                      <Minus className="size-3.5" aria-hidden />
+                    </button>
+                    <button
+                      type="button"
+                      className={STEP}
+                      aria-label={`Add a d${g.sides}`}
+                      disabled={g.count >= MAX_PER_DIE}
+                      onClick={() => adjust(g.sides, 1)}
+                    >
+                      <Plus className="size-3.5" aria-hidden />
+                    </button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
+          <div className="flex items-center justify-between gap-2 rounded-lg bg-well/60 py-1 pr-1 pl-2.5">
+            <span className="text-sm text-muted">Modifier</span>
+            <span className="flex items-center gap-1">
               <button
-                key={n}
                 type="button"
-                className={cx(
-                  DICE_KEY,
-                  sides === n
-                    ? "border-gold bg-gradient-to-b from-gold-soft to-gold text-void"
-                    : "border-line bg-well/70 text-ink hover:border-gold/50",
-                )}
-                aria-pressed={sides === n}
-                onClick={() => setSides(n)}
+                className={STEP}
+                aria-label="Lower modifier"
+                disabled={modifier <= -MAX_MODIFIER}
+                onClick={() => setModifier((m) => Math.max(-MAX_MODIFIER, m - 1))}
               >
-                d{n}
+                <Minus className="size-3.5" aria-hidden />
               </button>
-            ))}
-          </div>
-          <div className="flex items-center justify-center gap-3">
-            <button
-              type="button"
-              aria-label="Fewer dice"
-              className={cx(DICE_KEY, "grid w-10 place-items-center border-line bg-well/70 text-ink hover:border-gold/50")}
-              onClick={() => setCount((n) => Math.max(1, n - 1))}
-            >
-              <Minus className="size-4" aria-hidden />
-            </button>
-            <span className="min-w-[2ch] text-center text-xl font-semibold tabular-nums">
-              {count}
+              <span className="min-w-[3ch] text-center text-sm font-semibold tabular-nums">
+                {signed(modifier)}
+              </span>
+              <button
+                type="button"
+                className={STEP}
+                aria-label="Raise modifier"
+                disabled={modifier >= MAX_MODIFIER}
+                onClick={() => setModifier((m) => Math.min(MAX_MODIFIER, m + 1))}
+              >
+                <Plus className="size-3.5" aria-hidden />
+              </button>
             </span>
-            <button
-              type="button"
-              aria-label="More dice"
-              className={cx(DICE_KEY, "grid w-10 place-items-center border-line bg-well/70 text-ink hover:border-gold/50")}
-              onClick={() => setCount((n) => Math.min(20, n + 1))}
-            >
-              <Plus className="size-4" aria-hidden />
-            </button>
           </div>
-          <Button variant="primary" icon={Dices} onClick={roll}>
-            Roll {count}d{sides}
+
+          <Button
+            variant="primary"
+            icon={Dices}
+            disabled={groups.length === 0}
+            onClick={roll}
+          >
+            {groups.length === 0 ? "Add a die" : `Roll ${expression}`}
           </Button>
+
           {latest ? (
             <div className="border-t border-line pt-2 text-center">
-              <div className="font-display text-[2.6rem] leading-none font-semibold tabular-nums text-gold-soft">
+              <div
+                key={latest.id}
+                className="animate-pop-in font-display text-[2.6rem] leading-none font-semibold tabular-nums text-gold-soft"
+              >
                 {latest.total}
               </div>
               <div className="mt-1 text-center text-[0.8rem] tabular-nums text-faint">
-                {latest.count}d{latest.sides}
-                {latest.faces.length > 1 ? ` · ${latest.faces.join(" + ")}` : ""}
+                {entryBreakdown(latest)}
               </div>
             </div>
           ) : (
             <p className="m-0 text-center text-[0.8rem] text-faint">
-              Pick a die and roll.
+              Nothing rolled yet.
             </p>
           )}
           {log.length > 1 ? (
@@ -2571,11 +2721,11 @@ function DiceRoller() {
               {log.slice(1).map((entry) => (
                 <li
                   key={entry.id}
-                  className="flex justify-between text-[0.8rem] tabular-nums text-muted"
+                  className="flex justify-between gap-2 text-[0.8rem] tabular-nums text-muted"
                 >
-                  <span className="inline-flex items-center gap-1.5">
-                    <History className="size-3 text-faint" aria-hidden />
-                    {entry.count}d{entry.sides}
+                  <span className="inline-flex min-w-0 items-center gap-1.5">
+                    <History className="size-3 shrink-0 text-faint" aria-hidden />
+                    <span className="truncate">{entryExpression(entry)}</span>
                   </span>
                   <span className="font-semibold text-ink">{entry.total}</span>
                 </li>
@@ -2830,13 +2980,17 @@ export function GaryCombatTool() {
               Gary Grapplesauce
             </h1>
           </div>
-          {effects.dead ? (
-            <div className="inline-flex w-fit items-center gap-2 rounded-lg border border-crimson/60 bg-crimson/20 px-3 py-1.5 text-sm font-semibold text-crimson-soft">
-              <Skull className="size-4" aria-hidden />
-              Dead · Exhaustion 6
-            </div>
-          ) : (
-            <div className="grid grid-cols-3 gap-1.5">
+          <div className="relative">
+            {effects.dead ? (
+              <div className="absolute inset-0 z-10 flex animate-pop-in items-center justify-center gap-2 rounded-lg border border-crimson/60 bg-void/85 text-sm font-semibold text-crimson-soft backdrop-blur-[2px]">
+                <Skull className="size-4" aria-hidden />
+                Dead · Exhaustion 6
+              </div>
+            ) : null}
+            <div
+              className={cx("grid grid-cols-3 gap-1.5", effects.dead && "opacity-30")}
+              aria-hidden={effects.dead || undefined}
+            >
               <Stat
                 icon={Swords}
                 label="Attack"
@@ -2868,35 +3022,21 @@ export function GaryCombatTool() {
                 value={signed(GARY.initiative - penalty)}
               />
             </div>
-          )}
+          </div>
         </header>
 
         <StatusBar
           sheet={sheet}
           setSheet={setSheet}
-          onEffectsDetails={() => setTab("conds")}
+          onEffectsDetails={() => {
+            setTab("conds");
+            requestAnimationFrame(() =>
+              document
+                .getElementById(EFFECTS_CARD_ID)
+                ?.scrollIntoView({ behavior: "smooth", block: "start" }),
+            );
+          }}
         />
-
-        {effects.dead || (tab === "play" && cantAct) ? (
-          <Callout
-            title={effects.dead ? "Gary is dead — Exhaustion 6" : "Gary can’t act"}
-            tone="warning"
-            icon={effects.dead ? Skull : Ban}
-          >
-            {effects.dead
-              ? "Exhaustion 6 is instant death (no death saves). The decision tree is off. If the DM revives him, lower Exhaustion on the Conds tab."
-              : `${reasonText(effects.cantAct)}: no Action, Bonus Action, or Reaction — Moxie options are off until this ends.`}
-          </Callout>
-        ) : effects.d20Penalty === 2 * (EXHAUSTION_DEATH - 1) && tab === "play" ? (
-          <Callout
-            title="Exhaustion 5 — one level from death"
-            tone="warning"
-            icon={TriangleAlert}
-          >
-            Don’t Dig Deep again or take anything else that adds Exhaustion. A
-            long rest drops it to 4.
-          </Callout>
-        ) : null}
       </Stack>
 
       <Stack gap={14} className="min-w-0">
@@ -2924,6 +3064,27 @@ export function GaryCombatTool() {
             </button>
           ))}
         </div>
+
+        {(effects.dead && tab !== "conds") || (tab === "play" && cantAct) ? (
+          <Callout
+            title={effects.dead ? "Gary is dead — Exhaustion 6" : "Gary can’t act"}
+            tone="warning"
+            icon={effects.dead ? Skull : Ban}
+          >
+            {effects.dead
+              ? "Exhaustion 6 is instant death (no death saves). The decision tree is off. If the DM revives him, lower Exhaustion on the Conds tab."
+              : `${reasonText(effects.cantAct)}: no Action, Bonus Action, or Reaction — Moxie options are off until this ends.`}
+          </Callout>
+        ) : effects.d20Penalty === 2 * (EXHAUSTION_DEATH - 1) && tab === "play" ? (
+          <Callout
+            title="Exhaustion 5 — one level from death"
+            tone="warning"
+            icon={TriangleAlert}
+          >
+            Don’t Dig Deep again or take anything else that adds Exhaustion. A
+            long rest drops it to 4.
+          </Callout>
+        ) : null}
 
         {tab === "play" ? (
           <Stack gap={12}>
@@ -3188,17 +3349,19 @@ export function GaryCombatTool() {
         {tab === "conds" ? (
           <Stack gap={12}>
             <Card>
-              <CardHeader icon={Activity}>Effects on Gary right now</CardHeader>
-              <CardBody>
-                <ConditionEffectsCard sheet={sheet} />
-              </CardBody>
-            </Card>
-            <Card>
               <CardHeader icon={ShieldAlert}>Conditions</CardHeader>
               <CardBody>
                 <ConditionsPanel sheet={sheet} setSheet={setSheet} />
               </CardBody>
             </Card>
+            <div id={EFFECTS_CARD_ID} className="scroll-mt-4">
+              <Card>
+                <CardHeader icon={Activity}>Effects on Gary right now</CardHeader>
+                <CardBody>
+                  <ConditionEffectsCard sheet={sheet} />
+                </CardBody>
+              </Card>
+            </div>
           </Stack>
         ) : null}
 
@@ -3298,6 +3461,8 @@ export function GaryCombatTool() {
     </div>
   );
 }
+
+const EFFECTS_CARD_ID = "gary-effects-now";
 
 const MAIN_TABS: { id: MainTab; label: string; icon: LucideIcon }[] = [
   { id: "play", label: "Play", icon: Swords },

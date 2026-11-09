@@ -4,8 +4,8 @@
   "description": "Phone-friendly D&D play aids for the table.",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#0f1115",
-  "theme_color": "#0f1115",
+  "background_color": "#0b0c10",
+  "theme_color": "#0b0c10",
   "icons": [
     {
       "src": "icon-192.png",

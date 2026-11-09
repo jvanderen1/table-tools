@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { History, Redo2, RotateCcw, Undo2 } from "lucide-react";
+import { History, Redo2, RotateCcw, Trash2, Undo2 } from "lucide-react";
 import { cx } from "../lib/cx";
 import { clockTime, timeAgo, useNow } from "../lib/time";
 import { Button, Drawer, Stack, Text } from "./index";
@@ -13,6 +13,7 @@ export type Timeline = {
   future: Step[];
   undo: (steps?: number) => void;
   redo: (steps?: number) => void;
+  clear: () => void;
 };
 
 export type Track = { name: string; timeline: Timeline };
@@ -85,6 +86,12 @@ export function UndoBar({
     }
     onTravel?.();
     announce(`Went back ${count} ${count === 1 ? "step" : "steps"}`);
+  }
+
+  function clearHistory() {
+    if (past.length === 0 && future.length === 0) return;
+    for (const track of tracks) track.timeline.clear();
+    announce("History cleared. Current numbers stay.");
   }
 
   function redoTo(step: TaggedStep) {
@@ -246,6 +253,16 @@ export function UndoBar({
               ))}
             </ol>
           )}
+
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={Trash2}
+            disabled={past.length === 0 && future.length === 0}
+            onClick={clearHistory}
+          >
+            Clear history
+          </Button>
         </Stack>
       </Drawer>
     </>

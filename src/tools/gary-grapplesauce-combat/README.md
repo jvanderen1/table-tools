@@ -86,7 +86,7 @@ Everything important is in `localStorage` under `table-tools:gary-grapplesauce-c
 The sheet and the inventory use `useUndoableState` (`src/lib/useUndoableState.ts`), so every change (damage, rests, plan “Spend” buttons, Moxie taps, conditions, gear edits) lands on a timeline saved next to the value (`sheet-history`, `inventory-history`, last 40 steps each).
 
 - Floating pill, bottom left: **Undo**, **Redo**, **History**. Always rendered; disabled when there’s nothing to do. A short toast says what was undone.
-- **History** drawer merges both timelines by time, labelled in plain words (“HP 103 → 88”, “Added Torch”). **Go back** undoes that change and everything after it; undone steps stay listed with **Redo** until a new change replaces them.
+- **History** drawer merges both timelines by time, labelled in plain words (“HP 103 → 88”, “Added Torch”). **Go back** undoes that change and everything after it; undone steps stay listed with **Redo** until a new change replaces them. **Clear history** drops the whole stack (undo and redo) and leaves the current sheet and gear alone.
 - Quick repeat taps on the same thing merge into one step (sheet within 0.6 s, gear within 4 s, so typing a note is one step).
 - ⌘Z / Ctrl+Z undo, ⇧⌘Z / Ctrl+Y redo (ignored while typing in a field).
 - Undo/redo re-enables the plan’s apply button. Roll log, dice, tab, and Bio aren’t tracked.

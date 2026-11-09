@@ -21,7 +21,8 @@ type Store<T> = {
 type Action<T> =
   | { type: "set"; next: T | ((prev: T) => T); at: number; id: string }
   | { type: "undo"; steps: number }
-  | { type: "redo"; steps: number };
+  | { type: "redo"; steps: number }
+  | { type: "clear" };
 
 type Options<T> = {
   /** Plain-language summary of prev → next, or null when nothing worth tracking changed. */
@@ -36,6 +37,8 @@ export type Undoable<T> = {
   set: (next: T | ((prev: T) => T)) => void;
   undo: (steps?: number) => void;
   redo: (steps?: number) => void;
+  /** Drop the timeline. The current value stays. */
+  clear: () => void;
   past: HistoryEntry<T>[];
   future: HistoryEntry<T>[];
 };
@@ -107,6 +110,11 @@ export function useUndoableState<T>(
         };
       }
 
+      if (a.type === "clear") {
+        if (s.past.length === 0 && s.future.length === 0) return s;
+        return { value: s.value, past: [], future: [] };
+      }
+
       let { value, past, future } = s;
       if (a.type === "undo") {
         for (let i = 0; i < a.steps && past.length > 0; i++) {
@@ -156,9 +164,18 @@ export function useUndoableState<T>(
   }, []);
   const undo = useCallback((steps = 1) => dispatch({ type: "undo", steps }), []);
   const redo = useCallback((steps = 1) => dispatch({ type: "redo", steps }), []);
+  const clear = useCallback(() => dispatch({ type: "clear" }), []);
 
   return useMemo(
-    () => ({ value: store.value, set, undo, redo, past: store.past, future: store.future }),
-    [store, set, undo, redo],
+    () => ({
+      value: store.value,
+      set,
+      undo,
+      redo,
+      clear,
+      past: store.past,
+      future: store.future,
+    }),
+    [store, set, undo, redo, clear],
   );
 }

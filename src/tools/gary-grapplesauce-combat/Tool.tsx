@@ -1172,9 +1172,9 @@ function DamageAdjuster({
             variant="secondary"
             icon={Heart}
             className="w-full"
-            onClick={() => setSheet((s) => ({ ...s, hp: gary.hpMax, tempHp: 0 }))}
+            onClick={() => setSheet((s) => ({ ...s, hp: gary.hpMax }))}
           >
-            Full HP, clear temp
+            Full HP
           </Button>
         </Stack>
       </Accordion>

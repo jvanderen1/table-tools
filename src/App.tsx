@@ -1,3 +1,4 @@
+import { ArrowLeft, ChevronRight, Dices } from "lucide-react";
 import { Link, Navigate, Route, Routes, useParams } from "react-router-dom";
 import { getTool, tools } from "./tools/registry";
 import { Stack, Text } from "./ui";
@@ -6,21 +7,27 @@ function Home() {
   return (
     <Stack gap={20}>
       <Stack gap={6}>
-        <h1>Table Tools</h1>
+        <h1 className="text-3xl font-semibold text-gold-soft">Table Tools</h1>
         <Text tone="secondary">
           Phone-friendly play aids for the table.
         </Text>
       </Stack>
-      <div className="grid grid-1" style={{ gap: 12 }}>
+      <div className="grid grid-cols-1 gap-3">
         {tools.map(({ meta }) => (
           <Link
             key={meta.id}
-            className="tool-card"
+            className="group flex items-center gap-4 rounded-xl border border-line bg-surface/85 p-4 text-ink no-underline transition-colors hover:border-gold/60 hover:no-underline"
             to={`/tools/${meta.id}`}
           >
-            <h2>{meta.title}</h2>
-            <Text tone="secondary">{meta.summary}</Text>
-            <Text tone="tertiary">{meta.tags.join(" · ")}</Text>
+            <Stack gap={4} className="min-w-0 flex-1">
+              <h2 className="text-lg font-semibold">{meta.title}</h2>
+              <Text tone="secondary">{meta.summary}</Text>
+              <Text tone="tertiary">{meta.tags.join(" · ")}</Text>
+            </Stack>
+            <ChevronRight
+              className="size-5 shrink-0 text-faint transition-colors group-hover:text-gold"
+              aria-hidden
+            />
           </Link>
         ))}
       </div>
@@ -37,8 +44,12 @@ function ToolPage() {
   const { Component, meta } = tool;
   return (
     <Stack gap={16}>
-      <Link to="/" className="tertiary">
-        ← All tools
+      <Link
+        to="/"
+        className="inline-flex w-fit items-center gap-1.5 text-sm text-faint hover:text-gold-soft hover:no-underline"
+      >
+        <ArrowLeft className="size-4" aria-hidden />
+        All tools
       </Link>
       <Component key={meta.id} />
     </Stack>
@@ -47,10 +58,16 @@ function ToolPage() {
 
 export default function App() {
   return (
-    <div className="app-shell">
-      <header className="site-header">
-        <Link to="/" style={{ color: "inherit", textDecoration: "none" }}>
-          <strong>table-tools</strong>
+    <div className="mx-auto max-w-5xl px-4 pt-5 pb-28">
+      <header className="mb-5 flex items-center justify-between gap-3 border-b border-line/70 pb-3">
+        <Link
+          to="/"
+          className="inline-flex items-center gap-2 text-ink no-underline hover:no-underline"
+        >
+          <Dices className="size-5 text-gold" aria-hidden />
+          <span className="font-display text-sm font-semibold tracking-[0.18em] uppercase">
+            table-tools
+          </span>
         </Link>
         <Text tone="tertiary">
           {tools.length} {tools.length === 1 ? "tool" : "tools"}

@@ -5,21 +5,93 @@ import {
   useState,
   type KeyboardEvent,
   type ReactNode,
+  type SelectHTMLAttributes,
 } from "react";
 import { createPortal } from "react-dom";
+import {
+  Activity,
+  ArrowLeft,
+  Ban,
+  BatteryLow,
+  BicepsFlexed,
+  BookOpen,
+  Brain,
+  Calculator,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  ChevronsDown,
+  ChevronsUp,
+  Circle,
+  CircleCheck,
+  CircleDot,
+  CircleHelp,
+  Coffee,
+  Compass,
+  Dices,
+  Droplet,
+  Eraser,
+  ExternalLink,
+  Eye,
+  Flame,
+  Footprints,
+  Grab,
+  Hand,
+  Hash,
+  Heart,
+  HeartCrack,
+  HeartPulse,
+  History,
+  Hourglass,
+  Info,
+  Lightbulb,
+  ListOrdered,
+  Lock,
+  Minus,
+  Moon,
+  Pickaxe,
+  Plus,
+  Repeat,
+  RotateCcw,
+  Save,
+  ScrollText,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
+  ShieldHalf,
+  ShieldOff,
+  ShieldPlus,
+  Skull,
+  SlidersHorizontal,
+  Sparkles,
+  Star,
+  Sword,
+  Swords,
+  Target,
+  Tent,
+  TriangleAlert,
+  WandSparkles,
+  X,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
 import { usePersistentState } from "../../lib/usePersistentState";
 import {
+  Accordion,
   Button,
   Callout,
   Card,
   CardBody,
   CardHeader,
   Divider,
+  Drawer,
   Pill,
   Row,
   Stack,
+  Stat,
   Text,
 } from "../../ui";
+import { cx } from "../../lib/cx";
 import {
   ABILITIES,
   CONDITION_DEFS,
@@ -37,7 +109,46 @@ import {
   type RollEffect,
 } from "./conditions";
 import { GLOSSARY } from "./glossary";
-import { GlossaryList, Tip } from "./Tip";
+import { GlossaryItem, GlossaryList, Tip } from "./Tip";
+
+const FIELD_INPUT =
+  "w-full appearance-none rounded-lg border border-line bg-well px-3 py-2.5 text-ink outline-none transition-colors focus:border-gold/70";
+
+function FieldLabel({
+  icon: Icon,
+  children,
+}: {
+  icon: LucideIcon;
+  children: ReactNode;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1.5 text-[0.72rem] font-semibold uppercase tracking-[0.12em] text-muted">
+      <Icon className="size-3.5 text-gold/80" aria-hidden />
+      {children}
+    </span>
+  );
+}
+
+function Select({
+  className,
+  ...props
+}: SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <div className="relative">
+      <select className={cx(FIELD_INPUT, "pr-9", className)} {...props} />
+      <ChevronDown
+        className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-faint"
+        aria-hidden
+      />
+    </div>
+  );
+}
+
+const RESOURCE_ROW =
+  "flex min-h-12 cursor-pointer items-center gap-2.5 rounded-lg border border-line bg-well/60 px-3 py-2 transition-colors has-[:checked]:border-gold/50 has-[:checked]:bg-gold/[0.06]";
+const CHECKBOX = "size-4 shrink-0 accent-gold";
+const RESOURCE_ICON = "size-4 shrink-0 text-gold/80";
+const RESOURCE_NOTE = "block text-xs text-faint";
 
 type Phase = "timing" | "reaction" | "goal" | "result";
 type Timing = "turn" | "reaction" | "check-fail";
@@ -701,11 +812,11 @@ function DamageAdjuster({
         Type the total, pick the type, then Take damage. Enter applies.
       </Text>
 
-      <div className="hit-row">
-        <label className="field hit-amount">
-          <span className="field-label">Amount</span>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <label className="flex flex-col gap-1.5">
+          <FieldLabel icon={Hash}>Amount</FieldLabel>
           <input
-            className="field-input amount-input"
+            className={cx(FIELD_INPUT, "text-2xl font-semibold tabular-nums")}
             inputMode="numeric"
             pattern="[0-9]*"
             value={ui.amount}
@@ -715,10 +826,10 @@ function DamageAdjuster({
             autoFocus
           />
         </label>
-        <label className="field hit-type">
-          <span className="field-label">Type</span>
-          <select
-            className="field-input"
+        <label className="flex flex-col gap-1.5">
+          <FieldLabel icon={Flame}>Type</FieldLabel>
+          <Select
+            className="min-h-[3.25rem] capitalize"
             value={ui.type}
             onChange={(e) =>
               setUi((u) => ({ ...u, type: e.target.value as DamageType }))
@@ -729,37 +840,42 @@ function DamageAdjuster({
                 {t}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
       </div>
 
-      <Text tone="tertiary">
-        {raw} → {preview} {ui.type} ({effHint})
-        {sheet.tempHp > 0 ? ` · temp ${sheet.tempHp} first` : ""}
-      </Text>
+      <div className="flex items-center gap-2 rounded-lg border border-line bg-well/60 px-3 py-2 text-sm text-muted tabular-nums">
+        <Calculator className="size-4 shrink-0 text-gold/80" aria-hidden />
+        <span>
+          {raw} → <strong className="text-ink">{preview}</strong> {ui.type} ({effHint})
+          {sheet.tempHp > 0 ? ` · temp ${sheet.tempHp} first` : ""}
+        </span>
+      </div>
 
-      <Row gap={8} wrap>
-        <Button variant="primary" onClick={takeDamage}>
+      <div className="grid grid-cols-2 gap-2">
+        <Button variant="danger" icon={HeartCrack} onClick={takeDamage}>
           Take damage
         </Button>
-        <Button variant="secondary" onClick={heal}>
+        <Button variant="secondary" icon={HeartPulse} onClick={heal}>
           Heal
         </Button>
-      </Row>
+      </div>
 
       {outcome ? (
-        <Callout tone={outcome.tone} title={outcome.title}>
+        <Callout
+          tone={outcome.tone}
+          title={outcome.title}
+          icon={outcome.tone === "warning" ? TriangleAlert : CircleCheck}
+        >
           {outcome.detail}
         </Callout>
       ) : null}
 
-      <details className="more-details">
-        <summary>More damage options</summary>
+      <Accordion title="More damage options" icon={SlidersHorizontal}>
         <Stack gap={12}>
-          <label className="field">
-            <span className="field-label">Override vs Gary</span>
-            <select
-              className="field-input"
+          <label className="flex flex-col gap-1.5">
+            <FieldLabel icon={ShieldHalf}>Override vs Gary</FieldLabel>
+            <Select
               value={ui.effectiveness}
               onChange={(e) =>
                 setUi((u) => ({
@@ -773,25 +889,41 @@ function DamageAdjuster({
               <option value="resistant">Resistant (½)</option>
               <option value="immune">Immune (0)</option>
               <option value="vulnerable">Vulnerable (×2)</option>
-            </select>
+            </Select>
           </label>
 
-          <Row gap={8} wrap>
+          <Row gap={6} wrap>
             {ui.increments.map((n) => (
-              <Button key={n} variant="secondary" onClick={() => bump(n)}>
-                +{n}
+              <Button
+                key={n}
+                size="sm"
+                variant="secondary"
+                icon={Plus}
+                className="tabular-nums"
+                onClick={() => bump(n)}
+              >
+                {n}
               </Button>
             ))}
+          </Row>
+          <Row gap={6} wrap>
             {ui.increments.map((n) => (
-              <Button key={`m${n}`} variant="ghost" onClick={() => bump(-n)}>
-                −{n}
+              <Button
+                key={`m${n}`}
+                size="sm"
+                variant="ghost"
+                icon={Minus}
+                className="tabular-nums"
+                onClick={() => bump(-n)}
+              >
+                {n}
               </Button>
             ))}
           </Row>
 
-          <Row gap={8} wrap align="center">
+          <Row gap={6} wrap align="center">
             <input
-              className="field-input step-input"
+              className={cx(FIELD_INPUT, "w-18 py-2 tabular-nums")}
               inputMode="numeric"
               value={ui.customIncrement}
               onChange={(e) =>
@@ -803,30 +935,46 @@ function DamageAdjuster({
               aria-label="Custom increment value"
             />
             <Button
+              size="sm"
               variant="ghost"
+              icon={Plus}
               onClick={() =>
                 bump(Number.parseInt(ui.customIncrement || "0", 10) || 0)
               }
             >
-              +step
+              step
             </Button>
             <Button
+              size="sm"
               variant="ghost"
+              icon={Minus}
               onClick={() =>
                 bump(-(Number.parseInt(ui.customIncrement || "0", 10) || 0))
               }
             >
-              −step
+              step
             </Button>
-            <Button variant="ghost" onClick={addIncrementPreset}>
+            <Button
+              size="sm"
+              variant="ghost"
+              icon={Save}
+              onClick={addIncrementPreset}
+            >
               Save step
             </Button>
           </Row>
 
-          <Row gap={8} wrap>
-            <Text tone="secondary">Temp HP: {sheet.tempHp}</Text>
+          <Divider />
+
+          <Row gap={6} wrap>
+            <span className="inline-flex items-center gap-1.5 pr-1 text-sm text-muted tabular-nums">
+              <Shield className="size-4 text-gold/80" aria-hidden />
+              Temp HP: {sheet.tempHp}
+            </span>
             <Button
+              size="sm"
               variant="ghost"
+              icon={ShieldPlus}
               onClick={() =>
                 setSheet((s) => ({ ...s, tempHp: s.tempHp + raw }))
               }
@@ -834,14 +982,18 @@ function DamageAdjuster({
               Add amount as temp
             </Button>
             <Button
+              size="sm"
               variant="ghost"
+              icon={ShieldOff}
               disabled={sheet.tempHp <= 0}
               onClick={() => setSheet((s) => ({ ...s, tempHp: 0 }))}
             >
               Clear temp
             </Button>
             <Button
+              size="sm"
               variant="ghost"
+              icon={Heart}
               onClick={() =>
                 setSheet((s) => ({ ...s, hp: HP_MAX, tempHp: 0 }))
               }
@@ -850,7 +1002,7 @@ function DamageAdjuster({
             </Button>
           </Row>
         </Stack>
-      </details>
+      </Accordion>
     </Stack>
   );
 }
@@ -876,7 +1028,10 @@ function PlanTips({ plan }: { plan: Plan }) {
 
   return (
     <Row gap={8} wrap>
-      <Text tone="tertiary">Tips:</Text>
+      <span className="inline-flex items-center gap-1 text-[0.85rem] text-faint">
+        <Lightbulb className="size-3.5 text-gold/80" aria-hidden />
+        Tips:
+      </span>
       {unique.map((id) => (
         <Tip key={id} id={id}>
           {GLOSSARY[id].label}
@@ -943,25 +1098,49 @@ function StatusPills({ sheet }: { sheet: Sheet }) {
   if (active.length === 0 && ready.length === 0) return null;
 
   return (
-    <div className="status-pills">
+    <div className="flex flex-wrap items-center gap-1.5">
       {active.length > 0 ? (
         <>
-          <span className="status-pills-label">Now</span>
+          <StripLabel icon={CircleDot}>Now</StripLabel>
           {active}
         </>
       ) : null}
       {active.length > 0 && ready.length > 0 ? (
-        <span className="status-pills-sep" aria-hidden="true" />
+        <span className="mx-1 h-4 w-px bg-line" aria-hidden="true" />
       ) : null}
       {ready.length > 0 ? (
         <>
-          <span className="status-pills-label">Ready</span>
+          <StripLabel icon={Sparkles}>Ready</StripLabel>
           {ready}
         </>
       ) : null}
     </div>
   );
 }
+
+function StripLabel({
+  icon: Icon,
+  children,
+}: {
+  icon: LucideIcon;
+  children: ReactNode;
+}) {
+  return (
+    <span className="mr-0.5 inline-flex items-center gap-1 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-faint">
+      <Icon className="size-3 text-gold/70" aria-hidden />
+      {children}
+    </span>
+  );
+}
+
+const TONE_CHIP = {
+  bad: "border-crimson/40 bg-crimson/15 text-crimson-soft",
+  good: "border-verdant/30 bg-verdant/10 text-verdant",
+  neutral: "border-line bg-well/70 text-muted",
+} as const;
+
+const CHIP =
+  "inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[0.75rem] leading-snug";
 
 type EffectChip = { text: string; tone: "bad" | "good" };
 
@@ -1025,15 +1204,20 @@ function StatusEffects({
   const chips = effectChips(effectsFor(sheet));
   if (chips.length === 0) return null;
   return (
-    <div className="status-effects">
-      <span className="status-pills-label">Effects</span>
+    <div className="flex flex-wrap items-center gap-1.5">
+      <StripLabel icon={Activity}>Effects</StripLabel>
       {chips.map((c) => (
-        <span key={c.text} className={`effect-chip ${c.tone}`}>
+        <span key={c.text} className={cx(CHIP, TONE_CHIP[c.tone])}>
           {c.text}
         </span>
       ))}
-      <button type="button" className="link-btn" onClick={onDetails}>
+      <button
+        type="button"
+        className="inline-flex cursor-pointer items-center gap-0.5 rounded px-1 py-0.5 text-[0.78rem] font-medium text-gold-soft hover:text-gold"
+        onClick={onDetails}
+      >
         Details
+        <ChevronRight className="size-3.5" aria-hidden />
       </button>
     </div>
   );
@@ -1043,13 +1227,15 @@ function StatusEffects({
 function rollBadge(effect: RollEffect, againstGary = false) {
   if (effect.roll === "normal") {
     if (effect.advantage.length > 0 && effect.disadvantage.length > 0) {
-      return <span className="roll-badge">Adv + Dis cancel</span>;
+      return <span className={cx(CHIP, TONE_CHIP.neutral)}>Adv + Dis cancel</span>;
     }
     return null;
   }
   const good = (effect.roll === "advantage") !== againstGary;
+  const Icon = effect.roll === "advantage" ? ChevronsUp : ChevronsDown;
   return (
-    <span className={`roll-badge ${good ? "good" : "bad"}`}>
+    <span className={cx(CHIP, TONE_CHIP[good ? "good" : "bad"])}>
+      <Icon className="size-3" aria-hidden />
       {effect.roll === "advantage" ? "Advantage" : "Disadvantage"}
     </span>
   );
@@ -1064,24 +1250,35 @@ function rollReasons(effect: RollEffect) {
   return parts.join(" · ");
 }
 
+const EFFECT_ROW =
+  "grid grid-cols-1 gap-1 border-t border-line/70 py-2.5 first:border-t-0 first:pt-0 sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-3";
+const EFFECT_LABEL =
+  "flex items-center gap-1.5 text-[0.85rem] text-muted [&>svg]:size-3.5 [&>svg]:text-gold/75";
+const EFFECT_DETAIL = "basis-full text-[0.8rem] leading-snug text-faint";
+
 function EffectRow({
   label,
+  icon: Icon,
   value,
   badge,
   detail,
 }: {
   label: ReactNode;
+  icon: LucideIcon;
   value: ReactNode;
   badge?: ReactNode;
   detail?: string;
 }) {
   return (
-    <div className="effect-row">
-      <div className="effect-label">{label}</div>
-      <div className="effect-value">
-        <span className="effect-number">{value}</span>
+    <div className={EFFECT_ROW}>
+      <div className={EFFECT_LABEL}>
+        <Icon aria-hidden />
+        {label}
+      </div>
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+        <span className="font-semibold tabular-nums">{value}</span>
         {badge}
-        {detail ? <div className="effect-detail">{detail}</div> : null}
+        {detail ? <div className={EFFECT_DETAIL}>{detail}</div> : null}
       </div>
     </div>
   );
@@ -1112,13 +1309,14 @@ function ConditionEffectsCard({ sheet }: { sheet: Sheet }) {
     parts.filter(Boolean).join(" · ") || undefined;
 
   return (
-    <div className="effects-list">
+    <div className="flex flex-col">
       <EffectRow
         label="Actions"
+        icon={Hourglass}
         value={e.cantAct.length > 0 ? "None" : "Normal"}
         badge={
           e.cantAct.length > 0 ? (
-            <span className="roll-badge bad">No Action / BA / Reaction</span>
+            <span className={cx(CHIP, TONE_CHIP.bad)}>No Action / BA / Reaction</span>
           ) : null
         }
         detail={
@@ -1129,12 +1327,14 @@ function ConditionEffectsCard({ sheet }: { sheet: Sheet }) {
       />
       <EffectRow
         label="Your attacks"
+        icon={Swords}
         value={`${signed(GARY.attack - pen)} to hit`}
         badge={rollBadge(e.attack)}
         detail={joinDetail(rollReasons(e.attack), penaltyNote)}
       />
       <EffectRow
         label="Athletics"
+        icon={BicepsFlexed}
         value={signed(GARY.athletics - pen)}
         badge={rollBadge(e.checks)}
         detail={joinDetail(
@@ -1146,10 +1346,13 @@ function ConditionEffectsCard({ sheet }: { sheet: Sheet }) {
           e.checks.roll !== "normal" || pen > 0 ? "applies to all ability checks" : undefined,
         )}
       />
-      <div className="effect-row">
-        <div className="effect-label">Saves</div>
-        <div className="effect-value">
-          <div className="save-grid">
+      <div className={EFFECT_ROW}>
+        <div className={EFFECT_LABEL}>
+          <Shield aria-hidden />
+          Saves
+        </div>
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          <div className="grid w-full grid-cols-3 gap-1.5 min-[420px]:grid-cols-6">
             {ABILITIES.map(({ id, label }) => {
               const s = e.saves[id];
               const fail = s.autoFail.length > 0;
@@ -1157,10 +1360,24 @@ function ConditionEffectsCard({ sheet }: { sheet: Sheet }) {
               return (
                 <div
                   key={id}
-                  className={`save-cell${fail ? " fail" : changed ? " changed" : ""}`}
+                  className={cx(
+                    "flex flex-col items-center rounded-md border px-0.5 py-1",
+                    fail
+                      ? "border-crimson/50 bg-crimson/20 text-crimson-soft"
+                      : changed
+                        ? "border-crimson/50 bg-well/70"
+                        : "border-line bg-well/70",
+                  )}
                 >
-                  <span className="save-label">{label}</span>
-                  <span className="save-value">
+                  <span
+                    className={cx(
+                      "text-[0.65rem] font-semibold uppercase tracking-wider",
+                      fail ? "text-[inherit]" : "text-faint",
+                    )}
+                  >
+                    {label}
+                  </span>
+                  <span className="text-[0.9rem] font-semibold tabular-nums">
                     {fail ? "Fail" : signed(GARY.saves[id] - pen)}
                     {!fail && s.effect.roll === "disadvantage" ? " Dis" : ""}
                   </span>
@@ -1168,7 +1385,7 @@ function ConditionEffectsCard({ sheet }: { sheet: Sheet }) {
               );
             })}
           </div>
-          <div className="effect-detail">
+          <div className={EFFECT_DETAIL}>
             {joinDetail(
               e.saves.str.autoFail.length > 0
                 ? `Str/Dex auto-fail: ${reasonText(e.saves.str.autoFail)}`
@@ -1183,6 +1400,7 @@ function ConditionEffectsCard({ sheet }: { sheet: Sheet }) {
       </div>
       <EffectRow
         label="Attacks vs. Gary"
+        icon={ShieldHalf}
         value={`AC ${GARY.ac}`}
         badge={rollBadge(e.againstNear, true)}
         detail={joinDetail(
@@ -1197,6 +1415,7 @@ function ConditionEffectsCard({ sheet }: { sheet: Sheet }) {
       />
       <EffectRow
         label="Speed"
+        icon={Footprints}
         value={`${e.speed.value} ft`}
         detail={joinDetail(
           e.speed.zeroBy.length > 0 ? `0 from ${reasonText(e.speed.zeroBy)}` : undefined,
@@ -1206,6 +1425,7 @@ function ConditionEffectsCard({ sheet }: { sheet: Sheet }) {
       />
       <EffectRow
         label="Initiative"
+        icon={Zap}
         value={signed(GARY.initiative - pen)}
         badge={rollBadge(e.initiative)}
         detail={joinDetail(rollReasons(e.initiative), penaltyNote)}
@@ -1213,12 +1433,18 @@ function ConditionEffectsCard({ sheet }: { sheet: Sheet }) {
       {e.resistAll.length > 0 ? (
         <EffectRow
           label="Damage"
+          icon={ShieldCheck}
           value="Resist all"
           detail={`${reasonText(e.resistAll)} — the Hit tab halves damage automatically`}
         />
       ) : null}
       {e.notes.length > 0 ? (
-        <EffectRow label="Also" value="" detail={e.notes.join(" · ")} />
+        <EffectRow
+          label="Also"
+          icon={Info}
+          value=""
+          detail={e.notes.join(" · ")}
+        />
       ) : null}
     </div>
   );
@@ -1233,58 +1459,85 @@ function StatusBar({
   sheet: Sheet;
   setSheet: (next: Sheet | ((prev: Sheet) => Sheet)) => void;
 }) {
+  const bloodied = isBloodied(sheet.hp);
   return (
     <Card>
-      <CardBody>
-        <div className="status-bar">
-          <div className="status-hp">
-            <div className="status-hp-value">
+      <div className="flex flex-col gap-4 p-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-end gap-x-2 gap-y-1">
+            <Heart
+              className={cx(
+                "mb-1 size-6 shrink-0",
+                bloodied ? "fill-crimson/40 text-crimson-soft" : "fill-gold/15 text-gold",
+              )}
+              aria-hidden
+            />
+            <span className="text-[2.5rem] leading-none font-semibold tracking-tight tabular-nums">
               {sheet.hp}
-              {sheet.tempHp > 0 ? (
-                <span className="status-temp">+{sheet.tempHp}</span>
-              ) : null}
-            </div>
-            <div className="status-hp-label">/ {HP_MAX} HP</div>
-            <div
-              className="hp-bar"
-              role="meter"
-              aria-valuemin={0}
-              aria-valuemax={HP_MAX}
-              aria-valuenow={sheet.hp}
-              aria-label="Hit points"
-            >
-              <div
-                className="hp-bar-fill"
-                style={{ width: `${Math.round((sheet.hp / HP_MAX) * 100)}%` }}
-              />
-            </div>
+            </span>
+            {sheet.tempHp > 0 ? (
+              <span className="mb-1 inline-flex items-center gap-1 rounded-full border border-gold/40 bg-gold/10 px-2 py-0.5 text-sm font-semibold text-gold-soft tabular-nums">
+                <Shield className="size-3.5" aria-hidden />+{sheet.tempHp}
+              </span>
+            ) : null}
+            <span className="mb-1 text-sm whitespace-nowrap text-faint tabular-nums">
+              / {HP_MAX} HP
+            </span>
           </div>
-          <div className="status-moxie">
-            <div className="field-label">
+          <div
+            className="mt-3 h-2.5 overflow-hidden rounded-full border border-line bg-well"
+            role="meter"
+            aria-valuemin={0}
+            aria-valuemax={HP_MAX}
+            aria-valuenow={sheet.hp}
+            aria-label="Hit points"
+          >
+            <div
+              className={cx(
+                "h-full rounded-full bg-gradient-to-r transition-[width] duration-150",
+                bloodied
+                  ? "from-crimson to-crimson-soft"
+                  : "from-gold-deep to-gold-soft",
+              )}
+              style={{ width: `${Math.round((sheet.hp / HP_MAX) * 100)}%` }}
+            />
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <div className="flex flex-col gap-0.5">
+            <div className="inline-flex items-center gap-1.5 text-[0.7rem] font-semibold uppercase tracking-[0.12em] text-muted">
+              <Flame className="size-3.5 text-gold" aria-hidden />
               <Tip id="moxie">Moxie</Tip>
             </div>
-            <Row gap={6} wrap>
-              {Array.from({ length: MOXIE_MAX }, (_, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  aria-label={`Set Moxie to ${i + 1}`}
-                  className={`dot${i < sheet.moxie ? " filled" : ""}`}
-                  onClick={() =>
-                    setSheet((s) => ({ ...s, moxie: i + 1 }))
-                  }
-                />
-              ))}
-            </Row>
-            <Text tone="tertiary">
+            <Text tone="tertiary" className="tabular-nums">
               {sheet.moxie}/{MOXIE_MAX}
               {sheet.moxie === 0 ? " · spends locked" : ""}
             </Text>
           </div>
+          <Row gap={6} wrap>
+            {Array.from({ length: MOXIE_MAX }, (_, i) => (
+              <button
+                key={i}
+                type="button"
+                aria-label={`Set Moxie to ${i + 1}`}
+                className={cx(
+                  "size-7 cursor-pointer rounded-full border p-0 transition-colors",
+                  i < sheet.moxie
+                    ? "border-gold bg-gradient-to-b from-gold-soft to-gold shadow-[0_0_10px_-2px_rgba(197,160,89,0.8)]"
+                    : "border-line bg-well hover:border-gold/50",
+                )}
+                onClick={() =>
+                  setSheet((s) => ({ ...s, moxie: i + 1 }))
+                }
+              />
+            ))}
+          </Row>
         </div>
+      </div>
+      <div className="flex flex-col gap-2 border-t border-line/80 bg-well/30 px-4 py-2.5 empty:hidden">
         <StatusPills sheet={sheet} />
         <StatusEffects sheet={sheet} onDetails={onEffectsDetails} />
-      </CardBody>
+      </div>
     </Card>
   );
 }
@@ -1321,6 +1574,7 @@ function ConditionsPanel({
   }
 
   const active = activeConditions(sheet);
+  const [referenceOpen, setReferenceOpen] = useState(false);
 
   return (
     <Stack gap={14}>
@@ -1328,27 +1582,41 @@ function ConditionsPanel({
         Tap what currently applies. The numbers above update automatically.
       </Text>
 
-      <div className="field">
-        <span className="field-label">
+      <div className="flex flex-col gap-1.5">
+        <FieldLabel icon={BatteryLow}>
           <Tip id="exhaustion">Exhaustion</Tip>
-        </span>
-        <Row gap={8} wrap>
-          {Array.from({ length: 7 }, (_, level) => (
-            <Button
-              key={level}
-              variant={exhaustion === level ? "primary" : "secondary"}
-              onClick={() =>
-                setSheet((s) => ({ ...normalizeSheet(s), exhaustion: level }))
-              }
-            >
-              {level === 0
-                ? "None"
-                : level === EXHAUSTION_DEATH
-                  ? `${level} · dead`
-                  : String(level)}
-            </Button>
-          ))}
-        </Row>
+        </FieldLabel>
+        <div className="grid grid-cols-4 gap-1 rounded-xl border border-line bg-well/70 p-1 sm:grid-cols-7">
+          {Array.from({ length: 7 }, (_, level) => {
+            const on = exhaustion === level;
+            const dead = level === EXHAUSTION_DEATH;
+            return (
+              <button
+                key={level}
+                type="button"
+                aria-pressed={on}
+                className={cx(
+                  "inline-flex min-h-10 cursor-pointer items-center justify-center gap-1 rounded-lg text-sm font-medium tabular-nums transition-colors",
+                  on
+                    ? dead
+                      ? "bg-crimson text-ink"
+                      : "bg-gradient-to-b from-gold-soft to-gold text-void"
+                    : "text-muted hover:bg-raised hover:text-ink",
+                )}
+                onClick={() =>
+                  setSheet((s) => ({ ...normalizeSheet(s), exhaustion: level }))
+                }
+              >
+                {dead ? <Skull className="size-3.5" aria-hidden /> : null}
+                {level === 0
+                  ? "None"
+                  : dead
+                    ? `${level} · dead`
+                    : String(level)}
+              </button>
+            );
+          })}
+        </div>
         {exhaustion > 0 ? (
           <Text tone="tertiary">
             {exhaustion >= EXHAUSTION_DEATH
@@ -1362,17 +1630,27 @@ function ConditionsPanel({
         ) : null}
       </div>
 
-      <div className="condition-grid">
+      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
         {CONDITION_DEFS.map((c) => {
           const on = Boolean(conditions[c.id]);
           return (
             <button
               key={c.id}
               type="button"
-              className={`condition-chip${on ? " on" : ""}`}
+              className={cx(
+                "flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-3 text-left text-sm transition-colors",
+                on
+                  ? "border-gold/70 bg-gold/12 font-semibold text-gold-soft"
+                  : "border-line bg-well/60 text-muted hover:border-gold/40 hover:text-ink",
+              )}
               aria-pressed={on}
               onClick={() => toggle(c.id)}
             >
+              {on ? (
+                <CircleCheck className="size-4 shrink-0 text-gold" aria-hidden />
+              ) : (
+                <Circle className="size-4 shrink-0 text-faint" aria-hidden />
+              )}
               {c.label}
             </button>
           );
@@ -1380,16 +1658,27 @@ function ConditionsPanel({
       </div>
 
       {active.length > 0 ? (
-        <div className="condition-notes">
+        <div className="flex flex-col gap-1.5">
           {active.map((c) => (
-            <div key={c.id} className="condition-note">
-              <div className="condition-note-head">
-                <strong>{c.label}</strong>
-                <a href={conditionHref(c.label)} target="_blank" rel="noreferrer">
-                  Rules ↗
+            <div
+              key={c.id}
+              className="rounded-lg border border-line border-l-[3px] border-l-gold bg-well/60 px-3 py-2"
+            >
+              <div className="mb-0.5 flex items-baseline justify-between gap-2">
+                <strong className="text-sm text-gold-soft">{c.label}</strong>
+                <a
+                  className="inline-flex items-center gap-1 text-xs"
+                  href={conditionHref(c.label)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Rules
+                  <ExternalLink className="size-3" aria-hidden />
                 </a>
               </div>
-              <Text tone="secondary">{c.summary}</Text>
+              <Text tone="secondary" className="text-[0.88rem] leading-snug">
+                {c.summary}
+              </Text>
             </div>
           ))}
         </div>
@@ -1398,31 +1687,44 @@ function ConditionsPanel({
       <Row gap={8} wrap>
         <Button
           variant="ghost"
+          icon={Eraser}
           disabled={active.length === 0 && exhaustion === 0}
           onClick={clearConditions}
         >
           Clear all conditions
         </Button>
+        <Button
+          variant="ghost"
+          icon={BookOpen}
+          onClick={() => setReferenceOpen(true)}
+        >
+          What every condition does
+        </Button>
       </Row>
 
-      <details className="more-details">
-        <summary>What every condition does</summary>
-        <Stack gap={8}>
+      <Drawer
+        open={referenceOpen}
+        onClose={() => setReferenceOpen(false)}
+        title="Conditions"
+        icon={BookOpen}
+      >
+        <Stack gap={10}>
           <Text tone="tertiary">
             From the 2024 rules on D&D Beyond.{" "}
-            <a href={RULES_GLOSSARY_URL} target="_blank" rel="noreferrer">
-              Rules Glossary ↗
+            <a
+              className="inline-flex items-center gap-1"
+              href={RULES_GLOSSARY_URL}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Rules Glossary
+              <ExternalLink className="size-3" aria-hidden />
             </a>
           </Text>
-          <div className="glossary-list">
-            <details className="glossary-item">
-              <summary>Exhaustion</summary>
-              <p>{EXHAUSTION_SUMMARY}</p>
-            </details>
-          </div>
+          <GlossaryItem label="Exhaustion" summary={EXHAUSTION_SUMMARY} />
           <GlossaryList kind="condition" />
         </Stack>
-      </details>
+      </Drawer>
     </Stack>
   );
 }
@@ -1443,32 +1745,37 @@ function RestPanel({
       <Text tone="secondary">
         Toggle what’s still available, or take a rest to reset.
       </Text>
-      <div className="resource-list">
-        <label className="resource-row">
+      <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+        <label className={RESOURCE_ROW}>
           <input
             type="checkbox"
+            className={CHECKBOX}
             checked={sheet.bloodiedUnbowed}
             onChange={(e) => patch({ bloodiedUnbowed: e.target.checked })}
           />
-          <span>
-            <Tip id="bloodied-but-unbowed">Bloodied But Unbowed</Tip>{" "}
-            <span className="tertiary">1 / short rest</span>
+          <Droplet className={RESOURCE_ICON} aria-hidden />
+          <span className="min-w-0">
+            <Tip id="bloodied-but-unbowed">Bloodied But Unbowed</Tip>
+            <span className={RESOURCE_NOTE}>1 / short rest</span>
           </span>
         </label>
-        <label className="resource-row">
+        <label className={RESOURCE_ROW}>
           <input
             type="checkbox"
+            className={CHECKBOX}
             checked={sheet.swagger}
             onChange={(e) => patch({ swagger: e.target.checked })}
           />
-          <span>
-            <Tip id="swagger-streak">Swagger Streak</Tip>{" "}
-            <span className="tertiary">1 / short rest</span>
+          <Sparkles className={RESOURCE_ICON} aria-hidden />
+          <span className="min-w-0">
+            <Tip id="swagger-streak">Swagger Streak</Tip>
+            <span className={RESOURCE_NOTE}>1 / short rest</span>
           </span>
         </label>
-        <label className="resource-row">
+        <label className={RESOURCE_ROW}>
           <input
             type="checkbox"
+            className={CHECKBOX}
             checked={sheet.digDeep}
             onChange={(e) =>
               patch({
@@ -1477,21 +1784,29 @@ function RestPanel({
               })
             }
           />
-          <span>
-            <Tip id="dig-deep">Dig Deep</Tip>{" "}
-            <span className="tertiary">free first use</span>
+          <Pickaxe className={RESOURCE_ICON} aria-hidden />
+          <span className="min-w-0">
+            <Tip id="dig-deep">Dig Deep</Tip>
+            <span className={RESOURCE_NOTE}>free first use</span>
           </span>
         </label>
-        <label className="resource-row">
+        <label
+          className={cx(
+            RESOURCE_ROW,
+            !sheet.digDeep && !sheet.digDeepActive && "opacity-50",
+          )}
+        >
           <input
             type="checkbox"
+            className={CHECKBOX}
             checked={sheet.digDeepActive}
             disabled={!sheet.digDeep && !sheet.digDeepActive}
             onChange={(e) => patch({ digDeepActive: e.target.checked })}
           />
-          <span>
-            <Tip id="dig-deep">Dig Deep active</Tip>{" "}
-            <span className="tertiary">resist B/P/S</span>
+          <ShieldCheck className={RESOURCE_ICON} aria-hidden />
+          <span className="min-w-0">
+            <Tip id="dig-deep">Dig Deep active</Tip>
+            <span className={RESOURCE_NOTE}>resist B/P/S</span>
           </span>
         </label>
       </div>
@@ -1500,6 +1815,7 @@ function RestPanel({
           <Row gap={8} wrap>
             <Button
               variant="secondary"
+              icon={Pickaxe}
               disabled={!canDigDeepAgain(sheet.exhaustion)}
               onClick={() =>
                 setSheet((s) =>
@@ -1515,9 +1831,10 @@ function RestPanel({
           <Text tone="tertiary">Dig Deep {digDeepAgainNote(sheet.exhaustion)}</Text>
         </Stack>
       ) : null}
-      <Row gap={8} wrap>
+      <div className="grid grid-cols-2 gap-2">
         <Button
           variant="secondary"
+          icon={Coffee}
           onClick={() =>
             setSheet((s) => ({
               ...normalizeSheet(s),
@@ -1533,6 +1850,7 @@ function RestPanel({
         </Button>
         <Button
           variant="secondary"
+          icon={Moon}
           disabled={sheet.exhaustion >= EXHAUSTION_DEATH}
           onClick={() =>
             setSheet((s) => ({
@@ -1543,7 +1861,7 @@ function RestPanel({
         >
           Long rest
         </Button>
-      </Row>
+      </div>
       <Text tone="tertiary">
         {sheet.exhaustion >= EXHAUSTION_DEATH
           ? "Gary is dead at Exhaustion 6 — no long rest. If the DM revives him, set Exhaustion on the Conds tab."
@@ -1647,23 +1965,57 @@ function RollButtons({
             : spec.effect.roll === "advantage"
               ? "good"
               : "";
+        const Icon = specIcon(spec);
         return (
           <button
             key={spec.id}
             type="button"
-            className="roll-btn"
+            className={ROLL_TILE}
             disabled={disabled}
             onClick={() => onRoll(spec)}
           >
-            <span>{spec.label}</span>
-            <span className={`roll-btn-bonus${tone ? ` ${tone}` : ""}`}>
+            <span className="inline-flex items-center gap-1.5 text-[0.85rem]">
+              <Icon className="size-3.5 text-gold/80" aria-hidden />
+              {spec.label}
+            </span>
+            <span
+              className={cx(
+                "text-base font-semibold tabular-nums",
+                tone === "bad" && "text-crimson-soft",
+                tone === "good" && "text-verdant",
+                !tone && "text-ink",
+              )}
+            >
               {caption}
             </span>
           </button>
         );
   });
   if (bare) return <>{buttons}</>;
-  return <div className="roll-grid">{buttons}</div>;
+  return <div className={ROLL_GRID}>{buttons}</div>;
+}
+
+const ROLL_GRID = "grid grid-cols-2 gap-1.5 min-[480px]:grid-cols-3";
+const ROLL_TILE =
+  "flex min-h-14 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-lg border border-line bg-well/70 px-1.5 py-2 leading-tight text-muted transition-colors hover:border-gold/50 hover:bg-raised/60 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40";
+const LINE_ROLL_BTN =
+  "inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-lg border border-line bg-well/70 px-3 text-sm tabular-nums text-ink transition-colors hover:border-gold/50 hover:bg-raised/60 disabled:cursor-not-allowed disabled:opacity-40 [&>svg]:size-4 [&>svg]:text-gold/80";
+
+function specIcon(spec: D20Spec): LucideIcon {
+  if (spec.attack) return Swords;
+  if (spec.id.startsWith("save-")) return Shield;
+  switch (spec.id) {
+    case "athletics":
+      return BicepsFlexed;
+    case "perception":
+      return Eye;
+    case "insight":
+      return Brain;
+    case "initiative":
+      return Zap;
+    default:
+      return Dices;
+  }
 }
 
 function RollPanel({
@@ -1799,13 +2151,13 @@ function RollPanel({
     <Stack gap={16}>
       {result ? <RollReadout result={result} onSwagger={addSwagger} /> : null}
 
-      <div className="field">
-        <span className="field-label">Saving throws</span>
+      <div className="flex flex-col gap-1.5">
+        <FieldLabel icon={Shield}>Saving throws</FieldLabel>
         <RollButtons specs={saves} onRoll={rollD20} />
       </div>
 
-      <div className="field">
-        <span className="field-label">Checks</span>
+      <div className="flex flex-col gap-1.5">
+        <FieldLabel icon={Dices}>Checks</FieldLabel>
         <RollButtons specs={checks} onRoll={rollD20} />
         {effects.checkAutoFail.length > 0 ? (
           <Text tone="tertiary">
@@ -1815,9 +2167,9 @@ function RollPanel({
         ) : null}
       </div>
 
-      <div className="field">
-        <span className="field-label">Attack</span>
-        <div className="roll-grid">
+      <div className="flex flex-col gap-1.5">
+        <FieldLabel icon={Swords}>Attack</FieldLabel>
+        <div className={ROLL_GRID}>
           <RollButtons
             bare
             specs={[attack]}
@@ -1826,12 +2178,15 @@ function RollPanel({
           />
           <button
             type="button"
-            className="roll-btn"
+            className={ROLL_TILE}
             disabled={cantAct}
             onClick={rollDamage}
           >
-            <span>Damage</span>
-            <span className="roll-btn-bonus">
+            <span className="inline-flex items-center gap-1.5 text-[0.85rem]">
+              <Sword className="size-3.5 text-gold/80" aria-hidden />
+              Damage
+            </span>
+            <span className="text-base font-semibold tabular-nums text-ink">
               {result?.kind === "d20" &&
               result.attack &&
               result.kept === 20 &&
@@ -1859,12 +2214,13 @@ function RollReadout({
 }) {
   if (result.kind === "damage") {
     return (
-      <div className="roll-result">
-        <div className="roll-result-label">
+      <div className={ROLL_RESULT}>
+        <div className={ROLL_RESULT_LABEL}>
+          <Sword className="size-3.5 text-gold" aria-hidden />
           {result.crit ? "Damage · critical hit" : "Damage"}
         </div>
-        <div className="roll-total">{result.total}</div>
-        <div className="roll-math">
+        <div className={ROLL_TOTAL}>{result.total}</div>
+        <div className={ROLL_MATH}>
           {result.dice.length}d{GARY.fisticuffsDie} {result.dice.join("+")} +{" "}
           {result.bonus} = {result.total} bludgeoning
         </div>
@@ -1874,13 +2230,16 @@ function RollReadout({
 
   if (result.kind === "brace") {
     return (
-      <div className="roll-result">
-        <div className="roll-result-label">Brace Up</div>
-        <div className="roll-total">+{result.total}</div>
-        <div className="roll-math">
+      <div className={ROLL_RESULT}>
+        <div className={ROLL_RESULT_LABEL}>
+          <ShieldPlus className="size-3.5 text-gold" aria-hidden />
+          Brace Up
+        </div>
+        <div className={ROLL_TOTAL}>+{result.total}</div>
+        <div className={ROLL_MATH}>
           d{GARY.fisticuffsDie} {result.die} + {result.bonus} = {result.total} temp
         </div>
-        <div className="roll-notes">
+        <div className={ROLL_NOTES}>
           Temp HP {result.tempBefore} → {result.tempAfter}
         </div>
       </div>
@@ -1900,26 +2259,58 @@ function RollReadout({
       }`;
 
   return (
-    <div className="roll-result">
-      <div className="roll-result-label">{result.label}</div>
-      <div className={`roll-total${result.autoFail || miss ? " fail" : ""}`}>
+    <div className={ROLL_RESULT}>
+      <div className={ROLL_RESULT_LABEL}>
+        <Dices className="size-3.5 text-gold" aria-hidden />
+        {result.label}
+      </div>
+      <div
+        className={cx(
+          ROLL_TOTAL,
+          (result.autoFail || miss) && "text-crimson-soft",
+          crit && "text-gold-soft",
+        )}
+      >
         {result.autoFail ? "Fail" : miss ? "Miss" : result.total}
       </div>
-      <div className="roll-math">{math}</div>
-      {crit ? <div className="roll-flag good">Critical hit</div> : null}
-      {miss ? <div className="roll-flag bad">Natural 1 — automatic miss</div> : null}
-      {result.autoFail ? (
-        <div className="roll-flag bad">Automatic failure · {result.autoFail}</div>
+      <div className={ROLL_MATH}>{math}</div>
+      {crit ? (
+        <div className={cx(ROLL_FLAG, "text-verdant")}>
+          <Star className="size-4 fill-current" aria-hidden />
+          Critical hit
+        </div>
       ) : null}
-      {result.notes ? <div className="roll-notes">{result.notes}</div> : null}
+      {miss ? (
+        <div className={cx(ROLL_FLAG, "text-crimson-soft")}>
+          <Skull className="size-4" aria-hidden />
+          Natural 1 — automatic miss
+        </div>
+      ) : null}
+      {result.autoFail ? (
+        <div className={cx(ROLL_FLAG, "text-crimson-soft")}>
+          <Ban className="size-4" aria-hidden />
+          Automatic failure · {result.autoFail}
+        </div>
+      ) : null}
+      {result.notes ? <div className={ROLL_NOTES}>{result.notes}</div> : null}
       {result.swagger ? (
-        <Button variant="secondary" onClick={onSwagger}>
+        <Button variant="secondary" icon={Sparkles} onClick={onSwagger}>
           Add Swagger +1d10
         </Button>
       ) : null}
     </div>
   );
 }
+
+const ROLL_RESULT =
+  "flex animate-pop-in flex-col items-center gap-1.5 rounded-xl border border-gold/30 bg-gradient-to-b from-raised/60 to-well/80 px-4 py-4 text-center shadow-[0_10px_30px_-18px_rgba(197,160,89,0.6)]";
+const ROLL_RESULT_LABEL =
+  "inline-flex items-center gap-1.5 text-[0.72rem] font-semibold uppercase tracking-[0.14em] text-muted";
+const ROLL_TOTAL =
+  "font-display text-5xl leading-none font-semibold tabular-nums text-ink";
+const ROLL_MATH = "text-sm tabular-nums text-muted";
+const ROLL_NOTES = "text-[0.8rem] leading-snug text-faint";
+const ROLL_FLAG = "inline-flex items-center gap-1.5 text-sm font-semibold";
 
 function ActionRolls({
   dice,
@@ -1992,14 +2383,15 @@ function ActionRolls({
 
   return (
     <Stack gap={6}>
-      <Row gap={8} wrap>
+      <Row gap={6} wrap>
         {dice.includes("attack") ? (
           <button
             type="button"
-            className="roll-btn compact"
+            className={LINE_ROLL_BTN}
             disabled={cantAct}
             onClick={rollAttack}
           >
+            <Target aria-hidden />
             To hit {signed(attackBonus)}
             {attackMode ? ` ${attackMode}` : ""}
           </button>
@@ -2007,32 +2399,40 @@ function ActionRolls({
         {dice.includes("damage") ? (
           <button
             type="button"
-            className="roll-btn compact"
+            className={cx(LINE_ROLL_BTN, crit && "border-gold/70 text-gold-soft")}
             disabled={cantAct}
             onClick={rollDamage}
           >
+            <Sword aria-hidden />
             {crit
               ? `Crit 2d${GARY.fisticuffsDie}+${GARY.fisticuffsBonus}`
               : `Damage 1d${GARY.fisticuffsDie}+${GARY.fisticuffsBonus}`}
           </button>
         ) : null}
         {dice.includes("brace") ? (
-          <button type="button" className="roll-btn compact" onClick={rollBrace}>
+          <button type="button" className={LINE_ROLL_BTN} onClick={rollBrace}>
+            <ShieldPlus aria-hidden />
             Brace Up 1d{GARY.fisticuffsDie}+{GARY.braceBonus}
           </button>
         ) : null}
         {dice.includes("swagger") ? (
           <button
             type="button"
-            className="roll-btn compact"
+            className={LINE_ROLL_BTN}
             disabled={!sheet.swagger}
             onClick={rollSwagger}
           >
+            <Sparkles aria-hidden />
             {sheet.swagger ? "Swagger +1d10" : "Swagger used"}
           </button>
         ) : null}
       </Row>
-      {line ? <div className="line-roll">{line}</div> : null}
+      {line ? (
+        <div className="inline-flex w-fit animate-pop-in items-center gap-1.5 rounded-md border border-gold/25 bg-gold/[0.06] px-2.5 py-1 text-sm tabular-nums text-gold-soft">
+          <Dices className="size-3.5 shrink-0" aria-hidden />
+          {line}
+        </div>
+      ) : null}
     </Stack>
   );
 }
@@ -2094,16 +2494,32 @@ function DiceRoller() {
     );
   }
 
+  const DICE_KEY =
+    "min-h-10 cursor-pointer rounded-lg border text-sm font-medium tabular-nums transition-colors";
+
   return createPortal(
-    <div className="dice-dock">
+    <div className="fixed right-3 bottom-3 z-40 flex flex-col items-end gap-2">
       {open ? (
-        <div className="dice-panel" role="dialog" aria-label="Dice">
-          <div className="dice-sizes">
+        <div
+          className="flex max-h-[min(70vh,480px)] w-[min(288px,calc(100vw-24px))] animate-pop-in flex-col gap-2.5 overflow-auto rounded-2xl border border-gold/30 bg-surface p-3 shadow-[0_24px_48px_-16px_rgba(0,0,0,0.9)]"
+          role="dialog"
+          aria-label="Dice"
+        >
+          <div className="flex items-center gap-1.5 font-display text-xs font-semibold uppercase tracking-[0.16em] text-gold-soft">
+            <Dices className="size-4 text-gold" aria-hidden />
+            Dice tray
+          </div>
+          <div className="grid grid-cols-4 gap-1.5">
             {DICE_SIDES.map((n) => (
               <button
                 key={n}
                 type="button"
-                className={sides === n ? "on" : ""}
+                className={cx(
+                  DICE_KEY,
+                  sides === n
+                    ? "border-gold bg-gradient-to-b from-gold-soft to-gold text-void"
+                    : "border-line bg-well/70 text-ink hover:border-gold/50",
+                )}
                 aria-pressed={sides === n}
                 onClick={() => setSides(n)}
               >
@@ -2111,45 +2527,57 @@ function DiceRoller() {
               </button>
             ))}
           </div>
-          <div className="dice-count">
+          <div className="flex items-center justify-center gap-3">
             <button
               type="button"
               aria-label="Fewer dice"
+              className={cx(DICE_KEY, "grid w-10 place-items-center border-line bg-well/70 text-ink hover:border-gold/50")}
               onClick={() => setCount((n) => Math.max(1, n - 1))}
             >
-              −
+              <Minus className="size-4" aria-hidden />
             </button>
-            <span>{count}</span>
+            <span className="min-w-[2ch] text-center text-xl font-semibold tabular-nums">
+              {count}
+            </span>
             <button
               type="button"
               aria-label="More dice"
+              className={cx(DICE_KEY, "grid w-10 place-items-center border-line bg-well/70 text-ink hover:border-gold/50")}
               onClick={() => setCount((n) => Math.min(20, n + 1))}
             >
-              +
+              <Plus className="size-4" aria-hidden />
             </button>
           </div>
-          <button type="button" className="dice-roll" onClick={roll}>
+          <Button variant="primary" icon={Dices} onClick={roll}>
             Roll {count}d{sides}
-          </button>
+          </Button>
           {latest ? (
-            <div className="dice-latest">
-              <div className="dice-latest-total">{latest.total}</div>
-              <div className="dice-latest-detail">
+            <div className="border-t border-line pt-2 text-center">
+              <div className="font-display text-[2.6rem] leading-none font-semibold tabular-nums text-gold-soft">
+                {latest.total}
+              </div>
+              <div className="mt-1 text-center text-[0.8rem] tabular-nums text-faint">
                 {latest.count}d{latest.sides}
                 {latest.faces.length > 1 ? ` · ${latest.faces.join(" + ")}` : ""}
               </div>
             </div>
           ) : (
-            <p className="dice-latest-detail">Pick a die and roll.</p>
+            <p className="m-0 text-center text-[0.8rem] text-faint">
+              Pick a die and roll.
+            </p>
           )}
           {log.length > 1 ? (
-            <ol className="dice-log">
+            <ol className="m-0 flex list-none flex-col gap-1 border-t border-line p-0 pt-2">
               {log.slice(1).map((entry) => (
-                <li key={entry.id}>
-                  <span>
+                <li
+                  key={entry.id}
+                  className="flex justify-between text-[0.8rem] tabular-nums text-muted"
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    <History className="size-3 text-faint" aria-hidden />
                     {entry.count}d{entry.sides}
                   </span>
-                  <span>{entry.total}</span>
+                  <span className="font-semibold text-ink">{entry.total}</span>
                 </li>
               ))}
             </ol>
@@ -2158,10 +2586,20 @@ function DiceRoller() {
       ) : null}
       <button
         type="button"
-        className="dice-fab"
+        className={cx(
+          "inline-flex h-14 cursor-pointer items-center gap-2 rounded-full border px-5 font-display text-sm font-semibold tracking-[0.12em] uppercase shadow-[0_12px_28px_-8px_rgba(0,0,0,0.85)] transition-colors",
+          open
+            ? "border-gold/60 bg-surface text-gold-soft"
+            : "border-gold bg-gradient-to-b from-gold-soft to-gold text-void",
+        )}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
+        {open ? (
+          <X className="size-5" aria-hidden />
+        ) : (
+          <Dices className="size-5" aria-hidden />
+        )}
         Dice
       </button>
     </div>,
@@ -2370,340 +2808,516 @@ export function GaryCombatTool() {
   const penalty = effects.d20Penalty;
   const attackMode = ROLL_SHORT[effects.attack.roll];
 
+  const [reference, setReference] = useState<"cheat" | "glossary" | null>(
+    null,
+  );
+  const attackTone =
+    cantAct || penalty > 0 || effects.attack.roll === "disadvantage"
+      ? "bad"
+      : effects.attack.roll === "advantage"
+        ? "good"
+        : "normal";
+
   return (
-    <Stack gap={16}>
-      <Stack gap={4}>
-        <h1>Gary Grapplesauce</h1>
-        <Text tone="secondary">
-          {effects.dead
-            ? "Dead · Exhaustion 6"
-            : [
-                cantAct
-                  ? "Can’t act"
-                  : `${signed(GARY.attack - penalty)}${attackMode ? ` (${attackMode})` : ""} / ${GARY.damage}`,
-                `AC ${GARY.ac}`,
-                `Athletics ${signed(GARY.athletics - penalty)}`,
-                effects.speed.value !== GARY.speed
-                  ? `Speed ${effects.speed.value} ft`
-                  : null,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-        </Text>
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:items-start lg:gap-6">
+      <Stack gap={14} className="lg:sticky lg:top-4">
+        <header className="flex flex-col gap-3">
+          <div>
+            <div className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-faint">
+              Pugilist 9 · Squared Circle
+            </div>
+            <h1 className="text-[1.9rem] leading-tight font-semibold text-gold-soft sm:text-4xl">
+              Gary Grapplesauce
+            </h1>
+          </div>
+          {effects.dead ? (
+            <div className="inline-flex w-fit items-center gap-2 rounded-lg border border-crimson/60 bg-crimson/20 px-3 py-1.5 text-sm font-semibold text-crimson-soft">
+              <Skull className="size-4" aria-hidden />
+              Dead · Exhaustion 6
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-1.5">
+              <Stat
+                icon={Swords}
+                label="Attack"
+                tone={attackTone}
+                value={
+                  cantAct
+                    ? "Can’t act"
+                    : `${signed(GARY.attack - penalty)}${attackMode ? ` ${attackMode}` : ""}`
+                }
+              />
+              <Stat icon={Sword} label="Damage" value={GARY.damage.split(" ")[0]} />
+              <Stat icon={ShieldHalf} label="AC" value={GARY.ac} />
+              <Stat
+                icon={BicepsFlexed}
+                label="Athletics"
+                tone={penalty > 0 ? "bad" : "normal"}
+                value={signed(GARY.athletics - penalty)}
+              />
+              <Stat
+                icon={Footprints}
+                label="Speed"
+                tone={effects.speed.value !== GARY.speed ? "bad" : "normal"}
+                value={`${effects.speed.value} ft`}
+              />
+              <Stat
+                icon={Zap}
+                label="Init"
+                tone={penalty > 0 ? "bad" : "normal"}
+                value={signed(GARY.initiative - penalty)}
+              />
+            </div>
+          )}
+        </header>
+
+        <StatusBar
+          sheet={sheet}
+          setSheet={setSheet}
+          onEffectsDetails={() => setTab("conds")}
+        />
+
+        {effects.dead || (tab === "play" && cantAct) ? (
+          <Callout
+            title={effects.dead ? "Gary is dead — Exhaustion 6" : "Gary can’t act"}
+            tone="warning"
+            icon={effects.dead ? Skull : Ban}
+          >
+            {effects.dead
+              ? "Exhaustion 6 is instant death (no death saves). The decision tree is off. If the DM revives him, lower Exhaustion on the Conds tab."
+              : `${reasonText(effects.cantAct)}: no Action, Bonus Action, or Reaction — Moxie options are off until this ends.`}
+          </Callout>
+        ) : effects.d20Penalty === 2 * (EXHAUSTION_DEATH - 1) && tab === "play" ? (
+          <Callout
+            title="Exhaustion 5 — one level from death"
+            tone="warning"
+            icon={TriangleAlert}
+          >
+            Don’t Dig Deep again or take anything else that adds Exhaustion. A
+            long rest drops it to 4.
+          </Callout>
+        ) : null}
       </Stack>
 
-      <StatusBar
-        sheet={sheet}
-        setSheet={setSheet}
-        onEffectsDetails={() => setTab("conds")}
-      />
-
-      {effects.dead || (tab === "play" && cantAct) ? (
-        <Callout
-          title={effects.dead ? "Gary is dead — Exhaustion 6" : "Gary can’t act"}
-          tone="warning"
+      <Stack gap={14} className="min-w-0">
+        <div
+          className="grid grid-cols-5 gap-1 rounded-xl border border-line bg-well/80 p-1"
+          role="tablist"
+          aria-label="Main mode"
         >
-          {effects.dead
-            ? "Exhaustion 6 is instant death (no death saves). The decision tree is off. If the DM revives him, lower Exhaustion on the Conds tab."
-            : `${reasonText(effects.cantAct)}: no Action, Bonus Action, or Reaction — Moxie options are off until this ends.`}
-        </Callout>
-      ) : effects.d20Penalty === 2 * (EXHAUSTION_DEATH - 1) && tab === "play" ? (
-        <Callout title="Exhaustion 5 — one level from death" tone="warning">
-          Don’t Dig Deep again or take anything else that adds Exhaustion. A
-          long rest drops it to 4.
-        </Callout>
-      ) : null}
+          {MAIN_TABS.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={tab === id}
+              className={cx(
+                "flex min-h-12 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-lg text-[0.78rem] font-semibold transition-colors sm:flex-row sm:gap-1.5 sm:text-sm",
+                tab === id
+                  ? "bg-surface text-gold-soft shadow-[inset_0_-2px_0_0_var(--color-gold)]"
+                  : "text-muted hover:bg-surface/60 hover:text-ink",
+              )}
+              onClick={() => setTab(id)}
+            >
+              <Icon className="size-4" aria-hidden />
+              {label}
+            </button>
+          ))}
+        </div>
 
-      <div className="tab-bar" role="tablist" aria-label="Main mode">
-        {(
-          [
-            ["play", "Play"],
-            ["hit", "Hit"],
-            ["roll", "Roll"],
-            ["conds", "Conds"],
-            ["rest", "Rest"],
-          ] as const
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={tab === id}
-            className={`tab-btn${tab === id ? " active" : ""}`}
-            onClick={() => setTab(id)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {tab === "play" ? (
-        <Stack gap={12}>
-          {!effects.dead && phase === "timing" && (
-            <Card>
-              <CardHeader>What just happened?</CardHeader>
-              <CardBody>
-                <Stack gap={12}>
-                  <Row gap={8} wrap>
-                    <Button variant="primary" onClick={() => pickTiming("turn")}>
+        {tab === "play" ? (
+          <Stack gap={12}>
+            {!effects.dead && phase === "timing" && (
+              <Card>
+                <CardHeader icon={Compass}>What just happened?</CardHeader>
+                <CardBody>
+                  <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-3">
+                    <Button
+                      variant="primary"
+                      icon={Swords}
+                      onClick={() => pickTiming("turn")}
+                    >
                       My turn
                     </Button>
                     <Button
                       variant="secondary"
+                      icon={Zap}
                       onClick={() => pickTiming("reaction")}
                     >
                       Reaction
                     </Button>
                     <Button
                       variant="secondary"
+                      icon={RotateCcw}
                       onClick={() => pickTiming("check-fail")}
                     >
                       Failed check
                     </Button>
-                  </Row>
-                </Stack>
-              </CardBody>
-            </Card>
-          )}
+                  </div>
+                </CardBody>
+              </Card>
+            )}
 
-          {!effects.dead && phase === "reaction" && (
-            <Card>
-              <CardHeader>Reaction</CardHeader>
-              <CardBody>
-                <Stack gap={12}>
-                  <Row gap={8} wrap>
-                    <Button
-                      variant="primary"
-                      disabled={!canBloodiedReaction}
-                      onClick={() => pickReaction("bloodied")}
-                    >
-                      Bloodied + damage
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      onClick={() => pickReaction("mage-cast")}
-                    >
-                      Spell within 5 ft
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      onClick={() => pickReaction("opportunity")}
-                    >
-                      Left my reach
-                    </Button>
-                    <Button variant="ghost" onClick={() => pickReaction("other")}>
-                      Hold reaction
-                    </Button>
-                  </Row>
-                  {bloodiedBlockedReason ? (
-                    <Text tone="tertiary">
-                      Bloodied locked: {bloodiedBlockedReason}
-                    </Text>
-                  ) : null}
-                  <Button variant="ghost" onClick={resetDecision}>
-                    Back
-                  </Button>
-                </Stack>
-              </CardBody>
-            </Card>
-          )}
-
-          {!effects.dead && phase === "goal" && (
-            <Card>
-              <CardHeader>This turn</CardHeader>
-              <CardBody>
-                <Stack gap={12}>
-                  <Row gap={8} wrap>
-                    {availableGoals.map((g) => (
-                      <Button
-                        key={g.id}
-                        variant={g.variant}
-                        onClick={() => pickGoal(g.id)}
-                      >
-                        {g.cost > 0 ? `${g.label} · ${g.cost}` : g.label}
-                      </Button>
-                    ))}
-                  </Row>
-                  {hiddenGoals.length > 0 ? (
-                    <Text tone="tertiary">
-                      Need more Moxie:{" "}
-                      {hiddenGoals.map((g) => g.label).join(", ")}
-                    </Text>
-                  ) : null}
-                  <Button variant="ghost" onClick={resetDecision}>
-                    Back
-                  </Button>
-                </Stack>
-              </CardBody>
-            </Card>
-          )}
-
-          {!effects.dead && phase === "result" && plan && (
-            <Card>
-              <CardHeader trailing={<Pill>{plan.costLabel}</Pill>}>
-                {plan.title}
-              </CardHeader>
-              <CardBody>
-                <Stack gap={14}>
-                  {planSections(plan).map((section, index) => (
-                    <Stack key={section.heading} gap={6}>
-                      {index > 0 ? <Divider /> : null}
-                      <h3>{section.heading}</h3>
-                      <Text>{section.text}</Text>
-                      {section.dice.length > 0 ? (
-                        <ActionRolls
-                          dice={section.dice}
-                          sheet={sheet}
-                          setSheet={setSheet}
-                        />
-                      ) : null}
-                    </Stack>
-                  ))}
-                  <Text tone="secondary">{plan.gym}</Text>
-                  <PlanTips plan={plan} />
-                  <Row gap={8} wrap>
-                    {applyLabel(plan) ? (
+            {!effects.dead && phase === "reaction" && (
+              <Card>
+                <CardHeader icon={Zap}>Reaction</CardHeader>
+                <CardBody>
+                  <Stack gap={12}>
+                    <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
                       <Button
                         variant="primary"
-                        disabled={
-                          spentApplied ||
-                          (plan.apply === "moxie" && sheet.moxie < plan.cost)
-                        }
-                        onClick={applyPlan}
+                        icon={Droplet}
+                        disabled={!canBloodiedReaction}
+                        onClick={() => pickReaction("bloodied")}
                       >
-                        {applyLabel(plan)}
+                        Bloodied + damage
                       </Button>
-                    ) : null}
-                    {selectedGoal === "survive" &&
-                    sheet.digDeep &&
-                    plan.apply === "moxie" ? (
                       <Button
                         variant="secondary"
-                        disabled={spentApplied}
-                        onClick={() => {
-                          setSheet((s) => ({
-                            ...s,
-                            digDeep: false,
-                            digDeepActive: true,
-                          }));
-                        }}
+                        icon={WandSparkles}
+                        onClick={() => pickReaction("mage-cast")}
                       >
-                        Also Dig Deep
+                        Spell within 5 ft
                       </Button>
-                    ) : null}
-                    <Button variant="secondary" onClick={resetDecision}>
-                      New decision
-                    </Button>
-                    {timing === "turn" ? (
+                      <Button
+                        variant="secondary"
+                        icon={Footprints}
+                        onClick={() => pickReaction("opportunity")}
+                      >
+                        Left my reach
+                      </Button>
                       <Button
                         variant="ghost"
-                        onClick={() => {
-                          setSelectedGoal(null);
-                          setStaticPlan(null);
-                          setSpentApplied(false);
-                          setPhase("goal");
-                        }}
+                        icon={Hand}
+                        onClick={() => pickReaction("other")}
                       >
-                        Change goal
+                        Hold reaction
                       </Button>
+                    </div>
+                    {bloodiedBlockedReason ? (
+                      <Text tone="tertiary" className="inline-flex items-center gap-1.5">
+                        <Lock className="size-3.5 shrink-0" aria-hidden />
+                        Bloodied locked: {bloodiedBlockedReason}
+                      </Text>
                     ) : null}
-                  </Row>
-                </Stack>
+                    <Button
+                      variant="ghost"
+                      icon={ArrowLeft}
+                      className="w-fit"
+                      onClick={resetDecision}
+                    >
+                      Back
+                    </Button>
+                  </Stack>
+                </CardBody>
+              </Card>
+            )}
+
+            {!effects.dead && phase === "goal" && (
+              <Card>
+                <CardHeader icon={Target}>This turn</CardHeader>
+                <CardBody>
+                  <Stack gap={12}>
+                    <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
+                      {availableGoals.map((g) => (
+                        <Button
+                          key={g.id}
+                          variant={g.variant}
+                          icon={GOAL_ICONS[g.id]}
+                          onClick={() => pickGoal(g.id)}
+                        >
+                          {g.cost > 0 ? `${g.label} · ${g.cost}` : g.label}
+                        </Button>
+                      ))}
+                    </div>
+                    {hiddenGoals.length > 0 ? (
+                      <Text tone="tertiary" className="inline-flex items-center gap-1.5">
+                        <Lock className="size-3.5 shrink-0" aria-hidden />
+                        Need more Moxie:{" "}
+                        {hiddenGoals.map((g) => g.label).join(", ")}
+                      </Text>
+                    ) : null}
+                    <Button
+                      variant="ghost"
+                      icon={ArrowLeft}
+                      className="w-fit"
+                      onClick={resetDecision}
+                    >
+                      Back
+                    </Button>
+                  </Stack>
+                </CardBody>
+              </Card>
+            )}
+
+            {!effects.dead && phase === "result" && plan && (
+              <Card>
+                <CardHeader
+                  icon={ScrollText}
+                  trailing={
+                    <Pill active>
+                      <Flame className="size-3" aria-hidden />
+                      {plan.costLabel}
+                    </Pill>
+                  }
+                >
+                  {plan.title}
+                </CardHeader>
+                <CardBody>
+                  <Stack gap={14}>
+                    {planSections(plan).map((section, index) => {
+                      const Icon = SECTION_ICONS[section.heading] ?? Swords;
+                      return (
+                        <Stack key={section.heading} gap={6}>
+                          {index > 0 ? <Divider /> : null}
+                          <h3 className="inline-flex items-center gap-1.5 text-[0.78rem] font-semibold uppercase tracking-[0.14em] text-gold-soft">
+                            <Icon className="size-3.5 text-gold" aria-hidden />
+                            {section.heading}
+                          </h3>
+                          <Text>{section.text}</Text>
+                          {section.dice.length > 0 ? (
+                            <ActionRolls
+                              dice={section.dice}
+                              sheet={sheet}
+                              setSheet={setSheet}
+                            />
+                          ) : null}
+                        </Stack>
+                      );
+                    })}
+                    <div className="rounded-lg border-l-2 border-gold/60 bg-well/50 px-3 py-2 text-sm text-muted italic">
+                      {plan.gym}
+                    </div>
+                    <PlanTips plan={plan} />
+                    <Row gap={8} wrap>
+                      {applyLabel(plan) ? (
+                        <Button
+                          variant="primary"
+                          icon={spentApplied ? CircleCheck : Check}
+                          disabled={
+                            spentApplied ||
+                            (plan.apply === "moxie" && sheet.moxie < plan.cost)
+                          }
+                          onClick={applyPlan}
+                        >
+                          {applyLabel(plan)}
+                        </Button>
+                      ) : null}
+                      {selectedGoal === "survive" &&
+                      sheet.digDeep &&
+                      plan.apply === "moxie" ? (
+                        <Button
+                          variant="secondary"
+                          icon={Pickaxe}
+                          disabled={spentApplied}
+                          onClick={() => {
+                            setSheet((s) => ({
+                              ...s,
+                              digDeep: false,
+                              digDeepActive: true,
+                            }));
+                          }}
+                        >
+                          Also Dig Deep
+                        </Button>
+                      ) : null}
+                      <Button
+                        variant="secondary"
+                        icon={RotateCcw}
+                        onClick={resetDecision}
+                      >
+                        New decision
+                      </Button>
+                      {timing === "turn" ? (
+                        <Button
+                          variant="ghost"
+                          icon={Repeat}
+                          onClick={() => {
+                            setSelectedGoal(null);
+                            setStaticPlan(null);
+                            setSpentApplied(false);
+                            setPhase("goal");
+                          }}
+                        >
+                          Change goal
+                        </Button>
+                      ) : null}
+                    </Row>
+                  </Stack>
+                </CardBody>
+              </Card>
+            )}
+
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant="secondary"
+                icon={ListOrdered}
+                onClick={() => setReference("cheat")}
+              >
+                Priority cheat sheet
+              </Button>
+              <Button
+                variant="secondary"
+                icon={BookOpen}
+                onClick={() => setReference("glossary")}
+              >
+                Rules glossary
+              </Button>
+            </div>
+          </Stack>
+        ) : null}
+
+        {tab === "hit" ? (
+          <Card>
+            <CardHeader icon={HeartCrack}>I took a hit</CardHeader>
+            <CardBody>
+              <DamageAdjuster sheet={sheet} setSheet={setSheet} />
+            </CardBody>
+          </Card>
+        ) : null}
+
+        {tab === "roll" ? (
+          <Card>
+            <CardHeader icon={Dices}>Roll</CardHeader>
+            <CardBody>
+              <RollPanel sheet={sheet} setSheet={setSheet} />
+            </CardBody>
+          </Card>
+        ) : null}
+
+        {tab === "conds" ? (
+          <Stack gap={12}>
+            <Card>
+              <CardHeader icon={Activity}>Effects on Gary right now</CardHeader>
+              <CardBody>
+                <ConditionEffectsCard sheet={sheet} />
               </CardBody>
             </Card>
-          )}
+            <Card>
+              <CardHeader icon={ShieldAlert}>Conditions</CardHeader>
+              <CardBody>
+                <ConditionsPanel sheet={sheet} setSheet={setSheet} />
+              </CardBody>
+            </Card>
+          </Stack>
+        ) : null}
 
-          <details className="more-details">
-            <summary>Priority cheat sheet</summary>
-            <Stack gap={8}>
-              {[
-                "1. Bloodied But Unbowed if eligible.",
-                "2. Mage Slayer if they cast within 5 ft.",
-                "3. Live? Brace Up or Dig Deep.",
-                "4. Move? Stick and Move.",
-                "5. Else: Attack → Heavy Hitter → free punch.",
-                "6. Lockdown: Stop and Drop → Compression Lock.",
-                "7. Burst with One-Two when Moxie allows.",
-              ].map((line) => (
-                <div key={line} className="cheat-line">
-                  <Text>{line}</Text>
-                </div>
-              ))}
-            </Stack>
-          </details>
-
-          <details className="more-details">
-            <summary>Rules glossary (Pugilist)</summary>
-            <Stack gap={8}>
-              <Text tone="tertiary">
-                Summaries from the Sterling Vermin Pugilist 2024 write-up, with
-                Gary’s level-9 numbers where useful. Tap any ? in the UI for the
-                same blurbs.{" "}
-                <a href={PUGILIST_POST_URL} target="_blank" rel="noreferrer">
-                  Pugilist on D&D Beyond ↗
-                </a>
-              </Text>
-              <GlossaryList />
-            </Stack>
-          </details>
-        </Stack>
-      ) : null}
-
-      {tab === "hit" ? (
-        <Card>
-          <CardHeader>I took a hit</CardHeader>
-          <CardBody>
-            <DamageAdjuster sheet={sheet} setSheet={setSheet} />
-          </CardBody>
-        </Card>
-      ) : null}
-
-      {tab === "roll" ? (
-        <Card>
-          <CardHeader>Roll</CardHeader>
-          <CardBody>
-            <RollPanel sheet={sheet} setSheet={setSheet} />
-          </CardBody>
-        </Card>
-      ) : null}
-
-      {tab === "conds" ? (
-        <Stack gap={12}>
+        {tab === "rest" ? (
           <Card>
-            <CardHeader>Effects on Gary right now</CardHeader>
+            <CardHeader icon={Tent}>Rests & limited uses</CardHeader>
             <CardBody>
-              <ConditionEffectsCard sheet={sheet} />
+              <RestPanel sheet={sheet} setSheet={setSheet} />
             </CardBody>
           </Card>
-          <Card>
-            <CardHeader>Conditions</CardHeader>
-            <CardBody>
-              <ConditionsPanel sheet={sheet} setSheet={setSheet} />
-            </CardBody>
-          </Card>
-        </Stack>
-      ) : null}
+        ) : null}
 
-      {tab === "rest" ? (
-        <Card>
-          <CardHeader>Rests & limited uses</CardHeader>
-          <CardBody>
-            <RestPanel sheet={sheet} setSheet={setSheet} />
-          </CardBody>
-        </Card>
-      ) : null}
+        <footer className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-1 text-[0.8rem] text-faint">
+          <span className="inline-flex items-center gap-1.5">
+            <ScrollText className="size-3.5 text-gold/70" aria-hidden />
+            Rules:
+          </span>
+          <a
+            className="inline-flex items-center gap-1"
+            href={PUGILIST_POST_URL}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Pugilist class on D&D Beyond
+            <ExternalLink className="size-3" aria-hidden />
+          </a>
+          <a
+            className="inline-flex items-center gap-1"
+            href={RULES_GLOSSARY_URL}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Conditions (2024 Rules Glossary)
+            <ExternalLink className="size-3" aria-hidden />
+          </a>
+        </footer>
+      </Stack>
+
+      <Drawer
+        open={reference === "cheat"}
+        onClose={() => setReference(null)}
+        title="Priority cheat sheet"
+        icon={ListOrdered}
+      >
+        <ol className="m-0 flex list-none flex-col gap-1.5 p-0">
+          {[
+            "1. Bloodied But Unbowed if eligible.",
+            "2. Mage Slayer if they cast within 5 ft.",
+            "3. Live? Brace Up or Dig Deep.",
+            "4. Move? Stick and Move.",
+            "5. Else: Attack → Heavy Hitter → free punch.",
+            "6. Lockdown: Stop and Drop → Compression Lock.",
+            "7. Burst with One-Two when Moxie allows.",
+          ].map((line) => {
+            const [num, ...rest] = line.split(". ");
+            return (
+              <li
+                key={line}
+                className="flex items-start gap-3 rounded-lg border border-line bg-well/60 px-3 py-2.5"
+              >
+                <span className="grid size-6 shrink-0 place-items-center rounded-full border border-gold/50 font-display text-xs font-semibold text-gold-soft">
+                  {num}
+                </span>
+                <span className="text-[0.92rem]">{rest.join(". ")}</span>
+              </li>
+            );
+          })}
+        </ol>
+      </Drawer>
+
+      <Drawer
+        open={reference === "glossary"}
+        onClose={() => setReference(null)}
+        title="Rules glossary (Pugilist)"
+        icon={BookOpen}
+      >
+        <Stack gap={10}>
+          <Text tone="tertiary">
+            Summaries from the Sterling Vermin Pugilist 2024 write-up, with
+            Gary’s level-9 numbers where useful. Tap any ⓘ in the UI for the
+            same blurbs.{" "}
+            <a
+              className="inline-flex items-center gap-1"
+              href={PUGILIST_POST_URL}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Pugilist on D&D Beyond
+              <ExternalLink className="size-3" aria-hidden />
+            </a>
+          </Text>
+          <GlossaryList />
+        </Stack>
+      </Drawer>
 
       <DiceRoller />
-
-      <footer className="tool-sources">
-        <span>Rules:</span>
-        <a href={PUGILIST_POST_URL} target="_blank" rel="noreferrer">
-          Pugilist class on D&D Beyond ↗
-        </a>
-        <a href={RULES_GLOSSARY_URL} target="_blank" rel="noreferrer">
-          Conditions (2024 Rules Glossary) ↗
-        </a>
-      </footer>
-    </Stack>
+    </div>
   );
 }
+
+const MAIN_TABS: { id: MainTab; label: string; icon: LucideIcon }[] = [
+  { id: "play", label: "Play", icon: Swords },
+  { id: "hit", label: "Hit", icon: HeartCrack },
+  { id: "roll", label: "Roll", icon: Dices },
+  { id: "conds", label: "Conds", icon: ShieldAlert },
+  { id: "rest", label: "Rest", icon: Tent },
+];
+
+const GOAL_ICONS: Record<Goal, LucideIcon> = {
+  damage: Sword,
+  control: Grab,
+  survive: Shield,
+  reposition: Footprints,
+  mage: WandSparkles,
+  unsure: CircleHelp,
+};
+
+const SECTION_ICONS: Record<string, LucideIcon> = {
+  Action: Swords,
+  "Bonus Action": Zap,
+  Reaction: Hand,
+};

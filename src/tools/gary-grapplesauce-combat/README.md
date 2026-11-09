@@ -120,7 +120,7 @@ When unsure: punch, then offer a spot. Signature lines live on the DDB notes (�
 
 ## Tooltips / glossary
 
-Tap any **?** next to a feature name (or open **Rules glossary** on the Play tab). Copy lives in `glossary.ts`, primarily from the official Sterling Vermin Pugilist 2024 D&D Beyond announcement:
+Tap any **ⓘ** next to a feature name (or open the **Rules glossary** drawer on the Play tab). Copy lives in `glossary.ts`, primarily from the official Sterling Vermin Pugilist 2024 D&D Beyond announcement:
 
 https://www.dndbeyond.com/posts/2130-the-pugilist-class-comes-brawling-onto-d-d-beyond
 
@@ -129,7 +129,9 @@ Gary-specific math (e.g. Brace Up `1d10+12`, Bloodied temp HP 36) is annotated i
 ## Editing this tool
 
 - Code: `Tool.tsx` (UI + logic), `meta.ts` (home card), `glossary.ts` / `Tip.tsx` (rules tips)
-- Shared chrome: `src/ui`, persistence: `src/lib/usePersistentState.ts`
+- Shared chrome: `src/ui` (Card, Button, Stat, Accordion, Drawer…), persistence: `src/lib/usePersistentState.ts`
+- Styling: Tailwind v4 utilities in markup; palette and fonts are `@theme` tokens in `src/styles.css` (`void` #0B0C10, `surface` #1F2833, `gold` #C5A059, `crimson`; Cinzel headings, Inter body). Icons are `lucide-react`.
+- Long reference text (cheat sheet, Pugilist glossary, condition reference) lives in slide-out drawers, not inline
 - Register only via `src/tools/registry.ts` (already registered)
 - After changes in this repo: describe with `jj`, move `main` to `@`, `jj git push --bookmark main` (auto-push preferred)
 

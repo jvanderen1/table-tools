@@ -22,8 +22,7 @@ import {
 } from "lucide-react";
 import {
   DEFAULT_MODELS,
-  KEY_URLS,
-  PROVIDER_LABELS,
+  PROVIDERS,
   generateText,
   listModels,
   loadAiSettings,
@@ -403,18 +402,20 @@ function AiSettingsForm({
     initial?.provider ?? "anthropic",
   );
   const [apiKey, setApiKey] = useState(initial?.apiKey ?? "");
+  const [baseUrl, setBaseUrl] = useState(initial?.baseUrl ?? "");
   const [model, setModel] = useState(
     initial?.model ?? DEFAULT_MODELS[initial?.provider ?? "anthropic"],
   );
   const [models, setModels] = useState<string[]>([]);
   const [checking, setChecking] = useState(false);
   const [check, setCheck] = useState<{ ok: boolean; text: string } | null>(null);
+  const info = PROVIDERS[provider];
 
   async function checkKey() {
     setChecking(true);
     setCheck(null);
     try {
-      const ids = await listModels(provider, apiKey.trim());
+      const ids = await listModels(provider, apiKey.trim(), baseUrl.trim());
       setModels(ids);
       if (!model || !ids.includes(model)) setModel(suggestModel(provider, ids));
       setCheck({ ok: true, text: `Key works · ${ids.length} models available.` });
@@ -426,6 +427,9 @@ function AiSettingsForm({
   }
 
   const trimmedKey = apiKey.trim();
+  const canSave =
+    !!model.trim() &&
+    (provider === "compatible" ? !!baseUrl.trim() : !!trimmedKey);
 
   return (
     <Stack gap={14}>
@@ -448,13 +452,30 @@ function AiSettingsForm({
             setCheck(null);
           }}
         >
-          {(Object.keys(PROVIDER_LABELS) as AiProvider[]).map((p) => (
+          {(Object.keys(PROVIDERS) as AiProvider[]).map((p) => (
             <option key={p} value={p}>
-              {PROVIDER_LABELS[p]}
+              {PROVIDERS[p].label}
             </option>
           ))}
         </select>
+        <span className="text-xs text-faint">{info.blurb}</span>
       </label>
+
+      {provider === "compatible" ? (
+        <label className="flex flex-col gap-1">
+          <span className={LABEL}>Base URL</span>
+          <input
+            className={cx(FIELD, "font-mono")}
+            spellCheck={false}
+            placeholder="https://openrouter.ai/api/v1"
+            value={baseUrl}
+            onChange={(e) => {
+              setBaseUrl(e.target.value);
+              setCheck(null);
+            }}
+          />
+        </label>
+      ) : null}
 
       <label className="flex flex-col gap-1">
         <span className={LABEL}>API key</span>
@@ -463,7 +484,7 @@ function AiSettingsForm({
           type="password"
           autoComplete="off"
           spellCheck={false}
-          placeholder={provider === "anthropic" ? "sk-ant-…" : "sk-…"}
+          placeholder={info.keyHint}
           value={apiKey}
           onChange={(e) => {
             setApiKey(e.target.value);
@@ -472,11 +493,11 @@ function AiSettingsForm({
         />
         <a
           className="inline-flex w-fit items-center gap-1 text-xs"
-          href={KEY_URLS[provider]}
+          href={info.keyUrl}
           target="_blank"
           rel="noreferrer"
         >
-          Get a {PROVIDER_LABELS[provider]} key
+          Get a {info.label} key
           <ExternalLink className="size-3" aria-hidden />
         </a>
       </label>
@@ -484,7 +505,10 @@ function AiSettingsForm({
       <Button
         variant="secondary"
         icon={checking ? LoaderCircle : Check}
-        disabled={!trimmedKey || checking}
+        disabled={
+          checking ||
+          (provider === "compatible" ? !baseUrl.trim() : !trimmedKey)
+        }
         onClick={() => void checkKey()}
       >
         Check key & load models
@@ -517,7 +541,9 @@ function AiSettingsForm({
             className={cx(FIELD, "font-mono")}
             spellCheck={false}
             placeholder={
-              provider === "openai" ? "Check the key to list models" : "Model id"
+              provider === "openai" || provider === "compatible"
+                ? "Check the key to list models"
+                : info.defaultModel || "Model id"
             }
             value={model}
             onChange={(e) => setModel(e.target.value)}
@@ -541,9 +567,14 @@ function AiSettingsForm({
         <Button
           variant="primary"
           icon={Check}
-          disabled={!trimmedKey || !model.trim()}
+          disabled={!canSave}
           onClick={() =>
-            onSave({ provider, apiKey: trimmedKey, model: model.trim() })
+            onSave({
+              provider,
+              apiKey: trimmedKey,
+              model: model.trim(),
+              baseUrl: provider === "compatible" ? baseUrl.trim() : undefined,
+            })
           }
         >
           Save

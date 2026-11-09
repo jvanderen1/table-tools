@@ -33,7 +33,6 @@ import {
   Eraser,
   ExternalLink,
   Eye,
-  EyeOff,
   Flame,
   Footprints,
   Grab,
@@ -2898,10 +2897,6 @@ function DiceRoller() {
   const [pool, setPool] = useState<DicePool>({ 20: 1 });
   const [modifier, setModifier] = useState(0);
   const { log, record, clear } = useRollLog();
-  const [hidden, setHidden] = usePersistentState(
-    "gary-grapplesauce-combat:dice-hidden",
-    false,
-  );
   const latest = log[0];
   const now = useNow(open);
   const groups = poolGroups(pool);
@@ -2960,7 +2955,6 @@ function DiceRoller() {
     "inline-flex h-7 cursor-pointer items-center gap-1 rounded-md px-1.5 text-xs text-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-40";
   const SECTION_LABEL =
     "text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-faint";
-  const MASK = "•••";
 
   return createPortal(
     <div className="fixed right-3 bottom-3 z-40 flex flex-col items-end gap-2">
@@ -2976,19 +2970,6 @@ function DiceRoller() {
               Dice tray
             </div>
             <div className="flex items-center">
-              <button
-                type="button"
-                className={HEADER_BTN}
-                aria-pressed={hidden}
-                onClick={() => setHidden((h) => !h)}
-              >
-                {hidden ? (
-                  <EyeOff className="size-3.5" aria-hidden />
-                ) : (
-                  <Eye className="size-3.5" aria-hidden />
-                )}
-                {hidden ? "Show" : "Hide"}
-              </button>
               <button
                 type="button"
                 className={HEADER_BTN}
@@ -3117,22 +3098,17 @@ function DiceRoller() {
             {latest ? (
               <div className="flex min-h-0 flex-1 flex-col items-center justify-center">
                 <div
-                  key={`${latest.id}-${hidden}`}
+                  key={latest.id}
                   className={cx(
                     "animate-pop-in font-display text-[2.4rem] leading-none font-semibold tabular-nums",
-                    hidden
-                      ? "text-faint"
-                      : latest.flag
-                        ? FLAG_TONE[latest.flag]
-                        : "text-gold-soft",
+                    latest.flag ? FLAG_TONE[latest.flag] : "text-gold-soft",
                   )}
-                  aria-label={hidden ? "Result hidden" : undefined}
                 >
-                  {hidden ? MASK : (latest.result ?? latest.total)}
+                  {latest.result ?? latest.total}
                 </div>
                 <div className="mt-1 line-clamp-2 h-8 w-full text-[0.72rem] leading-4 tabular-nums text-faint">
                   <span className="text-muted">{latest.label}</span> ·{" "}
-                  {hidden ? latest.expression : latest.breakdown}
+                  {latest.breakdown}
                 </div>
               </div>
             ) : (
@@ -3191,16 +3167,14 @@ function DiceRoller() {
                   <span
                     className={cx(
                       "shrink-0 text-base font-semibold",
-                      hidden
-                        ? "text-faint"
-                        : entry.flag
-                          ? FLAG_TONE[entry.flag]
-                          : i === 0
-                            ? "text-gold-soft"
-                            : "text-ink",
+                      entry.flag
+                        ? FLAG_TONE[entry.flag]
+                        : i === 0
+                          ? "text-gold-soft"
+                          : "text-ink",
                     )}
                   >
-                    {hidden ? MASK : (entry.result ?? entry.total)}
+                    {entry.result ?? entry.total}
                   </span>
                 </li>
               ))
@@ -3303,6 +3277,7 @@ export function GaryCombatTool() {
   // Migrate old moxie-only key once
   useEffect(() => {
     try {
+      localStorage.removeItem("table-tools:gary-grapplesauce-combat:dice-hidden");
       const legacy = localStorage.getItem(
         "table-tools:gary-grapplesauce-combat:moxie",
       );

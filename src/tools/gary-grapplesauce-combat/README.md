@@ -126,7 +126,7 @@ Buttons use the same condition math as the effects card (Exhaustion −2 per lev
 | Initiative | +3 |
 | Unarmed | +9 to hit (nat 20 crit, nat 1 miss), with Damage 1d10+5 beside it (2d10+5 after a crit) |
 
-A **Dice** button floats in the bottom-right corner. Tap dice to build a mixed pool (up to 20 of each of d4, d6, d8, d10, d12, d20, and d100), set a modifier, and roll. The tray has a fixed height: the pool scrolls sideways and only the log scrolls, so nothing moves while you build or roll. **Hide** masks every total (the setting is remembered) and **Clear log** empties the history. It does not change HP.
+A **Dice** button floats in the bottom-right corner. Tap dice to build a mixed pool (up to 20 of each of d4, d6, d8, d10, d12, d20, and d100), set a modifier, and roll. The tray has a fixed height: the pool scrolls sideways and only the log scrolls, so nothing moves while you build or roll. **Reset** empties the pool and **Clear log** empties the history. It does not change HP.
 
 **Every roll is logged in one place.** Roll tab saves/checks/attacks/damage/Swagger, the Play-plan dice (to-hit, damage, Brace Up, Swagger), and the tray all write to the shared log in `rollLog.ts` (React context provided by `GaryCombatTool`, persisted under `roll-log`, last 50). The tray's **Latest roll** box shows the newest roll from anywhere with how long ago it was. The **Roll log** under it lists every roll including that one (gold-outlined, tagged “Latest”), each with its time ago; hover or long-press a row for the exact time. Crits are gold, misses and auto-fails red.
 

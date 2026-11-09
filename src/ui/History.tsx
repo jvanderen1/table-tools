@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { History, Redo2, RotateCcw, Undo2 } from "lucide-react";
 import { cx } from "../lib/cx";
+import { clockTime, timeAgo, useNow } from "../lib/time";
 import { Button, Drawer, Stack, Text } from "./index";
 
 type Step = { id: string; at: number; label: string };
@@ -17,17 +18,6 @@ export type Timeline = {
 export type Track = { name: string; timeline: Timeline };
 
 type TaggedStep = Step & { track: Track };
-
-function ago(at: number, now: number) {
-  const s = Math.max(0, Math.round((now - at) / 1000));
-  if (s < 10) return "just now";
-  if (s < 60) return `${s}s ago`;
-  const m = Math.round(s / 60);
-  if (m < 60) return `${m} min ago`;
-  const h = Math.round(m / 60);
-  if (h < 24) return `${h} h ago`;
-  return new Date(at).toLocaleDateString();
-}
 
 function isTyping(target: EventTarget | null) {
   const el = target as HTMLElement | null;
@@ -53,7 +43,6 @@ export function UndoBar({
   onTravel?: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [now, setNow] = useState(0);
   const [toast, setToast] = useState<{ id: number; text: string } | null>(null);
   const timer = useRef<number | undefined>(undefined);
 
@@ -135,6 +124,7 @@ export function UndoBar({
     };
   }, []);
 
+  const now = useNow(open);
   const PILL_BTN =
     "inline-flex h-full cursor-pointer items-center gap-1.5 px-3 text-sm font-medium text-ink transition-colors hover:bg-raised/70 hover:text-gold-soft disabled:cursor-not-allowed disabled:text-faint disabled:hover:bg-transparent";
 
@@ -177,10 +167,7 @@ export function UndoBar({
               className={cx(PILL_BTN, "pr-4")}
               aria-label="History"
               title="History"
-              onClick={() => {
-                setNow(Date.now());
-                setOpen(true);
-              }}
+              onClick={() => setOpen(true)}
             >
               <History className="size-4" aria-hidden />
             </button>
@@ -214,7 +201,7 @@ export function UndoBar({
                     </div>
                     <div className="text-xs">
                       Undone{showTrack ? ` · ${step.track.name}` : ""} ·{" "}
-                      {ago(step.at, now)}
+                      <time title={clockTime(step.at)}>{timeAgo(step.at, now)}</time>
                     </div>
                   </div>
                   <Button size="sm" variant="ghost" icon={Redo2} onClick={() => redoTo(step)}>
@@ -244,7 +231,7 @@ export function UndoBar({
                     <div className="truncate text-sm text-ink">{step.label}</div>
                     <div className="text-xs text-faint">
                       {showTrack ? `${step.track.name} · ` : ""}
-                      {ago(step.at, now)}
+                      <time title={clockTime(step.at)}>{timeAgo(step.at, now)}</time>
                     </div>
                   </div>
                   <Button

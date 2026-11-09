@@ -16,7 +16,7 @@ Hash routes work offline-friendly on phones:
 
 ### Offline and data safety
 
-- A service worker (`vite-plugin-pwa`, `vite.config.ts`) precaches the app, icons, and fonts, so once opened it loads with no connection. New versions install in the background and take over on the next launch — never a forced reload mid-session.
+- A service worker (`vite-plugin-pwa`, `vite.config.ts`) precaches the app, icons, and fonts, so once opened it loads with no connection. `src/UpdatePrompt.tsx` checks for a new version on launch, every 30 minutes, and whenever the app returns to the foreground. If you haven’t tapped anything yet it reloads straight into the new version; otherwise a “New version ready · Reload” banner waits for you, so a reload never lands mid-fight. Saved data survives either way.
 - Fonts are self-hosted (`@fontsource-variable/*`), no Google Fonts call.
 - Tool state lives in `localStorage` under `table-tools:*`. The app asks the browser to keep it (`navigator.storage.persist()`), and the **Backup** button in the header saves/restores everything as a JSON file or text. Add the site to the Home Screen on iOS so Safari doesn’t clear it after a week unused.
 

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ArrowLeft, ChevronRight, DatabaseBackup, Dices } from "lucide-react";
 import { Link, Navigate, Route, Routes, useParams } from "react-router-dom";
 import { BackupDrawer } from "./BackupDrawer";
+import { UpdatePrompt } from "./UpdatePrompt";
 import { getTool, tools } from "./tools/registry";
 import { Stack, Text } from "./ui";
 
@@ -87,6 +88,7 @@ export default function App() {
         </div>
       </header>
       <BackupDrawer open={backupOpen} onClose={() => setBackupOpen(false)} />
+      <UpdatePrompt />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/tools/:toolId" element={<ToolPage />} />

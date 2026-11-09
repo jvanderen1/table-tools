@@ -13,9 +13,10 @@ export default defineConfig({
     VitePWA({
       // public/site.webmanifest stays the manifest so the installed app keeps its identity
       manifest: false,
-      // No forced reload: a new version takes over on the next launch, never mid-fight
-      registerType: "autoUpdate",
-      injectRegister: "script",
+      // src/UpdatePrompt.tsx registers the worker: it applies updates on an
+      // untouched launch, otherwise asks first so a reload never lands mid-fight
+      registerType: "prompt",
+      injectRegister: false,
       workbox: {
         globPatterns: [
           "**/*.{js,css,html,ico,png,jpg,webmanifest}",

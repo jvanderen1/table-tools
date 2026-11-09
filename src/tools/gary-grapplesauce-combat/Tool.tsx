@@ -42,7 +42,6 @@ import {
   Heart,
   HeartCrack,
   HeartPulse,
-  History,
   Hourglass,
   Info,
   Lightbulb,
@@ -79,6 +78,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { usePersistentState } from "../../lib/usePersistentState";
+import { clockTime, timeAgo, useNow } from "../../lib/time";
 import { useUndoableState, type Change } from "../../lib/useUndoableState";
 import { UndoBar } from "../../ui/History";
 import {
@@ -2903,6 +2903,7 @@ function DiceRoller() {
     false,
   );
   const latest = log[0];
+  const now = useNow(open);
   const groups = poolGroups(pool);
   const expression = diceExpression(groups, modifier);
 
@@ -3095,9 +3096,26 @@ function DiceRoller() {
             </span>
           </Button>
 
-          <div className="flex h-[5.25rem] shrink-0 flex-col items-center justify-center rounded-xl border border-line bg-well/50 px-2 text-center">
+          <div
+            className={cx(
+              "flex h-[6.5rem] shrink-0 flex-col rounded-xl border px-2.5 pt-1.5 pb-2 text-center",
+              latest ? "border-gold/45 bg-gold/[0.07]" : "border-line bg-well/50",
+            )}
+          >
+            <div className="flex h-4 shrink-0 items-center justify-between gap-2">
+              <span className={SECTION_LABEL}>Latest roll</span>
+              {latest ? (
+                <time
+                  className="text-[0.68rem] tabular-nums text-muted"
+                  dateTime={new Date(latest.at).toISOString()}
+                  title={clockTime(latest.at)}
+                >
+                  {timeAgo(latest.at, now)}
+                </time>
+              ) : null}
+            </div>
             {latest ? (
-              <>
+              <div className="flex min-h-0 flex-1 flex-col items-center justify-center">
                 <div
                   key={`${latest.id}-${hidden}`}
                   className={cx(
@@ -3116,15 +3134,17 @@ function DiceRoller() {
                   <span className="text-muted">{latest.label}</span> ·{" "}
                   {hidden ? latest.expression : latest.breakdown}
                 </div>
-              </>
+              </div>
             ) : (
-              <span className="text-[0.8rem] text-faint">Nothing rolled yet.</span>
+              <span className="grid flex-1 place-items-center text-[0.8rem] text-faint">
+                Nothing rolled yet.
+              </span>
             )}
           </div>
 
           <div className="flex h-6 shrink-0 items-center justify-between gap-2">
             <span className={SECTION_LABEL}>
-              All rolls{log.length > 1 ? ` · ${log.length - 1} earlier` : ""}
+              Roll log{log.length > 0 ? ` · ${log.length}` : ""}
             </span>
             <button
               type="button"
@@ -3138,27 +3158,46 @@ function DiceRoller() {
           </div>
 
           <ol className="m-0 flex min-h-0 flex-1 list-none flex-col gap-1 overflow-y-auto border-t border-line p-0 pt-2">
-            {log.length > 1 ? (
-              log.slice(1).map((entry) => (
+            {log.length > 0 ? (
+              log.map((entry, i) => (
                 <li
                   key={entry.id}
-                  className="flex shrink-0 justify-between gap-2 text-[0.8rem] tabular-nums text-muted"
+                  title={`${entry.label} · ${clockTime(entry.at)}`}
+                  className={cx(
+                    "flex h-11 shrink-0 items-center gap-2 rounded-lg border px-2 tabular-nums",
+                    i === 0
+                      ? "border-gold/45 bg-gold/[0.07]"
+                      : "border-transparent",
+                  )}
                 >
-                  <span className="inline-flex min-w-0 items-center gap-1.5">
-                    <History className="size-3 shrink-0 text-faint" aria-hidden />
-                    <span className="truncate">
-                      <span className="text-ink/85">{entry.label}</span>
-                      <span className="text-faint"> · {entry.expression}</span>
-                    </span>
-                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="truncate text-[0.8rem] text-ink/90">
+                        {entry.label}
+                      </span>
+                      {i === 0 ? (
+                        <span className="shrink-0 rounded bg-gold/20 px-1 text-[0.58rem] font-semibold tracking-[0.1em] text-gold-soft uppercase">
+                          Latest
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="truncate text-[0.7rem] text-faint">
+                      {entry.expression} ·{" "}
+                      <time dateTime={new Date(entry.at).toISOString()}>
+                        {timeAgo(entry.at, now)}
+                      </time>
+                    </div>
+                  </div>
                   <span
                     className={cx(
-                      "shrink-0 font-semibold",
+                      "shrink-0 text-base font-semibold",
                       hidden
                         ? "text-faint"
                         : entry.flag
                           ? FLAG_TONE[entry.flag]
-                          : "text-ink",
+                          : i === 0
+                            ? "text-gold-soft"
+                            : "text-ink",
                     )}
                   >
                     {hidden ? MASK : (entry.result ?? entry.total)}
@@ -3166,7 +3205,7 @@ function DiceRoller() {
                 </li>
               ))
             ) : (
-              <li className="text-[0.8rem] text-faint">No earlier rolls.</li>
+              <li className="text-[0.8rem] text-faint">No rolls yet.</li>
             )}
           </ol>
         </div>

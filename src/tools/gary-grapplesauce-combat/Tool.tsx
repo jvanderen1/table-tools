@@ -2464,13 +2464,21 @@ function ConditionsPanel({
 function RestPanel({
   sheet,
   setSheet,
+  onResetSheet,
 }: {
   sheet: Sheet;
   setSheet: (next: Sheet | ((prev: Sheet) => Sheet)) => void;
+  onResetSheet: () => void;
 }) {
   const gary = useGary();
   const { record } = useRollLog();
   const [hitDieLine, setHitDieLine] = useState<string | null>(null);
+  const [armReset, setArmReset] = useState(false);
+  useEffect(() => {
+    if (!armReset) return;
+    const id = window.setTimeout(() => setArmReset(false), 4000);
+    return () => window.clearTimeout(id);
+  }, [armReset]);
   const down = sheet.hp <= 0 || diedOf(sheet) != null;
   const con = gary.conMod;
 
@@ -2651,12 +2659,30 @@ function RestPanel({
           Long rest
         </Button>
       </div>
-      <Text tone="tertiary">
-        {diedOf(sheet) === "saves"
-          ? "Gary is dead from three failed death saves. Brought back is on Heal."
+      <Button
+        variant="danger"
+        icon={RotateCcw}
+        className="w-full"
+        onClick={() => {
+          if (!armReset) {
+            setArmReset(true);
+            return;
+          }
+          setArmReset(false);
+          setHitDieLine(null);
+          onResetSheet();
+        }}
+      >
+        Reset sheet
+      </Button>
+      <Text tone="tertiary" className="min-h-16">
+        {armReset
+          ? "Tap Reset sheet again. Full HP, Moxie, uses, no conditions, no exhaustion, and death saves cleared. Gear and biography stay. Undo can take it back."
+          : diedOf(sheet) === "saves"
+          ? "Gary is dead from three failed death saves. Brought back is on Heal. Reset sheet restores the fresh sheet."
           : sheet.exhaustion >= EXHAUSTION_DEATH
-          ? "Gary is dead at Exhaustion 6 — no long rest. If the DM revives him, set Exhaustion on the Conds tab."
-          : "Spend hit dice during a short rest, then tap Short rest. Short restores Moxie, Bloodied, Swagger, and Guarded Mind. Long restores HP, hit dice, and uses, clears conditions, and reduces Exhaustion by 1."}
+          ? "Gary is dead at Exhaustion 6 — no long rest. Reset sheet restores the fresh sheet, including Exhaustion 0."
+          : "Spend hit dice during a short rest, then tap Short rest. Short restores Moxie, Bloodied, Swagger, and Guarded Mind. Long restores HP, hit dice, and uses, clears conditions, and reduces Exhaustion by 1. Reset sheet puts everything back to the start."}
       </Text>
     </Stack>
   );
@@ -4954,7 +4980,18 @@ export function GaryCombatTool() {
           <Card>
             <CardHeader icon={Tent}>Rests & limited uses</CardHeader>
             <CardBody>
-              <RestPanel sheet={sheet} setSheet={setSheet} />
+              <RestPanel
+                sheet={sheet}
+                setSheet={setSheet}
+                onResetSheet={() => {
+                  setSheet({
+                    ...DEFAULT_SHEET,
+                    hp: gary.hpMax,
+                    conditions: emptyConditions(),
+                  });
+                  resetDecision();
+                }}
+              />
             </CardBody>
           </Card>
         ) : null}

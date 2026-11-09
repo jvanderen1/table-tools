@@ -551,9 +551,27 @@ function ItemEditor({
         {item.effects.map((effect, index) => {
           const spec = EFFECT_TARGETS.find((t) => t.id === effect.target);
           return (
-            <div key={index} className="flex items-center gap-1.5">
+            <div
+              key={index}
+              className="flex flex-col gap-1.5 rounded-lg border border-line bg-well/50 p-2"
+            >
+              <div className="flex items-start gap-2">
+                <span className="min-w-0 flex-1 text-sm leading-snug text-gold-soft">
+                  {effectLabel(effect)}
+                </span>
+                <button
+                  type="button"
+                  className={cx(STEP, "size-9")}
+                  aria-label={`Remove ${effectLabel(effect)}`}
+                  onClick={() =>
+                    onChange({ effects: item.effects.filter((_, i) => i !== index) })
+                  }
+                >
+                  <X className="size-4" aria-hidden />
+                </button>
+              </div>
               <select
-                className={cx(FIELD, "min-w-0 flex-1 py-1.5")}
+                className={cx(FIELD, "py-1.5")}
                 aria-label="Effect"
                 value={effect.target}
                 onChange={(e) => changeTarget(index, e.target.value as EffectTarget)}
@@ -564,30 +582,23 @@ function ItemEditor({
                   </option>
                 ))}
               </select>
-              <input
-                className={cx(FIELD, "w-16 shrink-0 py-1.5 text-center tabular-nums")}
-                aria-label="Amount"
-                inputMode="numeric"
-                value={effect.value}
-                onFocus={(e) => e.target.select()}
-                onChange={(e) => {
-                  const n = Number.parseInt(e.target.value.replace(/[^\d-]/g, ""), 10);
-                  if (Number.isNaN(n)) return;
-                  setEffect(index, {
-                    value: Math.min(spec?.max ?? 30, Math.max(spec?.min ?? -30, n)),
-                  });
-                }}
-              />
-              <button
-                type="button"
-                className={cx(STEP, "size-9")}
-                aria-label="Remove effect"
-                onClick={() =>
-                  onChange({ effects: item.effects.filter((_, i) => i !== index) })
-                }
-              >
-                <X className="size-4" aria-hidden />
-              </button>
+              <label className="flex items-center gap-2">
+                <span className={cx(LABEL, "w-14 shrink-0")}>Amount</span>
+                <input
+                  className={cx(FIELD, "w-24 py-1.5 text-center tabular-nums")}
+                  aria-label="Amount"
+                  inputMode="numeric"
+                  value={effect.value}
+                  onFocus={(e) => e.target.select()}
+                  onChange={(e) => {
+                    const n = Number.parseInt(e.target.value.replace(/[^\d-]/g, ""), 10);
+                    if (Number.isNaN(n)) return;
+                    setEffect(index, {
+                      value: Math.min(spec?.max ?? 30, Math.max(spec?.min ?? -30, n)),
+                    });
+                  }}
+                />
+              </label>
             </div>
           );
         })}

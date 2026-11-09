@@ -1894,6 +1894,9 @@ function ConditionsPanel({
                 key={level}
                 type="button"
                 aria-pressed={on}
+                aria-label={
+                  dead ? "Exhaustion 6, death" : level === 0 ? "No exhaustion" : `Exhaustion ${level}`
+                }
                 className={cx(
                   "inline-flex min-h-10 cursor-pointer items-center justify-center gap-1 rounded-lg text-sm font-medium tabular-nums transition-colors",
                   on
@@ -1906,12 +1909,13 @@ function ConditionsPanel({
                   setSheet((s) => ({ ...normalizeSheet(s), exhaustion: level }))
                 }
               >
-                {dead ? <Skull className="size-3.5" aria-hidden /> : null}
-                {level === 0
-                  ? "None"
-                  : dead
-                    ? `${level} · dead`
-                    : String(level)}
+                {dead ? (
+                  <Skull className="size-4" aria-hidden />
+                ) : level === 0 ? (
+                  "None"
+                ) : (
+                  level
+                )}
               </button>
             );
           })}
@@ -3689,7 +3693,11 @@ export function GaryCombatTool() {
               )}
               onClick={() => setTab(id)}
             >
-              <Icon className="size-4" aria-hidden />
+              <Icon
+                className="size-4"
+                fill={tab === id ? "currentColor" : "none"}
+                aria-hidden
+              />
               {label}
             </button>
           ))}

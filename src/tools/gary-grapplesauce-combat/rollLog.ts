@@ -34,14 +34,6 @@ export type NewRoll = Omit<RollLogEntry, "id" | "at">;
 
 export const ROLL_LOG_MAX = 50;
 
-/** How many seconds the dice stay. "stay" waits until they are tapped away. */
-export const DICE_HOLD_CHOICES = [3, 5, 8] as const;
-export type DiceHold = (typeof DICE_HOLD_CHOICES)[number] | "stay";
-
-export function isDiceHold(value: unknown): value is DiceHold {
-  return value === "stay" || value === 3 || value === 5 || value === 8;
-}
-
 export type RollLogApi = {
   log: RollLogEntry[];
   record: (roll: NewRoll) => void;
@@ -49,15 +41,6 @@ export type RollLogApi = {
   /** Next damage roll doubles its dice. Set by natural 20s, cleared by damage. */
   crit: boolean;
   setCrit: (next: boolean) => void;
-  /** Throw 3D dice across the screen for each new roll. */
-  diceMotion: boolean;
-  setDiceMotion: (next: boolean) => void;
-  /** Clatter when the dice are thrown. */
-  diceSound: boolean;
-  setDiceSound: (next: boolean) => void;
-  /** How long a throw stays up. */
-  diceHold: DiceHold;
-  setDiceHold: (next: DiceHold) => void;
 };
 
 export const RollLogContext = createContext<RollLogApi | null>(null);

@@ -109,10 +109,13 @@ test("the dice tray rolls a die into the log", async ({ page }) => {
   await expect(page.locator("[data-dice-show]")).toContainText("Dice tray");
 });
 
-test("3D dice can be turned off without losing the log", async ({ page }) => {
+test("dice can be turned off from Settings without losing the log", async ({ page }) => {
+  await page.getByRole("button", { name: "Settings" }).click();
+  const settings = page.getByRole("dialog", { name: "Settings" });
+  await settings.getByRole("button", { name: "Show dice on" }).click();
+  await settings.getByRole("button", { name: "Close" }).click();
   await page.getByRole("button", { name: "Dice", exact: true }).click();
   const tray = page.getByRole("dialog", { name: "Dice" });
-  await tray.getByRole("button", { name: "Show dice on" }).click();
   await tray.getByRole("button", { name: "Roll 1d20" }).click();
   await expect(tray.getByText("1d20").first()).toBeVisible();
   await expect(page.locator("[data-dice-show]")).toHaveCount(0);

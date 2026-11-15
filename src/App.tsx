@@ -1,7 +1,14 @@
 import { useState } from "react";
-import { ArrowLeft, ChevronRight, DatabaseBackup, Dices } from "lucide-react";
+import {
+  ArrowLeft,
+  ChevronRight,
+  DatabaseBackup,
+  Dices,
+  SlidersHorizontal,
+} from "lucide-react";
 import { Link, Navigate, Route, Routes, useParams } from "react-router-dom";
 import { BackupDrawer } from "./BackupDrawer";
+import { SettingsDrawer } from "./SettingsDrawer";
 import { UpdatePrompt } from "./UpdatePrompt";
 import { getTool, tools } from "./tools/registry";
 import { Stack, Text } from "./ui";
@@ -59,6 +66,7 @@ function ToolPage() {
 
 export default function App() {
   const [backupOpen, setBackupOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   return (
     <div className="mx-auto max-w-5xl px-4 pt-5 pb-28">
       <header className="mb-5 flex items-center justify-between gap-3 border-b border-line/70 pb-3">
@@ -78,6 +86,14 @@ export default function App() {
           <button
             type="button"
             className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-line bg-surface/70 px-2.5 text-sm text-muted transition-colors hover:border-gold/50 hover:text-ink"
+            onClick={() => setSettingsOpen(true)}
+          >
+            <SlidersHorizontal className="size-4 text-gold/80" aria-hidden />
+            Settings
+          </button>
+          <button
+            type="button"
+            className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-line bg-surface/70 px-2.5 text-sm text-muted transition-colors hover:border-gold/50 hover:text-ink"
             onClick={() => setBackupOpen(true)}
           >
             <DatabaseBackup className="size-4 text-gold/80" aria-hidden />
@@ -86,6 +102,7 @@ export default function App() {
         </div>
       </header>
       <BackupDrawer open={backupOpen} onClose={() => setBackupOpen(false)} />
+      <SettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <UpdatePrompt />
       <Routes>
         <Route path="/" element={<Home />} />

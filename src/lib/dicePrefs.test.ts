@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isDiceHold } from "./rollLog";
+import { isDiceHold } from "./dicePrefs";
 
 describe("isDiceHold", () => {
   it("accepts the stay choices and nothing else", () => {

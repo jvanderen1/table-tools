@@ -79,6 +79,7 @@ import { clockTime, timeAgo, useNow } from "../../lib/time";
 import { useUndoableState, type Change } from "../../lib/useUndoableState";
 import { DiceShow } from "../../ui/DiceShow";
 import { playDiceSound } from "../../ui/diceSound";
+import { useDicePrefs } from "../../lib/dicePrefs";
 import { UndoBar } from "../../ui/History";
 import {
   Accordion,
@@ -133,14 +134,11 @@ import {
   type GaryStats,
 } from "./stats";
 import {
-  DICE_HOLD_CHOICES,
   ROLL_LOG_MAX,
   RollLogContext,
   dieFaces,
-  isDiceHold,
   rollId,
   useRollLog,
-  type DiceHold,
   type NewRoll,
   type RollLogApi,
   type RollLogEntry,
@@ -3523,93 +3521,11 @@ const FLAG_TONE: Record<NonNullable<RollLogEntry["flag"]>, string> = {
   fail: "text-crimson-soft",
 };
 
-function DiceSettings({
-  motion,
-  setMotion,
-  sound,
-  setSound,
-  hold,
-  setHold,
-}: {
-  motion: boolean;
-  setMotion: (next: boolean) => void;
-  sound: boolean;
-  setSound: (next: boolean) => void;
-  hold: DiceHold;
-  setHold: (next: DiceHold) => void;
-}) {
-  const toggle =
-    "flex h-12 cursor-pointer flex-col items-center justify-center rounded-lg border text-xs font-medium leading-tight";
-  const choice =
-    "flex h-9 cursor-pointer items-center justify-center rounded-lg border text-xs font-medium tabular-nums";
-  const on = "border-gold/80 bg-gold/15 text-gold-soft";
-  const off = "border-line bg-well/70 text-ink hover:border-gold/50";
-  return (
-    <div className="flex shrink-0 flex-col gap-1.5">
-      <div className="grid grid-cols-2 gap-1.5">
-        <button
-          type="button"
-          className={cx(toggle, motion ? on : off)}
-          aria-pressed={motion}
-          aria-label={motion ? "Show dice on" : "Show dice off"}
-          onClick={() => setMotion(!motion)}
-        >
-          Show dice
-          <span className="text-[0.7rem] font-semibold">{motion ? "On" : "Off"}</span>
-        </button>
-        <button
-          type="button"
-          className={cx(toggle, sound ? on : off)}
-          aria-pressed={sound}
-          aria-label={sound ? "Dice sound on" : "Dice sound off"}
-          onClick={() => setSound(!sound)}
-        >
-          Sound
-          <span className="text-[0.7rem] font-semibold">{sound ? "On" : "Off"}</span>
-        </button>
-      </div>
-      <div className="grid h-9 grid-cols-4 gap-1.5" aria-label="How long dice stay">
-        {DICE_HOLD_CHOICES.map((seconds) => (
-          <button
-            key={seconds}
-            type="button"
-            className={cx(choice, hold === seconds ? on : off)}
-            aria-pressed={hold === seconds}
-            aria-label={`Keep dice for ${seconds} seconds`}
-            onClick={() => setHold(seconds)}
-          >
-            {seconds}s
-          </button>
-        ))}
-        <button
-          type="button"
-          className={cx(choice, hold === "stay" ? on : off)}
-          aria-pressed={hold === "stay"}
-          aria-label="Keep dice until dismissed"
-          onClick={() => setHold("stay")}
-        >
-          Stay
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function DiceRoller() {
   const [open, setOpen] = useState(false);
   const [pool, setPool] = useState<DicePool>({ 20: 1 });
   const [modifier, setModifier] = useState(0);
-  const {
-    log,
-    record,
-    clear,
-    diceMotion,
-    setDiceMotion,
-    diceSound,
-    setDiceSound,
-    diceHold,
-    setDiceHold,
-  } = useRollLog();
+  const { log, record, clear } = useRollLog();
   const latest = log[0];
   const now = useNow(open);
   const groups = poolGroups(pool);
@@ -3693,15 +3609,6 @@ function DiceRoller() {
               </button>
             </div>
           </div>
-
-          <DiceSettings
-            motion={diceMotion}
-            setMotion={setDiceMotion}
-            sound={diceSound}
-            setSound={setDiceSound}
-            hold={diceHold}
-            setHold={setDiceHold}
-          />
 
           <div className="grid shrink-0 grid-cols-4 gap-1.5">
             {DICE_SIDES.map((n) => {
@@ -4009,20 +3916,13 @@ export function GaryCombatTool() {
     [],
   );
   const [crit, setCrit] = usePersistentState("gary-grapplesauce-combat:crit", false);
-  const [diceMotion, setDiceMotion] = usePersistentState(
-    "gary-grapplesauce-combat:dice-motion",
-    true,
-  );
-  const [diceSound, setDiceSound] = usePersistentState(
-    "gary-grapplesauce-combat:dice-sound",
-    true,
-  );
-  const [diceHoldRaw, setDiceHold] = usePersistentState<DiceHold>(
-    "gary-grapplesauce-combat:dice-hold",
-    5,
-  );
-  const diceHold = isDiceHold(diceHoldRaw) ? diceHoldRaw : 5;
+  const [dicePrefs] = useDicePrefs();
   const [premiere, setPremiere] = useState<RollLogEntry | null>(null);
+  const [motionSeen, setMotionSeen] = useState(dicePrefs.motion);
+  if (dicePrefs.motion !== motionSeen) {
+    setMotionSeen(dicePrefs.motion);
+    if (!dicePrefs.motion) setPremiere(null);
+  }
   const dismissDice = useCallback(() => setPremiere(null), []);
   const rollApi = useMemo<RollLogApi>(
     () => ({
@@ -4030,36 +3930,16 @@ export function GaryCombatTool() {
       record: (roll) => {
         const entry: RollLogEntry = { ...roll, id: rollId(), at: Date.now() };
         setRollLog((prev) => [entry, ...prev].slice(0, ROLL_LOG_MAX));
-        if (diceMotion && entry.faces && entry.faces.length > 0) {
+        if (dicePrefs.motion && entry.faces && entry.faces.length > 0) {
           setPremiere(entry);
-          if (diceSound) playDiceSound(entry.faces.length, entry.flag);
+          if (dicePrefs.sound) playDiceSound(entry.faces.length, entry.flag);
         }
       },
       clear: () => setRollLog([]),
       crit,
       setCrit,
-      diceMotion,
-      setDiceMotion: (next) => {
-        setDiceMotion(next);
-        if (!next) setPremiere(null);
-      },
-      diceSound,
-      setDiceSound,
-      diceHold,
-      setDiceHold,
     }),
-    [
-      rollLog,
-      setRollLog,
-      crit,
-      setCrit,
-      diceMotion,
-      setDiceMotion,
-      diceSound,
-      setDiceSound,
-      diceHold,
-      setDiceHold,
-    ],
+    [rollLog, setRollLog, crit, setCrit, dicePrefs.motion, dicePrefs.sound],
   );
 
   // Migrate old moxie-only key once
@@ -4455,7 +4335,7 @@ export function GaryCombatTool() {
     <GaryContext.Provider value={gary}>
       <RollLogContext.Provider value={rollApi}>
         <DiceShow
-          holdMs={diceHold === "stay" ? null : diceHold * 1000}
+          holdMs={dicePrefs.hold === "stay" ? null : dicePrefs.hold * 1000}
           onDismiss={dismissDice}
           roll={
             premiere?.faces?.length

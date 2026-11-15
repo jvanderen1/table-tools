@@ -16,6 +16,7 @@
     "new-tool": "node scripts/new-tool.mjs"
   },
   "dependencies": {
+    "@3d-dice/dice-box-threejs": "^0.0.12",
     "@fontsource-variable/cinzel": "^5.3.0",
     "@fontsource-variable/inter": "^5.3.0",
     "@tailwindcss/vite": "^4.3.5",

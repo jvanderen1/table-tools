@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { faceLabel, layoutThrow, solidReport, type SupportedSides } from "./diceGeometry";
+import {
+  diceBoxNotation,
+  faceLabel,
+  layoutThrow,
+  solidReport,
+  type SupportedSides,
+} from "./diceGeometry";
 
 const DICE: SupportedSides[] = [4, 6, 8, 10, 12, 20];
 
@@ -35,6 +41,15 @@ describe("layoutThrow", () => {
     expect(read(100)).toEqual(["00", "0"]);
     expect(read(7)).toEqual(["00", "7"]);
     expect(read(10)).toEqual(["10", "0"]);
+    expect(diceBoxNotation([{ sides: 100, value: 67 }])).toBe("1d100+1d10@60,7");
+    expect(diceBoxNotation([{ sides: 100, value: 100 }])).toBe("1d100+1d10@0,0");
+    expect(diceBoxNotation([{ sides: 10, value: 10 }])).toBe("1d10@0");
+    expect(
+      diceBoxNotation([
+        { sides: 20, value: 14 },
+        { sides: 20, value: 8, dropped: true },
+      ]),
+    ).toBe("1d20+1d20@14,8");
   });
 
   it("keeps the dropped die and caps a long pool with a remainder chip", () => {

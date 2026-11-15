@@ -109,6 +109,33 @@ export function solidReport(sides: SupportedSides) {
   };
 }
 
+/**
+ * Notation for `@3d-dice/dice-box-threejs`. One `@` list, applied left to right.
+ * A d100 is a tens die (00–90) plus a ones die (0–9). 00 and 0 is 100.
+ * A d10 that rolled 10 is the 0 face.
+ */
+export function diceBoxNotation(faces: DieFace[]): string {
+  const dice: { type: string; value: number }[] = [];
+  for (const face of faces) {
+    if (face.sides === 100) {
+      const value = face.value === 100 ? 0 : face.value;
+      dice.push({ type: "d100", value: Math.floor(value / 10) * 10 });
+      dice.push({ type: "d10", value: value % 10 });
+      continue;
+    }
+    if (face.sides === 10) {
+      dice.push({ type: "d10", value: face.value === 10 ? 0 : face.value });
+      continue;
+    }
+    if (face.sides !== 4 && face.sides !== 6 && face.sides !== 8 && face.sides !== 12 && face.sides !== 20) {
+      continue;
+    }
+    dice.push({ type: `d${face.sides}`, value: face.value });
+  }
+  if (dice.length === 0) return "";
+  return `${dice.map((die) => `1${die.type}`).join("+")}@${dice.map((die) => die.value).join(",")}`;
+}
+
 /** Turn logged faces into the pieces that fly across the screen. */
 export function layoutThrow(faces: DieFace[], viewportWidth: number): ThrownPiece[] {
   const expanded = faces.flatMap((face) => expandFace(face));

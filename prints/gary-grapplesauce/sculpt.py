@@ -1,20 +1,16 @@
 #!/usr/bin/env python3
-"""Gary Grapplesauce — a printable tabletop miniature.
+"""Gary Grapplesauce — stylized miniature generator.
 
-Sculpted from his portrait: bald farmer-pugilist, heavy brow, short beard,
-soft gut, lifting belt, wrist wraps, and the towel knotted on his chest.
-Fists are down and ready. He stands on a 1 inch (25.4 mm) base, the
-footprint of a Medium creature. The mesh is one solid watertight piece.
+The STL files named gary-grapplesauce-32mm and gary-grapplesauce-54mm are a
+portrait reconstruction (a waist-up bust). This script builds the earlier
+simplified figure and writes it beside them, so running it does not replace
+the portrait mesh.
 
 Units are millimeters. Z is up, the nose points +Y, +X is Gary's right
 (the left side of the portrait).
 
   python3 prints/gary-grapplesauce/sculpt.py preview
   python3 prints/gary-grapplesauce/sculpt.py mesh
-
-The gameplay STL is about 33 mm to the crown. A second STL is scaled so
-the crown is 54 mm, which is easier to paint. Open either in a slicer
-as millimeters, base flat on the bed.
 """
 
 from __future__ import annotations
@@ -738,13 +734,13 @@ def mesh(voxel=0.16):
     print(f"  bounds x[{lo[0]:.1f},{hi[0]:.1f}] y[{lo[1]:.1f},{hi[1]:.1f}] z[{lo[2]:.1f},{hi[2]:.1f}]")
     print(f"  open edges {boundary}, nonmanifold edges {nonmanifold}")
 
-    game = HERE / "gary-grapplesauce-32mm.stl"
-    write_stl(game, tris, "Gary Grapplesauce 32mm medium base 25mm")
+    game = HERE / "gary-grapplesauce-stylized-32mm.stl"
+    write_stl(game, tris, "Gary Grapplesauce stylized 32mm medium base 25mm")
     crown = float(hi[2])
     display_scale = 54.0 / crown
     display = tris * display_scale
-    show = HERE / "gary-grapplesauce-54mm.stl"
-    write_stl(show, display, "Gary Grapplesauce 54mm display")
+    show = HERE / "gary-grapplesauce-stylized-54mm.stl"
+    write_stl(show, display, "Gary Grapplesauce stylized 54mm display")
     print(f"  wrote {game.name} ({game.stat().st_size / 1e6:.1f} MB)")
     print(f"  wrote {show.name} ({show.stat().st_size / 1e6:.1f} MB), scale {display_scale:.3f}")
     return boundary, nonmanifold, vol

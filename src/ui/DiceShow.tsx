@@ -73,11 +73,11 @@ export function DiceShow({
   return createPortal(
     <div
       data-dice-show
-      aria-hidden
       className="pointer-events-none fixed inset-x-0 top-[calc(40vh-5.5rem)] z-[45] h-44"
       style={{ perspective: "920px", perspectiveOrigin: "50% 62%" }}
     >
       <div
+        aria-hidden
         className="absolute inset-x-0 top-11 bottom-0"
         style={{ transformStyle: "preserve-3d" }}
       >

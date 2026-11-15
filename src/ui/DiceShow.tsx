@@ -1,5 +1,6 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
+import { X } from "lucide-react";
 import { cx } from "../lib/cx";
 import {
   dieModel,
@@ -20,28 +21,44 @@ export type DiceThrow = {
 };
 
 const THROW_MS = 1050;
-const HOLD_MS = 2400;
-const STILL_MS = 1300;
 
 /**
  * Dice tumbling across the viewport. The faces are already decided; this only
- * plays them. Pointer events pass through so the sheet underneath stays put.
+ * plays them. Empty space stays clickable. The total and the dice themselves
+ * dismiss the throw.
  */
-export function DiceShow({ roll }: { roll: DiceThrow | null }) {
+export function DiceShow({
+  roll,
+  holdMs,
+  onDismiss,
+}: {
+  roll: DiceThrow | null;
+  /** Milliseconds to linger. Null stays until dismissed or the next roll. */
+  holdMs: number | null;
+  onDismiss: () => void;
+}) {
   const reduce = useReducedMotion();
-  const [hiddenId, setHiddenId] = useState<string | null>(null);
   const rollId = roll?.id ?? null;
 
   useEffect(() => {
-    if (!rollId) return;
-    const timer = window.setTimeout(
-      () => setHiddenId(rollId),
-      reduce ? STILL_MS : HOLD_MS,
-    );
+    if (!rollId || holdMs == null) return;
+    const timer = window.setTimeout(onDismiss, holdMs);
     return () => window.clearTimeout(timer);
-  }, [rollId, reduce]);
+  }, [rollId, holdMs, onDismiss]);
 
-  if (!roll || hiddenId === roll.id || roll.faces.length === 0) return null;
+  useEffect(() => {
+    if (!rollId) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      onDismiss();
+    }
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [rollId, onDismiss]);
+
+  if (!roll || roll.faces.length === 0) return null;
   if (typeof document === "undefined") return null;
 
   const pieces = layoutThrow(roll.faces, window.innerWidth);
@@ -70,13 +87,19 @@ export function DiceShow({ roll }: { roll: DiceThrow | null }) {
         >
           {pieces.map((piece, index) =>
             piece.kind === "chip" ? (
-              <Chip key={`${roll.id}-more`} piece={piece} reduce={reduce} />
+              <Chip
+                key={`${roll.id}-more`}
+                piece={piece}
+                reduce={reduce}
+                onDismiss={onDismiss}
+              />
             ) : (
               <FlyingDie
                 key={`${roll.id}-${index}`}
                 die={piece}
                 reduce={reduce}
                 crit={roll.flag === "crit"}
+                onDismiss={onDismiss}
               />
             ),
           )}
@@ -95,7 +118,12 @@ export function DiceShow({ roll }: { roll: DiceThrow | null }) {
               }
         }
       >
-        <div className="flex h-10 max-w-[90vw] items-center gap-2.5 rounded-full border border-gold/40 bg-void/85 px-3.5 shadow-[0_12px_28px_-14px_rgba(0,0,0,0.85)] backdrop-blur-sm">
+        <button
+          type="button"
+          className="pointer-events-auto flex h-10 max-w-[90vw] cursor-pointer items-center gap-2.5 rounded-full border border-gold/40 bg-void/85 px-3.5 shadow-[0_12px_28px_-14px_rgba(0,0,0,0.85)] backdrop-blur-sm"
+          aria-label={`Dismiss ${roll.label}`}
+          onClick={onDismiss}
+        >
           <span className="truncate text-xs font-semibold tracking-wide text-muted">
             {roll.label}
           </span>
@@ -107,7 +135,8 @@ export function DiceShow({ roll }: { roll: DiceThrow | null }) {
           >
             {roll.result ?? roll.total}
           </span>
-        </div>
+          <X className="size-3.5 shrink-0 text-faint" aria-hidden />
+        </button>
       </div>
     </div>,
     document.body,
@@ -118,10 +147,12 @@ function FlyingDie({
   die,
   reduce,
   crit,
+  onDismiss,
 }: {
   die: ThrownDie;
   reduce: boolean;
   crit: boolean;
+  onDismiss: () => void;
 }) {
   const model = dieModel(die.sides, die.radius);
   const target = model.find((face) => face.value === die.face);
@@ -171,7 +202,8 @@ function FlyingDie({
         />
       ) : null}
       <div
-        className="absolute top-0 left-0 h-0 w-0"
+        className="pointer-events-auto absolute top-0 left-0 h-0 w-0 cursor-pointer"
+        onClick={onDismiss}
         style={{
           transformStyle: "preserve-3d",
           transform: `translate3d(${die.landX}px, 0, 0)`,
@@ -218,11 +250,22 @@ function FlyingDie({
   );
 }
 
-function Chip({ piece, reduce }: { piece: ThrownChip; reduce: boolean }) {
+function Chip({
+  piece,
+  reduce,
+  onDismiss,
+}: {
+  piece: ThrownChip;
+  reduce: boolean;
+  onDismiss: () => void;
+}) {
   const size = piece.radius * 2;
   return (
-    <div
-      className="absolute top-0 left-0 grid place-items-center rounded-full border border-gold/50 bg-void/80 font-display font-semibold text-gold-soft"
+    <button
+      type="button"
+      aria-label={`Dismiss ${piece.extra} more dice`}
+      className="pointer-events-auto absolute top-0 left-0 grid cursor-pointer place-items-center rounded-full border border-gold/50 bg-void/80 font-display font-semibold text-gold-soft"
+      onClick={onDismiss}
       style={{
         width: size,
         height: size,
@@ -237,7 +280,7 @@ function Chip({ piece, reduce }: { piece: ThrownChip; reduce: boolean }) {
       }}
     >
       +{piece.extra}
-    </div>
+    </button>
   );
 }
 

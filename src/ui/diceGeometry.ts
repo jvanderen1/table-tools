@@ -12,7 +12,7 @@ export type DieFace = {
   dropped?: boolean;
 };
 
-export type FaceLabelMode = "number" | "d10" | "percentile" | "units";
+export type FaceLabelMode = "number" | "d10" | "d100";
 
 export type ThrownDie = {
   kind: "die";
@@ -20,6 +20,8 @@ export type ThrownDie = {
   /** Face index in the model. A d10 is numbered 0–9. */
   face: number;
   mode: FaceLabelMode;
+  /** The 1–100 result, when this die stands in for a d100. */
+  result?: number;
   dropped: boolean;
   landX: number;
   fromX: number;
@@ -73,11 +75,19 @@ export function dieModel(sides: SupportedSides, radius: number): DieFaceModel[] 
   return built;
 }
 
-export function faceLabel(value: number, mode: FaceLabelMode): string {
-  if (mode === "percentile") return value === 0 ? "00" : String(value * 10);
-  if (mode === "units") return String(value);
+export function faceLabel(value: number, mode: FaceLabelMode, result?: number): string {
+  if (mode === "d100" && result != null) return hundredLabel(value, result);
   if (mode === "d10") return value === 0 ? "10" : String(value);
   return String(value);
+}
+
+/** One d10 body, the front face reading the actual 1–100. The other faces are decoys. */
+function hundredLabel(faceValue: number, result: number) {
+  if (faceValue === result % 10) return String(result);
+  let decoy = (result + (faceValue + 1) * 13) % 100;
+  if (decoy === 0) decoy = 100;
+  if (decoy === result) decoy = result === 100 ? 1 : result + 1;
+  return String(decoy);
 }
 
 export function isSupportedSides(sides: number): sides is SupportedSides {
@@ -154,15 +164,20 @@ type Expanded = {
   face: number;
   mode: FaceLabelMode;
   dropped: boolean;
+  result?: number;
 };
 
 function expandFace(face: DieFace): Expanded[] {
   const dropped = face.dropped === true;
   if (face.sides === 100) {
-    const value = face.value === 100 ? 0 : face.value;
     return [
-      { sides: 10, face: Math.floor(value / 10), mode: "percentile", dropped },
-      { sides: 10, face: value % 10, mode: "units", dropped },
+      {
+        sides: 10,
+        face: face.value % 10,
+        mode: "d100",
+        dropped,
+        result: face.value,
+      },
     ];
   }
   if (face.sides === 10) {

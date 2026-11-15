@@ -233,7 +233,7 @@ function FlyingDie({
                 WebkitBackfaceVisibility: "hidden",
                 background: `linear-gradient(155deg, color-mix(in oklab, white 50%, ${faceColor(ivory, face.shade)}), ${faceColor(ivory, face.shade)} 42%, color-mix(in oklab, #2a1c10 35%, ${faceColor(ivory, face.shade)}))`,
                 color: ink,
-                fontSize: face.font,
+                fontSize: faceFont(face, die),
                 textShadow: "0 1px 0 rgba(255,255,255,0.45)",
                 boxShadow:
                   crit && !die.dropped
@@ -241,7 +241,7 @@ function FlyingDie({
                     : "inset 0 0 0 2px rgba(62, 41, 16, 0.55)",
               }}
             >
-              {faceLabel(face.value, die.mode)}
+              {shownFace(face.value, die)}
             </div>
           ))}
         </div>
@@ -282,6 +282,15 @@ function Chip({
       +{piece.extra}
     </button>
   );
+}
+
+function shownFace(value: number, die: ThrownDie) {
+  return faceLabel(value, die.mode, die.result);
+}
+
+function faceFont(face: { value: number; font: number }, die: ThrownDie) {
+  const text = shownFace(face.value, die);
+  return text.length > 2 ? Math.round(face.font * 0.62) : face.font;
 }
 
 function faceColor(ivory: string, shade: number) {

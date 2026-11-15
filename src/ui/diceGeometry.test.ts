@@ -20,23 +20,17 @@ describe("dice solids", () => {
 });
 
 describe("layoutThrow", () => {
-  it("reads a d10 zero as 10 and splits a d100 into percentile dice", () => {
+  it("reads a d10 zero as 10 and a d100 as one die showing that number", () => {
     expect(faceLabel(0, "d10")).toBe("10");
     expect(faceLabel(7, "d10")).toBe("7");
-    expect(faceLabel(0, "percentile")).toBe("00");
-    expect(faceLabel(7, "percentile")).toBe("70");
-    const pieces = layoutThrow([{ sides: 100, value: 100 }], 400);
-    expect(
-      pieces.map((piece) =>
-        piece.kind === "die" ? faceLabel(piece.face, piece.mode) : "",
-      ),
-    ).toEqual(["00", "0"]);
-    const seventy = layoutThrow([{ sides: 100, value: 73 }], 400);
-    expect(
-      seventy.map((piece) =>
-        piece.kind === "die" ? faceLabel(piece.face, piece.mode) : "",
-      ),
-    ).toEqual(["70", "3"]);
+    for (const value of [100, 73, 10, 1]) {
+      const pieces = layoutThrow([{ sides: 100, value }], 400);
+      expect(pieces).toHaveLength(1);
+      const die = pieces[0];
+      expect(die?.kind).toBe("die");
+      if (die?.kind !== "die") continue;
+      expect(faceLabel(die.face, die.mode, die.result)).toBe(String(value));
+    }
   });
 
   it("keeps the dropped die and caps a long pool with a remainder chip", () => {

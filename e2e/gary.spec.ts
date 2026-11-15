@@ -121,11 +121,13 @@ test("dice can be turned off from Settings without losing the log", async ({ pag
   await expect(page.locator("[data-dice-show]")).toHaveCount(0);
 });
 
-test("tapping the dice total clears them", async ({ page }) => {
+test("tapping the dice clears them", async ({ page }) => {
   await page.getByRole("button", { name: "Dice", exact: true }).click();
   const tray = page.getByRole("dialog", { name: "Dice" });
   await tray.getByRole("button", { name: "Roll 1d20" }).click();
-  await page.getByRole("button", { name: "Dismiss Dice tray" }).click();
-  await expect(page.locator("[data-dice-show]")).toHaveCount(0);
+  const show = page.locator("[data-dice-show]");
+  await expect(show).toBeVisible();
+  await page.getByRole("button", { name: "Dismiss Dice tray" }).click({ position: { x: 48, y: 420 } });
+  await expect(show).toHaveCount(0);
   await expect(tray.getByText("1d20").first()).toBeVisible();
 });

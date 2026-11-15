@@ -81,7 +81,7 @@ function DiceSettings() {
         </div>
       </div>
       <Text tone="tertiary">
-        Tap a die or the total to clear them sooner. Escape does the same.
+        Tap anywhere to clear them. Escape does the same.
       </Text>
     </Stack>
   );

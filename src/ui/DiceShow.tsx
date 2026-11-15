@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import DiceBox from "@3d-dice/dice-box-threejs";
@@ -34,11 +34,17 @@ export function DiceShow({
   const rollId = roll?.id ?? null;
   const notation = roll ? diceBoxNotation(roll.faces) : "";
 
+  const dismiss = useCallback(() => {
+    const box = boxRef.current?.box;
+    if (box?.renderer) box.clearDice();
+    onDismiss();
+  }, [onDismiss]);
+
   useEffect(() => {
     if (!rollId || holdMs == null) return;
-    const timer = window.setTimeout(onDismiss, holdMs);
+    const timer = window.setTimeout(dismiss, holdMs);
     return () => window.clearTimeout(timer);
-  }, [rollId, holdMs, onDismiss]);
+  }, [rollId, holdMs, dismiss]);
 
   useEffect(() => {
     if (!rollId) return;
@@ -46,11 +52,11 @@ export function DiceShow({
       if (event.key !== "Escape") return;
       event.preventDefault();
       event.stopPropagation();
-      onDismiss();
+      dismiss();
     }
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [rollId, onDismiss]);
+  }, [rollId, dismiss]);
 
   useEffect(() => {
     const host = stage.current;
@@ -140,30 +146,32 @@ export function DiceShow({
       <div
         ref={stage}
         id="dice-box-stage"
-        className="absolute inset-0 [&_canvas]:h-full [&_canvas]:w-full"
+        className="pointer-events-none absolute inset-0 [&_canvas]:pointer-events-none [&_canvas]:h-full [&_canvas]:w-full"
       />
       {showing && roll ? (
-        <div className="absolute inset-x-0 top-[12vh] flex justify-center">
-          <button
-            type="button"
-            className="pointer-events-auto flex h-10 max-w-[90vw] cursor-pointer items-center gap-2.5 rounded-full border border-gold/40 bg-void/85 px-3.5 shadow-[0_12px_28px_-14px_rgba(0,0,0,0.85)] backdrop-blur-sm"
-            aria-label={`Dismiss ${roll.label}`}
-            onClick={onDismiss}
-          >
-            <span className="truncate text-xs font-semibold tracking-wide text-muted">
-              {roll.label}
+        <button
+          type="button"
+          className="pointer-events-auto absolute inset-0 cursor-pointer"
+          aria-label={`Dismiss ${roll.label}`}
+          onClick={dismiss}
+        >
+          <span className="absolute inset-x-0 top-[12vh] flex justify-center">
+            <span className="flex h-10 max-w-[90vw] items-center gap-2.5 rounded-full border border-gold/40 bg-void/85 px-3.5 shadow-[0_12px_28px_-14px_rgba(0,0,0,0.85)] backdrop-blur-sm">
+              <span className="truncate text-xs font-semibold tracking-wide text-muted">
+                {roll.label}
+              </span>
+              <span
+                className={cx(
+                  "font-display text-2xl leading-none font-semibold tabular-nums",
+                  tone,
+                )}
+              >
+                {roll.result ?? roll.total}
+              </span>
+              <X className="size-3.5 shrink-0 text-faint" aria-hidden />
             </span>
-            <span
-              className={cx(
-                "font-display text-2xl leading-none font-semibold tabular-nums",
-                tone,
-              )}
-            >
-              {roll.result ?? roll.total}
-            </span>
-            <X className="size-3.5 shrink-0 text-faint" aria-hidden />
-          </button>
-        </div>
+          </span>
+        </button>
       ) : null}
     </div>,
     document.body,

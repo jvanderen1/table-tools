@@ -3932,7 +3932,13 @@ export function GaryCombatTool() {
         setRollLog((prev) => [entry, ...prev].slice(0, ROLL_LOG_MAX));
         if (dicePrefs.motion && entry.faces && entry.faces.length > 0) {
           setPremiere(entry);
-          if (dicePrefs.sound) playDiceSound(entry.faces.length, entry.flag);
+          if (dicePrefs.sound) {
+            const shown = entry.faces.reduce(
+              (count, face) => count + (face.sides === 100 ? 2 : 1),
+              0,
+            );
+            playDiceSound(shown, entry.flag);
+          }
         }
       },
       clear: () => setRollLog([]),

@@ -157,7 +157,8 @@ function FlyingDie({
   const model = dieModel(die.sides, die.radius);
   const target = model.find((face) => face.value === die.face);
   if (!target) return null;
-  const ivory = die.dropped ? "#cbb892" : "#f3e4c4";
+  const ivory =
+    die.mode === "percentile" ? "#e4d0a2" : die.dropped ? "#cbb892" : "#f3e4c4";
   const ink = die.dropped ? "#6e5d46" : "#2a2118";
   const end = target.orient;
   const travel = motion(reduce, "dice-travel", die.delay, {
@@ -231,6 +232,7 @@ function FlyingDie({
                 clipPath: face.clip,
                 backfaceVisibility: "hidden",
                 WebkitBackfaceVisibility: "hidden",
+                overflow: "hidden",
                 background: `linear-gradient(155deg, color-mix(in oklab, white 50%, ${faceColor(ivory, face.shade)}), ${faceColor(ivory, face.shade)} 42%, color-mix(in oklab, #2a1c10 35%, ${faceColor(ivory, face.shade)}))`,
                 color: ink,
                 fontSize: faceFont(face, die),
@@ -285,12 +287,12 @@ function Chip({
 }
 
 function shownFace(value: number, die: ThrownDie) {
-  return faceLabel(value, die.mode, die.result);
+  return faceLabel(value, die.mode);
 }
 
 function faceFont(face: { value: number; font: number }, die: ThrownDie) {
   const text = shownFace(face.value, die);
-  return text.length > 2 ? Math.round(face.font * 0.62) : face.font;
+  return text.length > 1 ? Math.round(face.font * 0.85) : face.font;
 }
 
 function faceColor(ivory: string, shade: number) {

@@ -53,6 +53,61 @@
   }
 }
 
+@keyframes dice-travel {
+  0% {
+    transform: translate3d(var(--from-x), 14px, 0);
+  }
+  56% {
+    transform: translate3d(var(--land-x), -18px, 0);
+  }
+  74% {
+    transform: translate3d(var(--land-x), 5px, 0);
+  }
+  88% {
+    transform: translate3d(var(--land-x), -2px, 0);
+  }
+  100% {
+    transform: translate3d(var(--land-x), 0, 0);
+  }
+}
+
+@keyframes dice-spin {
+  from {
+    transform: rotateX(var(--x0)) rotateY(var(--y0)) rotateZ(var(--z0));
+  }
+  to {
+    transform: rotateX(var(--x1)) rotateY(var(--y1)) rotateZ(var(--z1));
+  }
+}
+
+@keyframes dice-shadow {
+  0% {
+    transform: translate3d(var(--from-x), 0, 0) scale(0.55);
+    opacity: 0.16;
+  }
+  56% {
+    transform: translate3d(var(--land-x), 0, 0) scale(0.7);
+    opacity: 0.22;
+  }
+  100% {
+    transform: translate3d(var(--land-x), 0, 0) scale(1);
+    opacity: 0.4;
+  }
+}
+
+@keyframes dice-pill {
+  0%,
+  46% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  68%,
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @layer base {
   :root {
     color-scheme: dark;

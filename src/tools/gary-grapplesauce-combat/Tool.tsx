@@ -77,6 +77,7 @@ import {
 import { usePersistentState } from "../../lib/usePersistentState";
 import { clockTime, timeAgo, useNow } from "../../lib/time";
 import { useUndoableState, type Change } from "../../lib/useUndoableState";
+import { DiceShow } from "../../ui/DiceShow";
 import { UndoBar } from "../../ui/History";
 import {
   Accordion,
@@ -133,6 +134,7 @@ import {
 import {
   ROLL_LOG_MAX,
   RollLogContext,
+  dieFaces,
   rollId,
   useRollLog,
   type NewRoll,
@@ -957,6 +959,7 @@ function DeathSaves({
         total: 20,
         result: "Wake",
         flag: "crit",
+        faces: dieFaces(20, [20]),
       });
       onNote({
         tone: "info",
@@ -984,6 +987,7 @@ function DeathSaves({
       total: face,
       result: face === 1 ? "Fail ×2" : face >= 10 ? "Success" : "Fail",
       flag: face < 10 ? "fail" : undefined,
+      faces: dieFaces(20, [face]),
     });
     onNote({
       tone: failures >= 3 ? "warning" : "info",
@@ -2438,6 +2442,7 @@ function RestPanel({
       expression: withModifier("1d10", con),
       breakdown: withModifier(`d10 (${face})`, con),
       total: gained,
+      faces: dieFaces(10, [face]),
     });
     setHitDieLine(
       `d10 ${face} ${signed(con)} = ${gained} HP (${sheet.hp} → ${nextHp}). ${sheet.hitDice - 1} dice left.`,
@@ -2713,14 +2718,15 @@ function d20LogEntry({
 }): NewRoll {
   const suffix =
     mode === "advantage" ? " (adv)" : mode === "disadvantage" ? " (dis)" : "";
-  const faces =
+  const detail =
     dice.length === 1 ? `d20 (${kept})` : `d20 (${dice.join(", ")} → ${kept})`;
   const miss = attack && !autoFail && kept === 1;
   return {
     label,
     expression: `${withModifier("1d20", bonus)}${suffix}`,
-    breakdown: withModifier(faces, bonus),
+    breakdown: withModifier(detail, bonus),
     total: kept + bonus,
+    faces: dieFaces(20, dice, kept),
     result: autoFail ? "Fail" : miss ? "Miss" : undefined,
     flag: autoFail ? "fail" : miss ? "miss" : attack && kept === 20 ? "crit" : undefined,
   };
@@ -2734,14 +2740,15 @@ function damageLogEntry(
 ): NewRoll {
   const bonus = gary.fisticuffsBonus;
   const notation = `${dice.length}d${gary.fisticuffsDie}`;
-  const faces = `${notation} (${dice.join(", ")})${
+  const detail = `${notation} (${dice.join(", ")})${
     rerolls.length > 0 ? `; reroll ${rerolls.join(", ")}` : ""
   }`;
   return {
     label: crit ? "Unarmed damage · crit" : "Unarmed damage",
     expression: withModifier(notation, bonus),
-    breakdown: withModifier(faces, bonus),
+    breakdown: withModifier(detail, bonus),
     total: dice.reduce((sum, n) => sum + n, 0) + bonus,
+    faces: dieFaces(gary.fisticuffsDie, dice),
     flag: crit ? "crit" : undefined,
   };
 }
@@ -2999,6 +3006,7 @@ function RollPanel({
       expression: "1d10",
       breakdown: `d10 (${die}): ${result.total} → ${result.total + die}`,
       total: result.total + die,
+      faces: dieFaces(10, [die]),
     });
     setResult({
       ...result,
@@ -3330,6 +3338,7 @@ function ActionRolls({
       expression: withModifier(`1d${gary.fisticuffsDie}`, gary.braceBonus),
       breakdown: withModifier(`d${gary.fisticuffsDie} (${die})`, gary.braceBonus),
       total,
+      faces: dieFaces(gary.fisticuffsDie, [die]),
     });
     setLine(
       `Brace Up d${gary.fisticuffsDie} ${die} + ${gary.braceBonus} = ${total} temp${
@@ -3351,6 +3360,7 @@ function ActionRolls({
       expression: "1d10",
       breakdown: `d10 (${die})`,
       total: die,
+      faces: dieFaces(10, [die]),
     });
     setLine(`Swagger +${die}. Say whether the check still failed.`);
   }
@@ -3513,7 +3523,7 @@ function DiceRoller() {
   const [open, setOpen] = useState(false);
   const [pool, setPool] = useState<DicePool>({ 20: 1 });
   const [modifier, setModifier] = useState(0);
-  const { log, record, clear } = useRollLog();
+  const { log, record, clear, diceMotion, setDiceMotion } = useRollLog();
   const latest = log[0];
   const now = useNow(open);
   const groups = poolGroups(pool);
@@ -3559,6 +3569,7 @@ function DiceRoller() {
         modifier,
       ),
       total,
+      faces: rolled.flatMap((g) => dieFaces(g.sides, g.faces)),
     });
   }
 
@@ -3580,11 +3591,21 @@ function DiceRoller() {
           aria-label="Dice"
         >
           <div className="flex h-7 shrink-0 items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 font-display text-xs font-semibold uppercase tracking-[0.16em] text-gold-soft">
-              <Dices className="size-4 text-gold" aria-hidden />
-              Dice tray
+            <div className="flex min-w-0 items-center gap-1.5 font-display text-xs font-semibold uppercase tracking-[0.16em] text-gold-soft">
+              <Dices className="size-4 shrink-0 text-gold" aria-hidden />
+              <span className="truncate">Dice tray</span>
             </div>
-            <div className="flex items-center">
+            <div className="flex shrink-0 items-center">
+              <button
+                type="button"
+                className={HEADER_BTN}
+                aria-pressed={diceMotion}
+                aria-label={diceMotion ? "3D dice on" : "3D dice off"}
+                onClick={() => setDiceMotion(!diceMotion)}
+              >
+                <Dices className="size-3.5" aria-hidden />
+                {diceMotion ? "3D on" : "3D off"}
+              </button>
               <button
                 type="button"
                 className={HEADER_BTN}
@@ -3903,18 +3924,29 @@ export function GaryCombatTool() {
     [],
   );
   const [crit, setCrit] = usePersistentState("gary-grapplesauce-combat:crit", false);
+  const [diceMotion, setDiceMotion] = usePersistentState(
+    "gary-grapplesauce-combat:dice-motion",
+    true,
+  );
+  const [premiere, setPremiere] = useState<RollLogEntry | null>(null);
   const rollApi = useMemo<RollLogApi>(
     () => ({
       log: rollLog,
-      record: (roll) =>
-        setRollLog((prev) =>
-          [{ ...roll, id: rollId(), at: Date.now() }, ...prev].slice(0, ROLL_LOG_MAX),
-        ),
+      record: (roll) => {
+        const entry: RollLogEntry = { ...roll, id: rollId(), at: Date.now() };
+        setRollLog((prev) => [entry, ...prev].slice(0, ROLL_LOG_MAX));
+        if (diceMotion && entry.faces && entry.faces.length > 0) setPremiere(entry);
+      },
       clear: () => setRollLog([]),
       crit,
       setCrit,
+      diceMotion,
+      setDiceMotion: (next) => {
+        setDiceMotion(next);
+        if (!next) setPremiere(null);
+      },
     }),
-    [rollLog, setRollLog, crit, setCrit],
+    [rollLog, setRollLog, crit, setCrit, diceMotion, setDiceMotion],
   );
 
   // Migrate old moxie-only key once
@@ -4164,6 +4196,7 @@ export function GaryCombatTool() {
         expression: withModifier(`1d${gary.fisticuffsDie}`, gary.braceBonus),
         breakdown: withModifier(`d${gary.fisticuffsDie} (${die})`, gary.braceBonus),
         total,
+        faces: dieFaces(gary.fisticuffsDie, [die]),
       });
     } else if (choice.auto === "swagger") {
       const die = rollDie(10);
@@ -4173,6 +4206,7 @@ export function GaryCombatTool() {
         expression: "1d10",
         breakdown: `d10 (${die})`,
         total: die,
+        faces: dieFaces(10, [die]),
       });
     }
 
@@ -4307,6 +4341,20 @@ export function GaryCombatTool() {
   return (
     <GaryContext.Provider value={gary}>
       <RollLogContext.Provider value={rollApi}>
+        <DiceShow
+          roll={
+            premiere?.faces?.length
+              ? {
+                  id: premiere.id,
+                  label: premiere.label,
+                  total: premiere.total,
+                  result: premiere.result,
+                  flag: premiere.flag,
+                  faces: premiere.faces,
+                }
+              : null
+          }
+        />
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:items-start lg:gap-6">
           <Stack gap={14} className="lg:sticky lg:top-4">
             <header className="flex flex-col gap-3">

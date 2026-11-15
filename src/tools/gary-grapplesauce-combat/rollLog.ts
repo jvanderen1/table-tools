@@ -1,5 +1,7 @@
 import { createContext, useContext } from "react";
+import type { DieFace } from "../../ui/diceGeometry";
 
+export type { DieFace };
 export type RollFlag = "crit" | "miss" | "fail";
 
 export type RollLogEntry = {
@@ -15,7 +17,18 @@ export type RollLogEntry = {
   /** Shown instead of the total, e.g. "Fail" or "Miss" */
   result?: string;
   flag?: RollFlag;
+  /** Physical dice. The on-screen throw lands on these; omitted on older log rows. */
+  faces?: DieFace[];
 };
+
+/** One face per die. When `kept` is set, the other faces are the ones advantage drops. */
+export function dieFaces(sides: number, values: number[], kept?: number): DieFace[] {
+  return values.map((value) => ({
+    sides,
+    value,
+    ...(kept != null && values.length > 1 && value !== kept ? { dropped: true } : {}),
+  }));
+}
 
 export type NewRoll = Omit<RollLogEntry, "id" | "at">;
 
@@ -28,6 +41,9 @@ export type RollLogApi = {
   /** Next damage roll doubles its dice. Set by natural 20s, cleared by damage. */
   crit: boolean;
   setCrit: (next: boolean) => void;
+  /** Throw 3D dice across the screen for each new roll. */
+  diceMotion: boolean;
+  setDiceMotion: (next: boolean) => void;
 };
 
 export const RollLogContext = createContext<RollLogApi | null>(null);

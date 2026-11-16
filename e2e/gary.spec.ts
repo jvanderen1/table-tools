@@ -79,11 +79,11 @@ test("spends a hit die after Gary is hurt", async ({ page }) => {
 test("spends Haymaker and undoes it from the plan", async ({ page }) => {
   await page.getByRole("button", { name: "My turn" }).click();
   await page.getByRole("button", { name: "Deal damage" }).click();
-  await page.getByRole("button", { name: "Haymaker · 1 Moxie" }).click();
+  await page.getByRole("button", { name: "Haymaker" }).click();
   await expect(page.getByText("4/5")).toBeVisible();
   await page.locator(".sticky").getByRole("button", { name: "Undo" }).click();
   await expect(page.getByText("5/5")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Haymaker · 1 Moxie" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Haymaker" })).toBeEnabled();
 });
 
 test("taking off the lifting belt lowers the punch", async ({ page }) => {

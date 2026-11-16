@@ -91,7 +91,6 @@ import {
   CardHeader,
   Divider,
   Drawer,
-  Pill,
   Row,
   Stack,
   Stat,
@@ -117,6 +116,8 @@ import { GLOSSARY } from "./glossary";
 import { GlossaryList, Tip } from "./Tip";
 import { ActionBrowser, ActionCatalog } from "./Catalog";
 import { ACTIONS, PART_LABEL, actionAvailable, type CustomAction } from "./actions";
+import { CostChips } from "./CostChips";
+import { costLabels, summaryCosts } from "./cost";
 import { PLAYBOOKS, type CustomPlaybook } from "./playbooks";
 import { InventoryPanel } from "./Inventory";
 import {
@@ -788,6 +789,22 @@ function reactionPlan(kind: ReactionKind, gary: GaryStats): Plan {
         apply: "none",
       };
   }
+}
+
+function choiceLabels(choice: PlanChoice) {
+  return costLabels({ part: choice.part, moxie: choice.cost, apply: choice.apply });
+}
+
+function headerChips(plan: Plan) {
+  if (plan.choices?.length) return summaryCosts(plan.choices.flatMap(choiceLabels));
+  if (plan.apply === "dig-deep") return ["1 Bonus"];
+  if (plan.apply === "dig-deep-exhaustion") return ["1 Exhaustion"];
+  if (plan.apply === "bloodied-unbowed") return ["1 Reaction"];
+  if (plan.title === "Mage Slayer interrupt" || plan.title === "Opportunity Attack") {
+    return ["1 Reaction"];
+  }
+  if (plan.cost > 0) return [`${plan.cost} Moxie`];
+  return ["No action"];
 }
 
 type LineDie = "attack" | "damage" | "brace" | "swagger";
@@ -4728,12 +4745,7 @@ export function GaryCombatTool() {
                   <Card>
                     <CardHeader
                       icon={ScrollText}
-                      trailing={
-                        <Pill active>
-                          <Flame className="size-3" aria-hidden />
-                          {plan.costLabel}
-                        </Pill>
-                      }
+                      trailing={<CostChips labels={headerChips(plan)} />}
                     >
                       {plan.title}
                     </CardHeader>
@@ -4820,11 +4832,10 @@ export function GaryCombatTool() {
                                       }
                                       onClick={() => commitChoice(choice)}
                                     >
-                                      {used
-                                        ? `${choice.label} · done`
-                                        : choice.cost > 0
-                                          ? `${choice.label} · ${choice.cost} Moxie`
-                                          : choice.label}
+                                      <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                                        <span className="truncate">{choice.label}</span>
+                                        <CostChips labels={choiceLabels(choice)} />
+                                      </span>
                                     </Button>
                                     <Text tone="tertiary">{choice.detail}</Text>
                                     {choice.id === "haymaker" ? (

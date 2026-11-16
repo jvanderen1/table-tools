@@ -45,6 +45,7 @@ import {
   Info,
   Lightbulb,
   ListOrdered,
+  LoaderCircle,
   Lock,
   Minus,
   Moon,
@@ -3525,7 +3526,7 @@ function DiceRoller() {
   const [open, setOpen] = useState(false);
   const [pool, setPool] = useState<DicePool>({ 20: 1 });
   const [modifier, setModifier] = useState(0);
-  const { log, record, clear } = useRollLog();
+  const { log, record, clear, pendingId } = useRollLog();
   const latest = log[0];
   const now = useNow(open);
   const groups = poolGroups(pool);
@@ -3716,18 +3717,30 @@ function DiceRoller() {
               ) : null}
             </div>
             {latest ? (
-              <div className="flex min-h-0 flex-1 flex-col items-center justify-center">
-                <div
-                  key={latest.id}
-                  className={cx(
-                    "animate-pop-in font-display text-[2.4rem] leading-none font-semibold tabular-nums",
-                    latest.flag ? FLAG_TONE[latest.flag] : "text-gold-soft",
-                  )}
-                >
-                  {latest.result ?? latest.total}
-                </div>
+              <div
+                className="flex min-h-0 flex-1 flex-col items-center justify-center"
+                aria-busy={latest.id === pendingId}
+              >
+                {latest.id === pendingId ? (
+                  <LoaderCircle
+                    className="size-8 animate-spin text-gold-soft"
+                    aria-label="Dice still rolling"
+                  />
+                ) : (
+                  <div
+                    key={latest.id}
+                    className={cx(
+                      "animate-pop-in font-display text-[2.4rem] leading-none font-semibold tabular-nums",
+                      latest.flag ? FLAG_TONE[latest.flag] : "text-gold-soft",
+                    )}
+                  >
+                    {latest.result ?? latest.total}
+                  </div>
+                )}
                 <div className="mt-1 line-clamp-2 h-8 w-full text-[0.72rem] leading-4 tabular-nums text-faint">
-                  <span className="text-muted">{latest.label}</span> · {latest.breakdown}
+                  <span className="text-muted">{latest.label}</span>
+                  {" · "}
+                  {latest.id === pendingId ? latest.expression : latest.breakdown}
                 </div>
               </div>
             ) : (
@@ -3781,18 +3794,25 @@ function DiceRoller() {
                       </time>
                     </div>
                   </div>
-                  <span
-                    className={cx(
-                      "shrink-0 text-base font-semibold",
-                      entry.flag
-                        ? FLAG_TONE[entry.flag]
-                        : i === 0
-                          ? "text-gold-soft"
-                          : "text-ink",
-                    )}
-                  >
-                    {entry.result ?? entry.total}
-                  </span>
+                  {entry.id === pendingId ? (
+                    <LoaderCircle
+                      className="size-4 shrink-0 animate-spin text-gold-soft"
+                      aria-label="Dice still rolling"
+                    />
+                  ) : (
+                    <span
+                      className={cx(
+                        "shrink-0 text-base font-semibold",
+                        entry.flag
+                          ? FLAG_TONE[entry.flag]
+                          : i === 0
+                            ? "text-gold-soft"
+                            : "text-ink",
+                      )}
+                    >
+                      {entry.result ?? entry.total}
+                    </span>
+                  )}
                 </li>
               ))
             ) : (
@@ -3912,6 +3932,9 @@ export function GaryCombatTool() {
   const [crit, setCrit] = usePersistentState("gary-grapplesauce-combat:crit", false);
   const [dicePrefs] = useDicePrefs();
   const [premiere, setPremiere] = useState<RollLogEntry | null>(null);
+  const [settledRollId, setSettledRollId] = useState<string | null>(null);
+  const noteSettled = useCallback((id: string) => setSettledRollId(id), []);
+  const pendingId = premiere && settledRollId !== premiere.id ? premiere.id : null;
   const [motionSeen, setMotionSeen] = useState(dicePrefs.motion);
   if (dicePrefs.motion !== motionSeen) {
     setMotionSeen(dicePrefs.motion);
@@ -3921,6 +3944,7 @@ export function GaryCombatTool() {
   const rollApi = useMemo<RollLogApi>(
     () => ({
       log: rollLog,
+      pendingId,
       record: (roll) => {
         const entry: RollLogEntry = { ...roll, id: rollId(), at: Date.now() };
         setRollLog((prev) => [entry, ...prev].slice(0, ROLL_LOG_MAX));
@@ -3939,7 +3963,7 @@ export function GaryCombatTool() {
       crit,
       setCrit,
     }),
-    [rollLog, setRollLog, crit, setCrit, dicePrefs.motion, dicePrefs.sound],
+    [rollLog, setRollLog, crit, setCrit, dicePrefs.motion, dicePrefs.sound, pendingId],
   );
 
   // Migrate old moxie-only key once
@@ -4341,6 +4365,7 @@ export function GaryCombatTool() {
               : dicePrefs.hold.seconds * 1000
           }
           onDismiss={dismissDice}
+          onSettled={noteSettled}
           roll={
             premiere?.faces?.length
               ? {

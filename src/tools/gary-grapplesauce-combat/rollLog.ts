@@ -36,6 +36,8 @@ export const ROLL_LOG_MAX = 50;
 
 export type RollLogApi = {
   log: RollLogEntry[];
+  /** The roll whose dice are still moving. Its total stays hidden until they stop. */
+  pendingId: string | null;
   record: (roll: NewRoll) => void;
   clear: () => void;
   /** Next damage roll doubles its dice. Set by natural 20s, cleared by damage. */

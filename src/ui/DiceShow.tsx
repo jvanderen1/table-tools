@@ -73,14 +73,19 @@ export function DiceShow({
   roll,
   holdMs,
   onDismiss,
+  onSettled,
 }: {
   roll: DiceThrow | null;
   /** Milliseconds to linger. Null stays until dismissed or the next roll. */
   holdMs: number | null;
   onDismiss: () => void;
+  /** Fired once the thrown dice have stopped, or the scene cannot show them. */
+  onSettled?: (id: string) => void;
 }) {
   const stage = useRef<HTMLDivElement>(null);
   const boxRef = useRef<{ box: DiceBox; ready: Promise<void> } | null>(null);
+  const onSettledRef = useRef(onSettled);
+  onSettledRef.current = onSettled;
   const [settledId, setSettledId] = useState<string | null>(null);
   const rollId = roll?.id ?? null;
   const notation = roll ? diceBoxNotation(roll.faces) : "";
@@ -168,7 +173,9 @@ export function DiceShow({
     let stopWatching = () => {};
     let fallback = 0;
     const settle = () => {
-      if (!cancelled) setSettledId(rollId);
+      if (cancelled || !rollId) return;
+      setSettledId(rollId);
+      onSettledRef.current?.(rollId);
     };
     current.ready
       .then(() => {

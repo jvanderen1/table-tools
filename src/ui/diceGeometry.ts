@@ -127,7 +127,13 @@ export function diceBoxNotation(faces: DieFace[]): string {
       dice.push({ type: "d10", value: face.value === 10 ? 0 : face.value });
       continue;
     }
-    if (face.sides !== 4 && face.sides !== 6 && face.sides !== 8 && face.sides !== 12 && face.sides !== 20) {
+    if (
+      face.sides !== 4 &&
+      face.sides !== 6 &&
+      face.sides !== 8 &&
+      face.sides !== 12 &&
+      face.sides !== 20
+    ) {
       continue;
     }
     dice.push({ type: `d${face.sides}`, value: face.value });

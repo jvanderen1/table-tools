@@ -127,7 +127,9 @@ test("tapping the dice clears them", async ({ page }) => {
   await tray.getByRole("button", { name: "Roll 1d20" }).click();
   const show = page.locator("[data-dice-show]");
   await expect(show).toBeVisible();
-  await page.getByRole("button", { name: "Dismiss Dice tray" }).click({ position: { x: 48, y: 420 } });
+  await page
+    .getByRole("button", { name: "Dismiss Dice tray" })
+    .click({ position: { x: 48, y: 420 } });
   await expect(show).toHaveCount(0);
   await expect(tray.getByText("1d20").first()).toBeVisible();
 });

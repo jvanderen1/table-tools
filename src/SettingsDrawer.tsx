@@ -133,13 +133,18 @@ function DiceSettings() {
               prefs.hold.stay ? on : off,
             )}
             aria-pressed={prefs.hold.stay}
-            aria-label={prefs.hold.stay ? "Dice stay until dismissed" : "Keep dice until dismissed"}
+            aria-label={
+              prefs.hold.stay ? "Dice stay until dismissed" : "Keep dice until dismissed"
+            }
             onClick={() => {
               const current = readDicePrefs().hold;
-              const parsed = draft == null || draft === "" ? current.seconds : Number(draft);
+              const parsed =
+                draft == null || draft === "" ? current.seconds : Number(draft);
               update({
                 hold: {
-                  seconds: Number.isFinite(parsed) ? clampHoldSeconds(parsed) : current.seconds,
+                  seconds: Number.isFinite(parsed)
+                    ? clampHoldSeconds(parsed)
+                    : current.seconds,
                   stay: !current.stay,
                 },
               });
@@ -151,8 +156,8 @@ function DiceSettings() {
         </div>
       </div>
       <Text tone="tertiary">
-        At least 3 seconds after they land, or Stay until you tap. Tap anywhere to clear them.
-        Escape does the same.
+        At least 3 seconds after they land, or Stay until you tap. Tap anywhere to clear
+        them. Escape does the same.
       </Text>
     </Stack>
   );

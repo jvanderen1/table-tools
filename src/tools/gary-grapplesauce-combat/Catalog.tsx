@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { BookOpen, Plus, Trash2 } from "lucide-react";
+import { BookOpen, LoaderCircle, Plus, Trash2 } from "lucide-react";
 import {
   ACTION_PARTS,
   ACTIONS,
@@ -12,6 +12,7 @@ import { PLAYBOOKS, type CustomPlaybook, type PlaybookWhen } from "./playbooks";
 import { CostChips } from "./CostChips";
 import { actionChips, type UsageSheet } from "./cost";
 import { blockReason, toSpendTarget, type SpendFields } from "./spend";
+import { useRollLog } from "./rollLog";
 import { Button, Card, CardBody, CardHeader, Drawer, Stack, Text } from "../../ui";
 
 const FIELD =
@@ -42,6 +43,7 @@ export function ActionBrowser({
   cantAct,
   bloodied,
   note,
+  rollHold,
   canUndo,
   follow,
   onUse,
@@ -57,6 +59,8 @@ export function ActionBrowser({
   cantAct: boolean;
   bloodied: boolean;
   note: string | null;
+  /** When set, the note names a die that is still on screen. */
+  rollHold: { id: string; hold: string } | null;
   canUndo: boolean;
   /** A Haymaker or Swagger spend is waiting for the second tap. */
   follow: "haymaker" | "swagger" | null;
@@ -83,10 +87,12 @@ export function ActionBrowser({
           : "Say whether the check still failed."
         : blockReason(toSpendTarget(current), readyFlags(sheet), { cantAct, bloodied })
       : null;
+  const { pendingId } = useRollLog();
   const shown =
     follow && note
       ? note
       : (blocked ?? note ?? "Tap a move, then Use. Undo puts the last one back.");
+  const holding = rollHold != null && rollHold.id === pendingId && shown === note;
   const followMode =
     follow ??
     (current?.id === "haymaker" || current?.id === "swagger" ? current.id : null);
@@ -147,13 +153,24 @@ export function ActionBrowser({
           </div>
           <div
             className={
-              follow && note
+              (follow && note) || holding
                 ? "flex min-h-11 items-center rounded-lg border border-gold/30 bg-gold/[0.06] px-3 py-2 text-sm leading-snug text-gold-soft"
                 : "flex min-h-11 items-center rounded-lg border border-dashed border-line px-3 py-2 text-sm leading-snug text-muted"
             }
             aria-live="polite"
+            aria-busy={holding}
           >
-            {shown}
+            {holding && rollHold ? (
+              <span className="inline-flex min-w-0 items-center gap-1.5">
+                <LoaderCircle
+                  className="size-3.5 shrink-0 animate-spin"
+                  aria-label="Dice still rolling"
+                />
+                <span className="min-w-0">{rollHold.hold}</span>
+              </span>
+            ) : (
+              shown
+            )}
           </div>
           <div className="grid grid-cols-2 gap-2">
             <Button

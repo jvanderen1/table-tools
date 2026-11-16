@@ -363,6 +363,9 @@ function describeSheetChange(prev: Sheet, next: Sheet): Change {
 
 type PlaySnap = { id: string; before: Sheet; after: Sheet };
 
+/** A result line that includes a die face, held until that throw stops. */
+type HeldRoll = { id: string; hold: string } | null;
+
 /** Put back only the fields that one play tap changed, and leave later edits alone. */
 function revertSnap(current: Sheet, snap: PlaySnap): Sheet {
   const next: Sheet = { ...current, conditions: { ...current.conditions } };
@@ -880,6 +883,9 @@ type DamageOutcome = {
   tone: "info" | "warning";
   title: string;
   detail: string;
+  /** Set when the note prints a die face. Hidden while that throw is still moving. */
+  rollId?: string;
+  hold?: string;
 };
 
 function isWeaponPhysical(type: DamageType) {
@@ -979,7 +985,7 @@ function DeathSaves({
     const face = rollDie(20);
     if (face === 20) {
       setSheet((s) => wake(s, Math.max(s.hp, 1)));
-      record({
+      const rollId = record({
         label: "Death save",
         expression: "1d20",
         breakdown: "d20 (20)",
@@ -992,6 +998,8 @@ function DeathSaves({
         tone: "info",
         title: "Natural 20",
         detail: "Gary is back at 1 HP. Death saves cleared.",
+        rollId,
+        hold: "1d20",
       });
       return;
     }
@@ -1007,7 +1015,7 @@ function DeathSaves({
       stable,
       conditions: { ...s.conditions, unconscious: true },
     }));
-    record({
+    const rollId = record({
       label: "Death save",
       expression: "1d20",
       breakdown: `d20 (${face})`,
@@ -1028,6 +1036,8 @@ function DeathSaves({
             : face === 1
               ? `Rolled 1. Two failures (${failures}/3).`
               : `Rolled ${face}. ${face >= 10 ? "Success" : "Failure"} ${face >= 10 ? successes : failures}/3.`,
+      rollId,
+      hold: "1d20",
     });
   }
 
@@ -1083,6 +1093,7 @@ function DamageAdjuster({
   setSheet: (next: Sheet | ((prev: Sheet) => Sheet)) => void;
 }) {
   const gary = useGary();
+  const { pendingId } = useRollLog();
   const [ui, setUi] = usePersistentState<DamageUi>(
     "gary-grapplesauce-combat:damage-ui",
     DEFAULT_DAMAGE_UI,
@@ -1533,13 +1544,15 @@ function DamageAdjuster({
 
       {outcome ? (
         <Callout
-          key={`${outcome.title}${outcome.detail}`}
+          key={outcome.rollId ?? `${outcome.title}${outcome.detail}`}
           tone={outcome.tone}
-          title={outcome.title}
+          title={outcome.rollId === pendingId ? "Death save" : outcome.title}
           icon={outcome.tone === "warning" ? TriangleAlert : CircleCheck}
           className={cx(OUTCOME_SLOT, "animate-pop-in")}
         >
-          {outcome.detail}
+          <RollHold rollId={outcome.rollId} hold={outcome.hold ?? "1d20"}>
+            {outcome.detail}
+          </RollHold>
         </Callout>
       ) : (
         <div
@@ -2444,7 +2457,11 @@ function RestPanel({
 }) {
   const gary = useGary();
   const { record } = useRollLog();
-  const [hitDieLine, setHitDieLine] = useState<string | null>(null);
+  const [hitDie, setHitDie] = useState<{
+    id: string;
+    hold: string;
+    line: string;
+  } | null>(null);
   const [armReset, setArmReset] = useState(false);
   useEffect(() => {
     if (!armReset) return;
@@ -2464,16 +2481,19 @@ function RestPanel({
     const gained = Math.max(0, face + con);
     const nextHp = clamp(sheet.hp + gained, 0, gary.hpMax);
     setSheet((s) => wake({ ...s, hitDice: s.hitDice - 1 }, nextHp));
-    record({
+    const rollId = record({
       label: "Hit die",
       expression: withModifier("1d10", con),
       breakdown: withModifier(`d10 (${face})`, con),
       total: gained,
       faces: dieFaces(10, [face]),
     });
-    setHitDieLine(
-      `d10 ${face} ${signed(con)} = ${gained} HP (${sheet.hp} → ${nextHp}). ${sheet.hitDice - 1} dice left.`,
-    );
+    const left = sheet.hitDice - 1;
+    setHitDie({
+      id: rollId,
+      hold: `${withModifier("1d10", con)} · ${left} dice left`,
+      line: `d10 ${face} ${signed(con)} = ${gained} HP (${sheet.hp} → ${nextHp}). ${left} dice left.`,
+    });
   }
 
   return (
@@ -2615,12 +2635,17 @@ function RestPanel({
           Spend 1d10{signed(con)}
         </Button>
         <p className="min-h-10 text-xs leading-5 text-faint">
-          {hitDieLine ??
-            (down
-              ? "He can’t rest or spend a die at 0 HP."
-              : sheet.hp >= gary.hpMax
-                ? "Already at full HP. A long rest refills any dice he has spent."
-                : "A short rest can spend dice. Each one is 1d10 plus Constitution, minimum 0. A long rest refills them.")}
+          {hitDie ? (
+            <RollHold rollId={hitDie.id} hold={hitDie.hold}>
+              {hitDie.line}
+            </RollHold>
+          ) : down ? (
+            "He can’t rest or spend a die at 0 HP."
+          ) : sheet.hp >= gary.hpMax ? (
+            "Already at full HP. A long rest refills any dice he has spent."
+          ) : (
+            "A short rest can spend dice. Each one is 1d10 plus Constitution, minimum 0. A long rest refills them."
+          )}
         </p>
       </div>
       <div className="grid grid-cols-2 gap-2">
@@ -2666,7 +2691,7 @@ function RestPanel({
             return;
           }
           setArmReset(false);
-          setHitDieLine(null);
+          setHitDie(null);
           onResetSheet();
         }}
       >
@@ -2700,6 +2725,9 @@ type D20Spec = {
 type ShownRoll =
   | {
       kind: "d20";
+      rollId: string;
+      /** Shown instead of the total while the dice are still moving. */
+      hold: string;
       label: string;
       dice: number[];
       kept: number;
@@ -2715,6 +2743,8 @@ type ShownRoll =
     }
   | {
       kind: "damage";
+      rollId: string;
+      hold: string;
       dice: number[];
       bonus: number;
       total: number;
@@ -2722,6 +2752,8 @@ type ShownRoll =
     }
   | {
       kind: "brace";
+      rollId: string;
+      hold: string;
       die: number;
       bonus: number;
       total: number;
@@ -3014,20 +3046,21 @@ function RollPanel({
           ? Math.min(...dice)
           : first;
     const autoFail = spec.autoFail.length > 0;
-    record(
-      d20LogEntry({
-        label: spec.attack ? "Unarmed to hit" : spec.label,
-        dice,
-        kept,
-        bonus: spec.bonus,
-        mode,
-        attack: spec.attack,
-        autoFail,
-      }),
-    );
+    const entry = d20LogEntry({
+      label: spec.attack ? "Unarmed to hit" : spec.label,
+      dice,
+      kept,
+      bonus: spec.bonus,
+      mode,
+      attack: spec.attack,
+      autoFail,
+    });
+    const rollId = record(entry);
     if (spec.attack) setCrit(!autoFail && kept === 20);
     setResult({
       kind: "d20",
+      rollId,
+      hold: entry.expression,
       label: spec.label,
       dice,
       kept,
@@ -3054,7 +3087,7 @@ function RollPanel({
     }
     const die = rollDie(10);
     setSheet((s) => ({ ...s, moxie: clamp(s.moxie - 1, 0, MOXIE_MAX) }));
-    record({
+    const rollId = record({
       label: `${result.label} + Swagger`,
       expression: "1d10",
       breakdown: `d10 (${die}): ${result.total} → ${result.total + die}`,
@@ -3063,6 +3096,8 @@ function RollPanel({
     });
     setResult({
       ...result,
+      rollId,
+      hold: "1d10",
       total: result.total + die,
       swagger: false,
       swaggerDie: die,
@@ -3085,10 +3120,13 @@ function RollPanel({
   function rollDamage() {
     const rolled = rollUnarmedDice(crit ? 2 : 1, gary.fisticuffsDie);
     const bonus = gary.fisticuffsBonus;
-    record(damageLogEntry(rolled.dice, crit, gary, rolled.rerolls));
+    const entry = damageLogEntry(rolled.dice, crit, gary, rolled.rerolls);
+    const rollId = record(entry);
     setCrit(false);
     setResult({
       kind: "damage",
+      rollId,
+      hold: entry.expression,
       dice: rolled.dice,
       bonus,
       total: rolled.dice.reduce((sum, n) => sum + n, 0) + bonus,
@@ -3175,6 +3213,29 @@ function RollPanel({
   );
 }
 
+/** Hide a rolled number until that throw's dice have stopped, or the player dismisses them. */
+function RollHold({
+  rollId,
+  hold,
+  children,
+}: {
+  rollId?: string | null;
+  hold: ReactNode;
+  children: ReactNode;
+}) {
+  const { pendingId } = useRollLog();
+  if (rollId == null || rollId !== pendingId) return children;
+  return (
+    <span className="inline-flex min-w-0 items-center gap-1.5" aria-busy="true">
+      <LoaderCircle
+        className="size-3.5 shrink-0 animate-spin text-gold-soft"
+        aria-label="Dice still rolling"
+      />
+      <span className="min-w-0">{hold}</span>
+    </span>
+  );
+}
+
 function RollReadout({
   result,
   onSwagger,
@@ -3187,17 +3248,26 @@ function RollReadout({
   swaggerReady: boolean;
 }) {
   const gary = useGary();
+  const { pendingId } = useRollLog();
+  const rolling = result.rollId === pendingId;
+  const spinner = (
+    <LoaderCircle
+      className="size-12 animate-spin text-gold-soft"
+      aria-label="Dice still rolling"
+    />
+  );
   if (result.kind === "damage") {
     return (
-      <div className={ROLL_RESULT}>
+      <div className={ROLL_RESULT} aria-busy={rolling}>
         <div className={ROLL_RESULT_LABEL}>
           <Sword className="size-3.5 text-gold" aria-hidden />
           {result.crit ? "Damage · critical hit" : "Damage"}
         </div>
-        <div className={ROLL_TOTAL}>{result.total}</div>
+        <div className={ROLL_TOTAL}>{rolling ? spinner : result.total}</div>
         <div className={ROLL_MATH}>
-          {result.dice.length}d{gary.fisticuffsDie} {result.dice.join("+")} +{" "}
-          {result.bonus} = {result.total} bludgeoning
+          {rolling
+            ? result.hold
+            : `${result.dice.length}d${gary.fisticuffsDie} ${result.dice.join("+")} + ${result.bonus} = ${result.total} bludgeoning`}
         </div>
       </div>
     );
@@ -3205,17 +3275,21 @@ function RollReadout({
 
   if (result.kind === "brace") {
     return (
-      <div className={ROLL_RESULT}>
+      <div className={ROLL_RESULT} aria-busy={rolling}>
         <div className={ROLL_RESULT_LABEL}>
           <ShieldPlus className="size-3.5 text-gold" aria-hidden />
           Brace Up
         </div>
-        <div className={ROLL_TOTAL}>+{result.total}</div>
+        <div className={ROLL_TOTAL}>{rolling ? spinner : `+${result.total}`}</div>
         <div className={ROLL_MATH}>
-          d{gary.fisticuffsDie} {result.die} + {result.bonus} = {result.total} temp
+          {rolling
+            ? result.hold
+            : `d${gary.fisticuffsDie} ${result.die} + ${result.bonus} = ${result.total} temp`}
         </div>
         <div className={ROLL_NOTES}>
-          Temp HP {result.tempBefore} → {result.tempAfter}
+          {rolling
+            ? "Temporary hit points update when the die stops."
+            : `Temp HP ${result.tempBefore} → ${result.tempAfter}`}
         </div>
       </div>
     );
@@ -3234,7 +3308,7 @@ function RollReadout({
       }`;
 
   return (
-    <div className={ROLL_RESULT}>
+    <div className={ROLL_RESULT} aria-busy={rolling}>
       <div className={ROLL_RESULT_LABEL}>
         <Dices className="size-3.5 text-gold" aria-hidden />
         {result.label}
@@ -3242,26 +3316,26 @@ function RollReadout({
       <div
         className={cx(
           ROLL_TOTAL,
-          (result.autoFail || miss) && "text-crimson-soft",
-          crit && "text-gold-soft",
+          !rolling && (result.autoFail || miss) && "text-crimson-soft",
+          !rolling && crit && "text-gold-soft",
         )}
       >
-        {result.autoFail ? "Fail" : miss ? "Miss" : result.total}
+        {rolling ? spinner : result.autoFail ? "Fail" : miss ? "Miss" : result.total}
       </div>
-      <div className={ROLL_MATH}>{math}</div>
-      {crit ? (
+      <div className={ROLL_MATH}>{rolling ? result.hold : math}</div>
+      {!rolling && crit ? (
         <div className={cx(ROLL_FLAG, "text-verdant")}>
           <Star className="size-4 fill-current" aria-hidden />
           Critical hit
         </div>
       ) : null}
-      {miss ? (
+      {!rolling && miss ? (
         <div className={cx(ROLL_FLAG, "text-crimson-soft")}>
           <Skull className="size-4" aria-hidden />
           Natural 1 — automatic miss
         </div>
       ) : null}
-      {result.autoFail ? (
+      {!rolling && result.autoFail ? (
         <div className={cx(ROLL_FLAG, "text-crimson-soft")}>
           <Ban className="size-4" aria-hidden />
           Automatic failure · {result.autoFail}
@@ -3276,7 +3350,9 @@ function RollReadout({
             disabled={!result.swagger || !swaggerReady}
             onClick={onSwagger}
           >
-            {result.swaggerDie ? `Swagger +${result.swaggerDie}` : "Add Swagger +1d10"}
+            {result.swaggerDie && !rolling
+              ? `Swagger +${result.swaggerDie}`
+              : "Add Swagger +1d10"}
           </Button>
           <div className="grid grid-cols-2 gap-2">
             <Button
@@ -3325,16 +3401,21 @@ function ActionRolls({
   setSheet: (next: Sheet | ((prev: Sheet) => Sheet)) => void;
 }) {
   const gary = useGary();
-  const [line, setLine] = useState<string | null>(null);
+  const [flash, setFlash] = useState<{
+    id: string;
+    hold: string;
+    line: string;
+  } | null>(null);
   const [swaggerDie, setSwaggerDie] = useState<number | null>(null);
   const [swaggerCall, setSwaggerCall] = useState<
     "pending" | "failed" | "succeeded" | null
   >(null);
-  const { record, crit, setCrit } = useRollLog();
+  const { record, crit, setCrit, pendingId } = useRollLog();
   const effects = effectsFor(sheet, gary);
   const cantAct = effects.cantAct.length > 0;
   const attackBonus = gary.attack - effects.d20Penalty;
   const attackMode = ROLL_SHORT[effects.attack.roll];
+  const rolling = flash != null && flash.id === pendingId;
 
   function rollAttack() {
     const mode = effects.attack.roll;
@@ -3349,36 +3430,38 @@ function ActionRolls({
     const isCrit = kept === 20;
     const isMiss = kept === 1;
     setCrit(isCrit);
-    record(
-      d20LogEntry({
-        label: "Unarmed to hit",
-        dice: diceRoll,
-        kept,
-        bonus: attackBonus,
-        mode,
-        attack: true,
-      }),
-    );
+    const entry = d20LogEntry({
+      label: "Unarmed to hit",
+      dice: diceRoll,
+      kept,
+      bonus: attackBonus,
+      mode,
+      attack: true,
+    });
     const shown =
       diceRoll.length === 1 ? `d20 ${kept}` : `${diceRoll[0]} & ${diceRoll[1]} → ${kept}`;
-    setLine(
-      isMiss
+    setFlash({
+      id: record(entry),
+      hold: `To hit ${entry.expression}`,
+      line: isMiss
         ? `To hit ${shown} · natural 1, miss`
         : `To hit ${shown} ${signed(attackBonus)} = ${kept + attackBonus}${isCrit ? " · critical hit" : ""}`,
-    );
+    });
   }
 
   function rollDamage() {
     const faces = crit ? 2 : 1;
     const rolled = rollUnarmedDice(faces, gary.fisticuffsDie);
     const total = rolled.dice.reduce((sum, n) => sum + n, 0) + gary.fisticuffsBonus;
-    record(damageLogEntry(rolled.dice, crit, gary, rolled.rerolls));
+    const entry = damageLogEntry(rolled.dice, crit, gary, rolled.rerolls);
     setCrit(false);
-    setLine(
-      `${crit ? "Crit " : ""}${faces}d${gary.fisticuffsDie} ${rolled.dice.join("+")} + ${gary.fisticuffsBonus} = ${total} bludgeoning${
+    setFlash({
+      id: record(entry),
+      hold: entry.expression,
+      line: `${crit ? "Crit " : ""}${faces}d${gary.fisticuffsDie} ${rolled.dice.join("+")} + ${gary.fisticuffsBonus} = ${total} bludgeoning${
         rolled.rerolls.length > 0 ? ` · reroll ${rolled.rerolls.join(", ")}` : ""
       }`,
-    );
+    });
   }
 
   function rollBrace() {
@@ -3386,20 +3469,22 @@ function ActionRolls({
     const total = die + gary.braceBonus;
     const next = Math.max(sheet.tempHp, total);
     setSheet((s) => ({ ...s, tempHp: Math.max(s.tempHp, total) }));
-    record({
-      label: "Brace Up (temp HP)",
-      expression: withModifier(`1d${gary.fisticuffsDie}`, gary.braceBonus),
-      breakdown: withModifier(`d${gary.fisticuffsDie} (${die})`, gary.braceBonus),
-      total,
-      faces: dieFaces(gary.fisticuffsDie, [die]),
-    });
-    setLine(
-      `Brace Up d${gary.fisticuffsDie} ${die} + ${gary.braceBonus} = ${total} temp${
+    const expression = withModifier(`1d${gary.fisticuffsDie}`, gary.braceBonus);
+    setFlash({
+      id: record({
+        label: "Brace Up (temp HP)",
+        expression,
+        breakdown: withModifier(`d${gary.fisticuffsDie} (${die})`, gary.braceBonus),
+        total,
+        faces: dieFaces(gary.fisticuffsDie, [die]),
+      }),
+      hold: expression,
+      line: `Brace Up d${gary.fisticuffsDie} ${die} + ${gary.braceBonus} = ${total} temp${
         next === sheet.tempHp
           ? ` · kept ${sheet.tempHp}`
           : ` · temp ${sheet.tempHp} → ${next}`
       }`,
-    );
+    });
   }
 
   function rollSwagger() {
@@ -3408,14 +3493,17 @@ function ActionRolls({
     setSheet((s) => ({ ...s, moxie: clamp(s.moxie - 1, 0, MOXIE_MAX) }));
     setSwaggerDie(die);
     setSwaggerCall("pending");
-    record({
-      label: "Swagger Streak",
-      expression: "1d10",
-      breakdown: `d10 (${die})`,
-      total: die,
-      faces: dieFaces(10, [die]),
+    setFlash({
+      id: record({
+        label: "Swagger Streak",
+        expression: "1d10",
+        breakdown: `d10 (${die})`,
+        total: die,
+        faces: dieFaces(10, [die]),
+      }),
+      hold: "1d10",
+      line: `Swagger +${die}. Say whether the check still failed.`,
     });
-    setLine(`Swagger +${die}. Say whether the check still failed.`);
   }
 
   function settleSwagger(kind: "failed" | "succeeded") {
@@ -3426,12 +3514,22 @@ function ActionRolls({
         moxie: clamp(s.moxie + 1, 0, MOXIE_MAX),
         swagger: false,
       }));
-      setLine(
-        `Swagger +${swaggerDie ?? 0}. Still failed: Moxie is back, and Swagger is used.`,
+      setFlash((current) =>
+        current
+          ? {
+              ...current,
+              line: `Swagger +${swaggerDie ?? 0}. Still failed: Moxie is back, and Swagger is used.`,
+            }
+          : current,
       );
     } else {
-      setLine(
-        `Swagger +${swaggerDie ?? 0}. Succeeded: the Moxie stays spent, and Swagger is still ready.`,
+      setFlash((current) =>
+        current
+          ? {
+              ...current,
+              line: `Swagger +${swaggerDie ?? 0}. Succeeded: the Moxie stays spent, and Swagger is still ready.`,
+            }
+          : current,
       );
     }
     setSwaggerCall(kind);
@@ -3480,7 +3578,7 @@ function ActionRolls({
             onClick={rollSwagger}
           >
             <Sparkles aria-hidden />
-            {swaggerDie != null
+            {swaggerDie != null && !rolling
               ? `Swagger +${swaggerDie}`
               : sheet.swagger
                 ? "Swagger +1d10"
@@ -3511,15 +3609,22 @@ function ActionRolls({
       <div
         className={cx(
           "flex h-11 items-center gap-1.5 rounded-md border px-2.5 text-[0.8rem] leading-4 tabular-nums",
-          line
+          flash
             ? "border-gold/25 bg-gold/[0.06] text-gold-soft"
             : "border-dashed border-line text-faint",
         )}
         aria-live="polite"
+        aria-busy={rolling}
       >
         <Dices className="size-3.5 shrink-0" aria-hidden />
-        <span key={line ?? ""} className="line-clamp-2 animate-pop-in">
-          {line ?? "Roll results show here."}
+        <span key={flash?.id ?? ""} className="line-clamp-2 animate-pop-in">
+          {flash ? (
+            <RollHold rollId={flash.id} hold={flash.hold}>
+              {flash.line}
+            </RollHold>
+          ) : (
+            "Roll results show here."
+          )}
         </span>
       </div>
     </Stack>
@@ -3983,6 +4088,7 @@ export function GaryCombatTool() {
   const [snaps, setSnaps] = useState<PlaySnap[]>([]);
   const [listSnaps, setListSnaps] = useState<PlaySnap[]>([]);
   const [listNote, setListNote] = useState<string | null>(null);
+  const [listRoll, setListRoll] = useState<HeldRoll>(null);
   const [listHaymaker, setListHaymaker] = useState<"pending" | "hit" | "miss" | null>(
     null,
   );
@@ -4000,6 +4106,7 @@ export function GaryCombatTool() {
     [],
   );
   const [receipt, setReceipt] = useState<string | null>(null);
+  const [receiptRoll, setReceiptRoll] = useState<HeldRoll>(null);
   const [haymakerCall, setHaymakerCall] = useState<"pending" | "hit" | "miss" | null>(
     null,
   );
@@ -4039,6 +4146,7 @@ export function GaryCombatTool() {
             playDiceSound(shown, entry.flag);
           }
         }
+        return entry.id;
       },
       clear: () => setRollLog([]),
       crit,
@@ -4138,7 +4246,7 @@ export function GaryCombatTool() {
   if (goalUnaffordable) {
     setSelectedGoal(null);
     setUsedIds([]);
-    setReceipt(null);
+    clearPlayReceipt();
     setHaymakerCall(null);
     setSwaggerCall(null);
     setSnaps([]);
@@ -4150,7 +4258,7 @@ export function GaryCombatTool() {
   if (planTitle !== trackedTitle) {
     setTrackedTitle(planTitle);
     setUsedIds([]);
-    setReceipt(null);
+    clearPlayReceipt();
     setHaymakerCall(null);
     setSwaggerCall(null);
     setSnaps([]);
@@ -4163,7 +4271,7 @@ export function GaryCombatTool() {
     setStaticPlan(null);
     setPlaybookId(null);
     setUsedIds([]);
-    setReceipt(null);
+    clearPlayReceipt();
     setHaymakerCall(null);
     setSwaggerCall(null);
     setSnaps([]);
@@ -4175,7 +4283,7 @@ export function GaryCombatTool() {
       setPlaybookId(null);
       setStaticPlan(null);
       setUsedIds([]);
-      setReceipt(null);
+      clearPlayReceipt();
       setHaymakerCall(null);
       setSwaggerCall(null);
       setSnaps([]);
@@ -4186,13 +4294,59 @@ export function GaryCombatTool() {
       setPlaybookId(null);
       setStaticPlan(null);
       setUsedIds([]);
-      setReceipt(null);
+      clearPlayReceipt();
       setHaymakerCall(null);
       setSwaggerCall(null);
       setSnaps([]);
       return;
     }
     resetDecision();
+  }
+
+  function rollAuto(choice: PlanChoice, tempBefore: number) {
+    let rolled = "";
+    let nextTemp = tempBefore;
+    let held: HeldRoll = null;
+    if (choice.auto === "brace") {
+      const die = rollDie(gary.fisticuffsDie);
+      const total = die + gary.braceBonus;
+      nextTemp = Math.max(tempBefore, total);
+      const expression = withModifier(`1d${gary.fisticuffsDie}`, gary.braceBonus);
+      rolled = `Rolled d${gary.fisticuffsDie} ${die} + ${gary.braceBonus} = ${total} temp HP${
+        nextTemp === tempBefore
+          ? ` (kept ${tempBefore})`
+          : ` (${tempBefore} → ${nextTemp})`
+      }.`;
+      held = {
+        id: rollApi.record({
+          label: "Brace Up (temp HP)",
+          expression,
+          breakdown: withModifier(`d${gary.fisticuffsDie} (${die})`, gary.braceBonus),
+          total,
+          faces: dieFaces(gary.fisticuffsDie, [die]),
+        }),
+        hold: expression,
+      };
+    } else if (choice.auto === "swagger") {
+      const die = rollDie(10);
+      rolled = `Rolled +${die}. Add it to the failed check.`;
+      held = {
+        id: rollApi.record({
+          label: "Swagger Streak",
+          expression: "1d10",
+          breakdown: `d10 (${die})`,
+          total: die,
+          faces: dieFaces(10, [die]),
+        }),
+        hold: "1d10",
+      };
+    }
+    return { rolled, nextTemp, held };
+  }
+
+  function clearPlayReceipt() {
+    setReceipt(null);
+    setReceiptRoll(null);
   }
 
   function undoLastMove() {
@@ -4203,7 +4357,7 @@ export function GaryCombatTool() {
     setUsedIds((ids) => ids.filter((id) => id !== snap.id));
     if (snap.id === "haymaker") setHaymakerCall(null);
     if (snap.id === "swagger") setSwaggerCall(null);
-    setReceipt(null);
+    clearPlayReceipt();
   }
 
   function pickTiming(next: Timing) {
@@ -4212,7 +4366,7 @@ export function GaryCombatTool() {
     setStaticPlan(null);
     setPlaybookId(next === "check-fail" ? "failed-roll" : null);
     setUsedIds([]);
-    setReceipt(null);
+    clearPlayReceipt();
     setHaymakerCall(null);
     setSwaggerCall(null);
     setSnaps([]);
@@ -4232,7 +4386,7 @@ export function GaryCombatTool() {
     setSelectedGoal(null);
     setStaticPlan(null);
     setUsedIds([]);
-    setReceipt(null);
+    clearPlayReceipt();
     setHaymakerCall(null);
     setSwaggerCall(null);
     setSnaps([]);
@@ -4244,7 +4398,7 @@ export function GaryCombatTool() {
     setSelectedGoal(null);
     setStaticPlan(reactionPlan(kind, gary));
     setUsedIds([]);
-    setReceipt(null);
+    clearPlayReceipt();
     setHaymakerCall(null);
     setSwaggerCall(null);
     setSnaps([]);
@@ -4277,40 +4431,11 @@ export function GaryCombatTool() {
 
     const moxieBefore = sheet.moxie;
     const tempBefore = sheet.tempHp;
-    let rolled = "";
-    let nextTemp = tempBefore;
-
-    if (choice.auto === "brace") {
-      const die = rollDie(gary.fisticuffsDie);
-      const total = die + gary.braceBonus;
-      nextTemp = Math.max(tempBefore, total);
-      rolled = `Rolled d${gary.fisticuffsDie} ${die} + ${gary.braceBonus} = ${total} temp HP${
-        nextTemp === tempBefore
-          ? ` (kept ${tempBefore})`
-          : ` (${tempBefore} → ${nextTemp})`
-      }.`;
-      rollApi.record({
-        label: "Brace Up (temp HP)",
-        expression: withModifier(`1d${gary.fisticuffsDie}`, gary.braceBonus),
-        breakdown: withModifier(`d${gary.fisticuffsDie} (${die})`, gary.braceBonus),
-        total,
-        faces: dieFaces(gary.fisticuffsDie, [die]),
-      });
-    } else if (choice.auto === "swagger") {
-      const die = rollDie(10);
-      rolled = `Rolled +${die}. Add it to the failed check.`;
-      rollApi.record({
-        label: "Swagger Streak",
-        expression: "1d10",
-        breakdown: `d10 (${die})`,
-        total: die,
-        faces: dieFaces(10, [die]),
-      });
-    }
+    const auto = rollAuto(choice, tempBefore);
 
     const nextSheet = applySpend(sheet, choice, {
       bloodied: isBloodied(sheet.hp, gary),
-      braceTemp: choice.auto === "brace" ? nextTemp : undefined,
+      braceTemp: choice.auto === "brace" ? auto.nextTemp : undefined,
     });
     setSheet(nextSheet);
     setSnaps((list) => [
@@ -4344,7 +4469,8 @@ export function GaryCombatTool() {
                   : choice.apply === "down-but-not-out"
                     ? `Down But Not Out: unarmed damage +${3 + sheet.exhaustion} for 1 minute.`
                     : `Moxie ${moxieBefore} → ${moxieAfter}. If the check still fails, tap Still failed. If it succeeds, tap Succeeded.`;
-    setReceipt([choice.label, rolled, paid].filter(Boolean).join(" "));
+    setReceipt([choice.label, auto.rolled, paid].filter(Boolean).join(" "));
+    setReceiptRoll(auto.held);
     setUsedIds((ids) => (ids.includes(choice.id) ? ids : [...ids, choice.id]));
     if (choice.id === "haymaker") setHaymakerCall("pending");
     if (choice.id === "swagger") setSwaggerCall("pending");
@@ -4405,40 +4531,11 @@ export function GaryCombatTool() {
 
     const moxieBefore = sheet.moxie;
     const tempBefore = sheet.tempHp;
-    let rolled = "";
-    let nextTemp = tempBefore;
-
-    if (choice.auto === "brace") {
-      const die = rollDie(gary.fisticuffsDie);
-      const total = die + gary.braceBonus;
-      nextTemp = Math.max(tempBefore, total);
-      rolled = `Rolled d${gary.fisticuffsDie} ${die} + ${gary.braceBonus} = ${total} temp HP${
-        nextTemp === tempBefore
-          ? ` (kept ${tempBefore})`
-          : ` (${tempBefore} → ${nextTemp})`
-      }.`;
-      rollApi.record({
-        label: "Brace Up (temp HP)",
-        expression: withModifier(`1d${gary.fisticuffsDie}`, gary.braceBonus),
-        breakdown: withModifier(`d${gary.fisticuffsDie} (${die})`, gary.braceBonus),
-        total,
-        faces: dieFaces(gary.fisticuffsDie, [die]),
-      });
-    } else if (choice.auto === "swagger") {
-      const die = rollDie(10);
-      rolled = `Rolled +${die}. Add it to the failed check.`;
-      rollApi.record({
-        label: "Swagger Streak",
-        expression: "1d10",
-        breakdown: `d10 (${die})`,
-        total: die,
-        faces: dieFaces(10, [die]),
-      });
-    }
+    const auto = rollAuto(choice, tempBefore);
 
     const nextSheet = applySpend(sheet, choice, {
       bloodied: isBloodied(sheet.hp, gary),
-      braceTemp: choice.auto === "brace" ? nextTemp : undefined,
+      braceTemp: choice.auto === "brace" ? auto.nextTemp : undefined,
     });
     setSheet(nextSheet);
     setListSnaps((list) => [...list, { id: choice.id, before: sheet, after: nextSheet }]);
@@ -4469,7 +4566,8 @@ export function GaryCombatTool() {
                   : choice.apply === "down-but-not-out"
                     ? `Down But Not Out: unarmed damage +${3 + sheet.exhaustion} for 1 minute.`
                     : `Moxie ${moxieBefore} → ${moxieAfter}. If the check still fails, tap Still failed. If it succeeds, tap Succeeded.`;
-    setListNote([choice.label, rolled, paid].filter(Boolean).join(" "));
+    setListNote([choice.label, auto.rolled, paid].filter(Boolean).join(" "));
+    setListRoll(auto.held);
     if (choice.id === "haymaker") setListHaymaker("pending");
     if (choice.id === "swagger") setListSwagger("pending");
   }
@@ -4486,6 +4584,7 @@ export function GaryCombatTool() {
       customActions.find((item) => item.id === snap.id)?.name ??
       "that move";
     setListNote(`Undid ${name}.`);
+    setListRoll(null);
   }
 
   function settleListHaymaker(hit: boolean) {
@@ -4820,6 +4919,7 @@ export function GaryCombatTool() {
                     cantAct={cantAct}
                     bloodied={isBloodied(sheet.hp, gary)}
                     note={listNote}
+                    rollHold={listRoll}
                     canUndo={listSnaps.length > 0}
                     follow={
                       listHaymaker === "pending"
@@ -5130,9 +5230,16 @@ export function GaryCombatTool() {
                                   )}
                                   aria-live="polite"
                                 >
-                                  {sectionUsed && receipt
-                                    ? receipt
-                                    : "Tap a move. The cost comes off immediately and the result shows here."}
+                                  {sectionUsed && receipt ? (
+                                    <RollHold
+                                      rollId={receiptRoll?.id}
+                                      hold={receiptRoll?.hold ?? receipt}
+                                    >
+                                      {receipt}
+                                    </RollHold>
+                                  ) : (
+                                    "Tap a move. The cost comes off immediately and the result shows here."
+                                  )}
                                 </div>
                               ) : null}
                             </Stack>
@@ -5342,7 +5449,7 @@ export function GaryCombatTool() {
             ]}
             onTravel={() => {
               setUsedIds([]);
-              setReceipt(null);
+              clearPlayReceipt();
               setHaymakerCall(null);
               setSwaggerCall(null);
             }}

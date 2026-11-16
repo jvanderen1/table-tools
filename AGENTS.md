@@ -8,15 +8,15 @@ Cursor canvases do **not** deploy here. Port interactive tools into React under 
 
 This checkout is **colocated** `jj` + `git` (`.jj` next to `.git`). Prefer **`jj`** for feature work and fixes.
 
-| Task                    | Command                        |
-| ----------------------- | ------------------------------ |
-| See state               | `jj status` / `jj log`         |
-| Describe current change | `jj describe -m "..."`         |
-| Start new work on top   | `jj new`                       |
-| Fetch / push            | `jj git fetch` / `jj git push` |
-| Bookmark (branch)       | `main` tracks `main@origin`    |
+| Task                    | Command                         |
+| ----------------------- | ------------------------------- |
+| See state               | `jj status` / `jj log`          |
+| Describe current change | `jj describe -m "..."`          |
+| Start new work on top   | `jj new`                        |
+| Fetch / push            | `jj git fetch` / `npm run push` |
+| Bookmark (branch)       | `main` tracks `main@origin`     |
 
-After finishing a meaningful change, **describe, move `main` to `@`, and `jj git push --bookmark main`** without waiting to be asked. Avoid mutating `git` commands that detach HEAD (`git commit`, `git checkout`, `git rebase`) — they fight colocated jj. Read-only `git` / `gh` is fine.
+After finishing a meaningful change, **describe, move `main` to `@`, and `npm run push -- --bookmark main`** without waiting to be asked. That command formats, then runs the same lint, format, typecheck, and unit tests as GitHub Check, and pushes only if they pass. A Cursor hook blocks a raw `jj git push` or `git push` when that check fails. `jj git push` does not run Git hooks. Avoid mutating `git` commands that detach HEAD (`git commit`, `git checkout`, `git rebase`) — they fight colocated jj. Read-only `git` / `gh` is fine.
 
 On this Mac, `jj` is `/opt/homebrew/bin/jj`.
 

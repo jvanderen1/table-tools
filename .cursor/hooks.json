@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeShellExecution": [
+      {
+        "command": "node .cursor/hooks/before-push.mjs",
+        "failClosed": true,
+        "matcher": "\\b(?:jj(?:\\s+git)?\\s+push|git\\s+push)\\b",
+        "timeout": 180
+      }
+    ]
+  }
+}

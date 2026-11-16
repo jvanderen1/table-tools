@@ -12,6 +12,8 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "check": "npm run lint && npm run format:check && tsc -b && npm test",
+    "prepare": "node scripts/install-git-hooks.mjs",
+    "push": "node scripts/pre-push-check.mjs --fix && jj git push",
     "preview": "node scripts/run-vite.mjs preview",
     "new-tool": "node scripts/new-tool.mjs"
   },

@@ -135,6 +135,20 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
     source: "2024 Rules Glossary · Bloodied",
     href: `${RULES_GLOSSARY_URL}#Bloodied`,
   },
+  "guarded-mind": {
+    id: "guarded-mind",
+    label: "Guarded Mind",
+    summary:
+      "Once per short rest, when you fail an Intelligence, Wisdom, or Charisma save, you succeed instead.",
+    source: "Pugilist · sheet feature",
+  },
+  "down-but-not-out": {
+    id: "down-but-not-out",
+    label: "Down But Not Out",
+    summary:
+      "Once per long rest, after you use Bloodied But Unbowed while bloodied. For 1 minute, Unarmed Strikes and Pugilist weapons add 3 plus your Exhaustion level.",
+    source: "Pugilist · sheet feature",
+  },
   exhaustion: {
     id: "exhaustion",
     label: "Exhaustion",
@@ -170,6 +184,8 @@ export const TIP_ALIASES: Record<string, keyof typeof GLOSSARY> = {
   Bloodied: "bloodied",
   Moxie: "moxie",
   "Swagger Streak": "swagger-streak",
+  "Guarded Mind": "guarded-mind",
+  "Down But Not Out": "down-but-not-out",
   "One-Two": "one-two",
   "One-Two Punch": "one-two",
   "Stick and Move": "stick-and-move",

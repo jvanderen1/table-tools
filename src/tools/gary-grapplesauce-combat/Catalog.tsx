@@ -10,7 +10,7 @@ import {
 } from "./actions";
 import { PLAYBOOKS, type CustomPlaybook, type PlaybookWhen } from "./playbooks";
 import { CostChips } from "./CostChips";
-import { costLabels } from "./cost";
+import { actionChips, type UsageSheet } from "./cost";
 import { Button, Card, CardBody, CardHeader, Drawer, Stack, Text } from "../../ui";
 
 const FIELD =
@@ -35,7 +35,13 @@ const BROWSER_PARTS: { id: ActionPart; label: string }[] = [
 ];
 
 /** Grouped list of everything Gary can do, on the Play tab. */
-export function ActionBrowser({ customActions }: { customActions: CustomAction[] }) {
+export function ActionBrowser({
+  customActions,
+  sheet,
+}: {
+  customActions: CustomAction[];
+  sheet?: UsageSheet;
+}) {
   const [part, setPart] = useState<ActionPart>("action");
   const [picked, setPicked] = useState<string | null>(null);
   const items = [...ACTIONS, ...customActions].filter((action) => action.part === part);
@@ -86,7 +92,7 @@ export function ActionBrowser({ customActions }: { customActions: CustomAction[]
                     onClick={() => setPicked(action.id)}
                   >
                     <span className="min-w-0 flex-1 truncate">{action.name}</span>
-                    <CostChips labels={costLabels(action)} />
+                    <CostChips labels={actionChips(action, sheet)} />
                   </button>
                 </li>
               );
@@ -108,6 +114,7 @@ export function ActionCatalog({
   setCustomActions,
   customPlaybooks,
   setCustomPlaybooks,
+  sheet,
 }: {
   open: boolean;
   onClose: () => void;
@@ -119,6 +126,7 @@ export function ActionCatalog({
   setCustomPlaybooks: (
     next: CustomPlaybook[] | ((prev: CustomPlaybook[]) => CustomPlaybook[]),
   ) => void;
+  sheet?: UsageSheet;
 }) {
   const [name, setName] = useState("");
   const [part, setPart] = useState<ActionPart>("action");
@@ -241,7 +249,7 @@ export function ActionCatalog({
                     {action.name}
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-1">
-                    <CostChips labels={costLabels(action)} />
+                    <CostChips labels={actionChips(action, sheet)} />
                     {custom ? (
                       <span className="inline-flex h-5 items-center rounded-full border border-line bg-well/80 px-1.5 text-[0.62rem] font-semibold tracking-wide text-muted">
                         Yours

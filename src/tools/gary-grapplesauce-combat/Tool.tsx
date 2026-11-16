@@ -117,7 +117,7 @@ import { GlossaryList, Tip } from "./Tip";
 import { ActionBrowser, ActionCatalog } from "./Catalog";
 import { ACTIONS, PART_LABEL, actionAvailable, type CustomAction } from "./actions";
 import { CostChips } from "./CostChips";
-import { costLabels, summaryCosts } from "./cost";
+import { actionChips, costLabels, summaryCosts } from "./cost";
 import { PLAYBOOKS, type CustomPlaybook } from "./playbooks";
 import { InventoryPanel } from "./Inventory";
 import {
@@ -2516,7 +2516,7 @@ function RestPanel({
           <Pickaxe className={RESOURCE_ICON} aria-hidden />
           <span className="min-w-0">
             <Tip id="dig-deep">Dig Deep</Tip>
-            <span className={RESOURCE_NOTE}>free first use</span>
+            <span className={RESOURCE_NOTE}>1 / long rest</span>
           </span>
         </label>
         <label
@@ -2536,6 +2536,32 @@ function RestPanel({
           <span className="min-w-0">
             <Tip id="dig-deep">Dig Deep active</Tip>
             <span className={RESOURCE_NOTE}>resist B/P/S, ignore Exhaustion</span>
+          </span>
+        </label>
+        <label className={RESOURCE_ROW}>
+          <input
+            type="checkbox"
+            className={CHECKBOX}
+            checked={sheet.guardedMind}
+            onChange={(e) => patch({ guardedMind: e.target.checked })}
+          />
+          <Shield className={RESOURCE_ICON} aria-hidden />
+          <span className="min-w-0">
+            <Tip id="guarded-mind">Guarded Mind</Tip>
+            <span className={RESOURCE_NOTE}>1 / short rest</span>
+          </span>
+        </label>
+        <label className={RESOURCE_ROW}>
+          <input
+            type="checkbox"
+            className={CHECKBOX}
+            checked={sheet.downButNotOut}
+            onChange={(e) => patch({ downButNotOut: e.target.checked })}
+          />
+          <HeartPulse className={RESOURCE_ICON} aria-hidden />
+          <span className="min-w-0">
+            <Tip id="down-but-not-out">Down But Not Out</Tip>
+            <span className={RESOURCE_NOTE}>1 / long rest</span>
           </span>
         </label>
       </div>
@@ -4644,7 +4670,7 @@ export function GaryCombatTool() {
                 )}
 
                 {!effects.dead && phase === "timing" ? (
-                  <ActionBrowser customActions={customActions} />
+                  <ActionBrowser customActions={customActions} sheet={sheet} />
                 ) : null}
 
                 {!effects.dead && phase === "reaction" && (
@@ -4834,7 +4860,17 @@ export function GaryCombatTool() {
                                     >
                                       <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
                                         <span className="truncate">{choice.label}</span>
-                                        <CostChips labels={choiceLabels(choice)} />
+                                        <CostChips
+                                          labels={actionChips(
+                                            {
+                                              id: choice.id,
+                                              part: choice.part,
+                                              moxie: choice.cost,
+                                              apply: choice.apply,
+                                            },
+                                            sheet,
+                                          )}
+                                        />
                                       </span>
                                     </Button>
                                     <Text tone="tertiary">{choice.detail}</Text>
@@ -5119,6 +5155,7 @@ export function GaryCombatTool() {
             setCustomActions={setCustomActions}
             customPlaybooks={customPlaybooks}
             setCustomPlaybooks={setCustomPlaybooks}
+            sheet={sheet}
           />
           <DiceRoller />
           <UndoBar

@@ -3575,8 +3575,6 @@ function DiceRoller() {
     });
   }
 
-  const DICE_KEY =
-    "min-h-10 cursor-pointer rounded-lg border text-sm font-medium tabular-nums transition-colors";
   const STEP =
     "grid size-7 shrink-0 cursor-pointer place-items-center rounded-md border border-line bg-well/70 text-ink hover:border-gold/50 disabled:cursor-not-allowed disabled:opacity-40";
   const HEADER_BTN =
@@ -3610,58 +3608,54 @@ function DiceRoller() {
             </div>
           </div>
 
-          <div className="grid shrink-0 grid-cols-4 gap-1.5">
+          <div className="grid shrink-0 grid-cols-3 gap-1.5">
             {DICE_SIDES.map((n) => {
               const count = pool[n] ?? 0;
+              const active = count > 0;
               return (
-                <button
+                <div
                   key={n}
-                  type="button"
                   className={cx(
-                    DICE_KEY,
-                    "relative",
-                    count > 0
+                    "grid h-12 grid-cols-3 overflow-hidden rounded-lg border",
+                    active
                       ? "border-gold/80 bg-gold/15 text-gold-soft"
-                      : "border-line bg-well/70 text-ink hover:border-gold/50",
+                      : "border-line bg-well/70 text-ink",
                   )}
-                  aria-label={`Add a d${n} (${count} in pool)`}
-                  disabled={count >= MAX_PER_DIE}
-                  onClick={() => adjust(n, 1)}
                 >
-                  d{n}
-                  {count > 0 ? (
-                    <span className="absolute -top-1.5 -right-1.5 grid min-w-5 place-items-center rounded-full bg-gold px-1 text-[0.68rem] font-bold text-void">
-                      {count}
-                    </span>
-                  ) : null}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="flex h-9 shrink-0 flex-nowrap items-center gap-1.5 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {groups.length === 0 ? (
-              <span className="text-xs text-faint">Tap dice above to build a roll.</span>
-            ) : (
-              groups.map((g) => (
-                <span
-                  key={g.sides}
-                  className="inline-flex h-8 shrink-0 animate-pop-in items-center gap-1.5 rounded-lg bg-well/70 pr-0.5 pl-2.5"
-                >
-                  <span className="text-sm font-semibold tabular-nums">
-                    {g.count}d{g.sides}
-                  </span>
                   <button
                     type="button"
-                    className={STEP}
-                    aria-label={`Remove a d${g.sides}`}
-                    onClick={() => adjust(g.sides, -1)}
+                    className="grid cursor-pointer place-items-center disabled:cursor-not-allowed disabled:opacity-30"
+                    aria-label={`Remove a d${n}`}
+                    disabled={count === 0}
+                    onClick={() => adjust(n, -1)}
                   >
                     <Minus className="size-3.5" aria-hidden />
                   </button>
-                </span>
-              ))
-            )}
+                  <span className="flex flex-col items-center justify-center px-0.5">
+                    <span className="text-[0.68rem] leading-none font-medium tabular-nums">
+                      d{n}
+                    </span>
+                    <span
+                      className={cx(
+                        "mt-0.5 text-xs leading-none font-semibold tabular-nums",
+                        active ? "" : "text-faint",
+                      )}
+                    >
+                      {count}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    className="grid cursor-pointer place-items-center disabled:cursor-not-allowed disabled:opacity-30"
+                    aria-label={`Add a d${n}`}
+                    disabled={count >= MAX_PER_DIE}
+                    onClick={() => adjust(n, 1)}
+                  >
+                    <Plus className="size-3.5" aria-hidden />
+                  </button>
+                </div>
+              );
+            })}
           </div>
 
           <div className="flex h-9 shrink-0 items-center justify-between gap-2 rounded-lg bg-well/60 pr-1 pl-2.5">

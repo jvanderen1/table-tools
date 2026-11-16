@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { LoaderCircle, X } from "lucide-react";
 import DiceBox from "@3d-dice/dice-box-threejs";
 import { cx } from "../lib/cx";
 import { diceBoxNotation, type DieFace } from "./diceGeometry";
@@ -195,13 +194,6 @@ export function DiceShow({
   if (typeof document === "undefined") return null;
   const showing = Boolean(roll && notation);
 
-  const tone =
-    roll?.flag === "crit"
-      ? "text-gold-soft"
-      : roll?.flag
-        ? "text-crimson-soft"
-        : "text-ink";
-
   return createPortal(
     <div
       data-dice-show={showing ? "" : undefined}
@@ -219,36 +211,9 @@ export function DiceShow({
         <button
           type="button"
           className="pointer-events-auto absolute inset-0 cursor-pointer"
-          aria-busy={!settled}
           aria-label={`Dismiss ${roll.label}`}
           onClick={dismiss}
-        >
-          <span className="absolute inset-x-0 top-[12vh] flex justify-center">
-            <span className="flex h-10 max-w-[90vw] items-center gap-2.5 rounded-full border border-gold/40 bg-void/85 px-3.5 shadow-[0_12px_28px_-14px_rgba(0,0,0,0.85)] backdrop-blur-sm">
-              <span className="truncate text-xs font-semibold tracking-wide text-muted">
-                {roll.label}
-              </span>
-              <span className="relative grid place-items-center">
-                <span
-                  className={cx(
-                    "font-display text-2xl leading-none font-semibold tabular-nums",
-                    tone,
-                    settled ? "" : "invisible",
-                  )}
-                >
-                  {roll.result ?? roll.total}
-                </span>
-                {settled ? null : (
-                  <LoaderCircle
-                    className="absolute size-5 animate-spin text-gold-soft"
-                    aria-hidden
-                  />
-                )}
-              </span>
-              <X className="size-3.5 shrink-0 text-faint" aria-hidden />
-            </span>
-          </span>
-        </button>
+        />
       ) : null}
     </div>,
     document.body,

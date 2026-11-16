@@ -106,7 +106,7 @@ test("the dice tray rolls a die into the log", async ({ page }) => {
   const tray = page.getByRole("dialog", { name: "Dice" });
   await tray.getByRole("button", { name: "Roll 1d20" }).click();
   await expect(tray.getByText("1d20").first()).toBeVisible();
-  await expect(page.locator("[data-dice-show]")).toContainText("Dice tray");
+  await expect(page.locator("[data-dice-show]")).toBeVisible();
 });
 
 test("dice can be turned off from Settings without losing the log", async ({ page }) => {

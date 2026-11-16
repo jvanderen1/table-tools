@@ -14,6 +14,25 @@ import { Button, Card, CardBody, CardHeader, Drawer, Stack, Text } from "../../u
 const FIELD =
   "w-full appearance-none rounded-lg border border-line bg-well px-3 py-2 text-sm text-ink outline-none transition-colors placeholder:text-faint focus:border-gold/70";
 const LABEL = "text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-faint";
+const COST_CHIP =
+  "inline-flex h-5 shrink-0 items-center rounded-full border px-1.5 text-[0.62rem] font-semibold tracking-wide tabular-nums";
+
+function costLabels(action: GameAction | CustomAction) {
+  const economy =
+    action.part === "action"
+      ? "1 Action"
+      : action.part === "bonus"
+        ? "1 Bonus"
+        : action.part === "reaction"
+          ? "1 Reaction"
+          : null;
+  const labels = economy ? [economy] : [];
+  if (action.moxie > 0) labels.push(`${action.moxie} Moxie`);
+  if ("apply" in action && action.apply === "dig-deep-exhaustion") {
+    labels.push("1 Exhaustion");
+  }
+  return labels.length > 0 ? labels : ["No action"];
+}
 
 function newId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
@@ -84,8 +103,19 @@ export function ActionBrowser({ customActions }: { customActions: CustomAction[]
                     onClick={() => setPicked(action.id)}
                   >
                     <span className="min-w-0 flex-1 truncate">{action.name}</span>
-                    <span className="shrink-0 text-xs text-faint">
-                      {action.moxie > 0 ? `${action.moxie} Moxie` : "Free"}
+                    <span className="flex shrink-0 items-center gap-1">
+                      {costLabels(action).map((label) => (
+                        <span
+                          key={label}
+                          className={
+                            label.endsWith("Moxie") || label.endsWith("Exhaustion")
+                              ? `${COST_CHIP} border-gold/40 bg-gold/10 text-gold-soft`
+                              : `${COST_CHIP} border-line bg-well/80 text-muted`
+                          }
+                        >
+                          {label}
+                        </span>
+                      ))}
                     </span>
                   </button>
                 </li>

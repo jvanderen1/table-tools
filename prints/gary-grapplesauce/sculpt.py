@@ -2,9 +2,9 @@
 """Gary Grapplesauce — stylized miniature generator.
 
 The STL files named gary-grapplesauce-32mm and gary-grapplesauce-54mm are a
-portrait reconstruction (a waist-up bust). This script builds the earlier
-simplified figure and writes it beside them, so running it does not replace
-the portrait mesh.
+full figure reconstructed from the front, back, left, and right pose images.
+This script builds the earlier simplified figure and writes it beside them,
+so running it does not replace that mesh.
 
 Units are millimeters. Z is up, the nose points +Y, +X is Gary's right
 (the left side of the portrait).

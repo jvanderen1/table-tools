@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { BookOpen, Plus, Trash2 } from "lucide-react";
 import {
   ACTION_PARTS,
@@ -11,6 +11,7 @@ import {
 import { PLAYBOOKS, type CustomPlaybook, type PlaybookWhen } from "./playbooks";
 import { CostChips } from "./CostChips";
 import { actionChips, type UsageSheet } from "./cost";
+import { blockReason, toSpendTarget, type SpendFields } from "./spend";
 import { Button, Card, CardBody, CardHeader, Drawer, Stack, Text } from "../../ui";
 
 const FIELD =
@@ -38,14 +39,57 @@ const BROWSER_PARTS: { id: ActionPart; label: string }[] = [
 export function ActionBrowser({
   customActions,
   sheet,
+  cantAct,
+  bloodied,
+  note,
+  canUndo,
+  follow,
+  onUse,
+  onUndo,
+  onHit,
+  onMiss,
+  onSwaggerFailed,
+  onSwaggerKept,
+  rolls,
 }: {
   customActions: CustomAction[];
-  sheet?: UsageSheet;
+  sheet?: UsageSheet & Pick<SpendFields, "exhaustion">;
+  cantAct: boolean;
+  bloodied: boolean;
+  note: string | null;
+  canUndo: boolean;
+  /** A Haymaker or Swagger spend is waiting for the second tap. */
+  follow: "haymaker" | "swagger" | null;
+  onUse: (action: GameAction | CustomAction) => void;
+  onUndo: () => void;
+  onHit: () => void;
+  onMiss: () => void;
+  onSwaggerFailed: () => void;
+  onSwaggerKept: () => void;
+  rolls?: (action: GameAction | CustomAction) => ReactNode;
 }) {
   const [part, setPart] = useState<ActionPart>("action");
   const [picked, setPicked] = useState<string | null>(null);
   const items = [...ACTIONS, ...customActions].filter((action) => action.part === part);
   const current = items.find((action) => action.id === picked) ?? null;
+  const pendingSame =
+    (follow === "haymaker" && current?.id === "haymaker") ||
+    (follow === "swagger" && current?.id === "swagger");
+  const blocked =
+    current && sheet
+      ? pendingSame
+        ? follow === "haymaker"
+          ? "Say whether it hit."
+          : "Say whether the check still failed."
+        : blockReason(toSpendTarget(current), readyFlags(sheet), { cantAct, bloodied })
+      : null;
+  const shown =
+    follow && note
+      ? note
+      : (blocked ?? note ?? "Tap a move, then Use. Undo puts the last one back.");
+  const followMode =
+    follow ??
+    (current?.id === "haymaker" || current?.id === "swagger" ? current.id : null);
 
   return (
     <Card>
@@ -101,10 +145,96 @@ export function ActionBrowser({
           <div className="flex min-h-16 items-center rounded-lg border border-dashed border-line px-3 py-2 text-sm leading-snug text-muted">
             {current ? current.summary || "No details yet." : "Tap a move to read it."}
           </div>
+          <div
+            className={
+              follow && note
+                ? "flex min-h-11 items-center rounded-lg border border-gold/30 bg-gold/[0.06] px-3 py-2 text-sm leading-snug text-gold-soft"
+                : "flex min-h-11 items-center rounded-lg border border-dashed border-line px-3 py-2 text-sm leading-snug text-muted"
+            }
+            aria-live="polite"
+          >
+            {shown}
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              variant="primary"
+              className="w-full"
+              disabled={!current || blocked != null}
+              aria-label={current ? `Use ${current.name}` : "Use"}
+              onClick={() => {
+                if (current) onUse(current);
+              }}
+            >
+              Use
+            </Button>
+            <Button
+              variant="secondary"
+              className="w-full"
+              disabled={!canUndo}
+              aria-label="Undo last use"
+              onClick={onUndo}
+            >
+              Undo
+            </Button>
+          </div>
+          {followMode === "haymaker" ? (
+            <div className="grid min-h-11 grid-cols-2 gap-2">
+              <Button
+                variant="secondary"
+                disabled={follow !== "haymaker"}
+                onClick={onHit}
+              >
+                Hit
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={follow !== "haymaker"}
+                onClick={onMiss}
+              >
+                Miss
+              </Button>
+            </div>
+          ) : followMode === "swagger" ? (
+            <div className="grid min-h-11 grid-cols-2 gap-2">
+              <Button
+                variant="secondary"
+                disabled={follow !== "swagger"}
+                onClick={onSwaggerFailed}
+              >
+                Still failed
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={follow !== "swagger"}
+                onClick={onSwaggerKept}
+              >
+                Succeeded
+              </Button>
+            </div>
+          ) : (
+            <div className="flex min-h-11 items-center rounded-lg border border-dashed border-line px-3 text-sm text-faint">
+              Follow-up, when a move needs one.
+            </div>
+          )}
+          {current && rolls ? rolls(current) : null}
         </Stack>
       </CardBody>
     </Card>
   );
+}
+
+function readyFlags(sheet: UsageSheet & Pick<SpendFields, "exhaustion">): SpendFields {
+  return {
+    moxie: sheet.moxie,
+    tempHp: 0,
+    digDeep: sheet.digDeep,
+    digDeepActive: sheet.digDeepActive,
+    bloodiedUnbowed: sheet.bloodiedUnbowed,
+    swagger: sheet.swagger,
+    guardedMind: sheet.guardedMind,
+    downButNotOut: sheet.downButNotOut,
+    exhaustion: sheet.exhaustion,
+  };
 }
 
 export function ActionCatalog({

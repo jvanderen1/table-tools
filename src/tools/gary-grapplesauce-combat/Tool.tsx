@@ -115,9 +115,16 @@ import {
 import { GLOSSARY } from "./glossary";
 import { GlossaryList, Tip } from "./Tip";
 import { ActionBrowser, ActionCatalog } from "./Catalog";
-import { ACTIONS, PART_LABEL, actionAvailable, type CustomAction } from "./actions";
+import {
+  ACTIONS,
+  PART_LABEL,
+  actionAvailable,
+  type CustomAction,
+  type GameAction,
+} from "./actions";
 import { CostChips } from "./CostChips";
 import { actionChips, costLabels, summaryCosts } from "./cost";
+import { applySpend, blockReason, toSpendTarget } from "./spend";
 import { PLAYBOOKS, type CustomPlaybook } from "./playbooks";
 import { InventoryPanel } from "./Inventory";
 import {
@@ -3908,6 +3915,29 @@ function personaStatus(sheet: Sheet, gary: GaryStats) {
   return `${parts.join("; ")}.`;
 }
 
+function planChoiceFrom(action: GameAction | CustomAction): PlanChoice {
+  return {
+    id: action.id,
+    label: action.name,
+    detail: action.summary,
+    part: PART_LABEL[action.part],
+    cost: action.moxie,
+    apply: "apply" in action ? action.apply : "moxie",
+    group: "group" in action ? action.group : undefined,
+    dice: "dice" in action ? action.dice : undefined,
+    auto: "auto" in action ? action.auto : undefined,
+  };
+}
+
+function replaceLastSnap(list: PlaySnap[], id: string, after: Sheet): PlaySnap[] {
+  for (let i = list.length - 1; i >= 0; i--) {
+    if (list[i]?.id === id) {
+      return list.map((snap, index) => (index === i ? { ...snap, after } : snap));
+    }
+  }
+  return list;
+}
+
 export function GaryCombatTool() {
   const [phase, setPhase] = useState<Phase>("timing");
   const [timing, setTiming] = useState<Timing | null>(null);
@@ -3951,6 +3981,14 @@ export function GaryCombatTool() {
   );
   const [usedIds, setUsedIds] = useState<string[]>([]);
   const [snaps, setSnaps] = useState<PlaySnap[]>([]);
+  const [listSnaps, setListSnaps] = useState<PlaySnap[]>([]);
+  const [listNote, setListNote] = useState<string | null>(null);
+  const [listHaymaker, setListHaymaker] = useState<"pending" | "hit" | "miss" | null>(
+    null,
+  );
+  const [listSwagger, setListSwagger] = useState<
+    "pending" | "failed" | "succeeded" | null
+  >(null);
   const [playbookId, setPlaybookId] = useState<string | null>(null);
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [customActions, setCustomActions] = usePersistentState<CustomAction[]>(
@@ -4270,38 +4308,10 @@ export function GaryCombatTool() {
       });
     }
 
-    const nextSheet = ((): Sheet => {
-      switch (choice.apply) {
-        case "moxie":
-          return {
-            ...sheet,
-            moxie: clamp(sheet.moxie - choice.cost, 0, MOXIE_MAX),
-            tempHp: choice.auto === "brace" ? nextTemp : sheet.tempHp,
-          };
-        case "bloodied-unbowed":
-          return {
-            ...sheet,
-            moxie: MOXIE_MAX,
-            bloodiedUnbowed: false,
-            tempHp: isBloodied(sheet.hp, gary)
-              ? Math.max(sheet.tempHp, 36)
-              : sheet.tempHp,
-          };
-        case "dig-deep":
-          return { ...sheet, digDeep: false, digDeepActive: true };
-        case "dig-deep-exhaustion":
-          if (!canDigDeepAgain(sheet.exhaustion)) return sheet;
-          return { ...sheet, digDeep: true, exhaustion: sheet.exhaustion + 1 };
-        case "swagger":
-          return { ...sheet, moxie: clamp(sheet.moxie - 1, 0, MOXIE_MAX) };
-        case "guarded-mind":
-          return { ...sheet, guardedMind: false };
-        case "down-but-not-out":
-          return { ...sheet, downButNotOut: false };
-        default:
-          return sheet;
-      }
-    })();
+    const nextSheet = applySpend(sheet, choice, {
+      bloodied: isBloodied(sheet.hp, gary),
+      braceTemp: choice.auto === "brace" ? nextTemp : undefined,
+    });
     setSheet(nextSheet);
     setSnaps((list) => [
       ...list.filter((snap) => snap.id !== choice.id),
@@ -4378,6 +4388,140 @@ export function GaryCombatTool() {
       );
     }
     setSwaggerCall(kind);
+  }
+
+  function useFromList(action: GameAction | CustomAction) {
+    const choice = planChoiceFrom(action);
+    if (listHaymaker === "pending" && choice.id === "haymaker") return;
+    if (listSwagger === "pending" && choice.id === "swagger") return;
+    if (
+      blockReason(toSpendTarget(action), sheet, {
+        cantAct: effectsFor(sheet, gary).cantAct.length > 0,
+        bloodied: isBloodied(sheet.hp, gary),
+      })
+    ) {
+      return;
+    }
+
+    const moxieBefore = sheet.moxie;
+    const tempBefore = sheet.tempHp;
+    let rolled = "";
+    let nextTemp = tempBefore;
+
+    if (choice.auto === "brace") {
+      const die = rollDie(gary.fisticuffsDie);
+      const total = die + gary.braceBonus;
+      nextTemp = Math.max(tempBefore, total);
+      rolled = `Rolled d${gary.fisticuffsDie} ${die} + ${gary.braceBonus} = ${total} temp HP${
+        nextTemp === tempBefore
+          ? ` (kept ${tempBefore})`
+          : ` (${tempBefore} → ${nextTemp})`
+      }.`;
+      rollApi.record({
+        label: "Brace Up (temp HP)",
+        expression: withModifier(`1d${gary.fisticuffsDie}`, gary.braceBonus),
+        breakdown: withModifier(`d${gary.fisticuffsDie} (${die})`, gary.braceBonus),
+        total,
+        faces: dieFaces(gary.fisticuffsDie, [die]),
+      });
+    } else if (choice.auto === "swagger") {
+      const die = rollDie(10);
+      rolled = `Rolled +${die}. Add it to the failed check.`;
+      rollApi.record({
+        label: "Swagger Streak",
+        expression: "1d10",
+        breakdown: `d10 (${die})`,
+        total: die,
+        faces: dieFaces(10, [die]),
+      });
+    }
+
+    const nextSheet = applySpend(sheet, choice, {
+      bloodied: isBloodied(sheet.hp, gary),
+      braceTemp: choice.auto === "brace" ? nextTemp : undefined,
+    });
+    setSheet(nextSheet);
+    setListSnaps((list) => [...list, { id: choice.id, before: sheet, after: nextSheet }]);
+
+    const moxieAfter = clamp(
+      moxieBefore - Math.max(choice.cost, choice.apply === "swagger" ? 1 : 0),
+      0,
+      MOXIE_MAX,
+    );
+    const bloodiedNow = isBloodied(sheet.hp, gary);
+    const paid =
+      choice.id === "haymaker"
+        ? `Moxie ${moxieBefore} → ${moxieAfter}. On a hit, tap Hit and the point comes back. On a miss, tap Miss.`
+        : choice.apply === "moxie"
+          ? choice.cost > 0
+            ? `Moxie ${moxieBefore} → ${moxieAfter}.`
+            : ""
+          : choice.apply === "bloodied-unbowed"
+            ? bloodiedNow
+              ? `Moxie ${moxieBefore} → ${MOXIE_MAX}. Temp HP ${tempBefore} → ${Math.max(tempBefore, 36)}.`
+              : `Moxie ${moxieBefore} → ${MOXIE_MAX}. Not bloodied, so no temporary hit points.`
+            : choice.apply === "dig-deep"
+              ? "Dig Deep is on for 10 minutes: resist bludgeoning, piercing, and slashing, and ignore Exhaustion below 6."
+              : choice.apply === "dig-deep-exhaustion"
+                ? `Exhaustion ${sheet.exhaustion} → ${sheet.exhaustion + 1}. The use is restored. Turning it on is a Bonus Action.`
+                : choice.apply === "guarded-mind"
+                  ? "Guarded Mind: the save succeeds. Spent until a short rest."
+                  : choice.apply === "down-but-not-out"
+                    ? `Down But Not Out: unarmed damage +${3 + sheet.exhaustion} for 1 minute.`
+                    : `Moxie ${moxieBefore} → ${moxieAfter}. If the check still fails, tap Still failed. If it succeeds, tap Succeeded.`;
+    setListNote([choice.label, rolled, paid].filter(Boolean).join(" "));
+    if (choice.id === "haymaker") setListHaymaker("pending");
+    if (choice.id === "swagger") setListSwagger("pending");
+  }
+
+  function undoListUse() {
+    const snap = listSnaps[listSnaps.length - 1];
+    if (!snap) return;
+    setSheet((current) => revertSnap(current, snap));
+    setListSnaps((list) => list.slice(0, -1));
+    if (snap.id === "haymaker") setListHaymaker(null);
+    if (snap.id === "swagger") setListSwagger(null);
+    const name =
+      ACTIONS.find((item) => item.id === snap.id)?.name ??
+      customActions.find((item) => item.id === snap.id)?.name ??
+      "that move";
+    setListNote(`Undid ${name}.`);
+  }
+
+  function settleListHaymaker(hit: boolean) {
+    if (listHaymaker !== "pending") return;
+    if (hit) {
+      const next = { ...sheet, moxie: clamp(sheet.moxie + 1, 0, MOXIE_MAX) };
+      setSheet(next);
+      setListSnaps((list) => replaceLastSnap(list, "haymaker", next));
+      setListNote(
+        "Haymaker hit. The Moxie point is back, and that attack deals maximum damage.",
+      );
+    } else {
+      setListNote("Haymaker missed. The Moxie point stays spent.");
+    }
+    setListHaymaker(hit ? "hit" : "miss");
+  }
+
+  function settleListSwagger(kind: "failed" | "succeeded") {
+    if (listSwagger !== "pending") return;
+    if (kind === "failed") {
+      const next = {
+        ...sheet,
+        moxie: clamp(sheet.moxie + 1, 0, MOXIE_MAX),
+        swagger: false,
+      };
+      setSheet(next);
+      setListSnaps((list) => replaceLastSnap(list, "swagger", next));
+      setListNote(
+        "The check still failed. The Moxie point is back, and Swagger is used until a rest.",
+      );
+    } else {
+      setListNote(
+        "The check succeeded. The Moxie point stays spent, and Swagger is still ready.",
+      );
+    }
+    setListSwagger(kind);
   }
 
   const effects = effectsFor(sheet, gary);
@@ -4670,7 +4814,40 @@ export function GaryCombatTool() {
                 )}
 
                 {!effects.dead && phase === "timing" ? (
-                  <ActionBrowser customActions={customActions} sheet={sheet} />
+                  <ActionBrowser
+                    customActions={customActions}
+                    sheet={sheet}
+                    cantAct={cantAct}
+                    bloodied={isBloodied(sheet.hp, gary)}
+                    note={listNote}
+                    canUndo={listSnaps.length > 0}
+                    follow={
+                      listHaymaker === "pending"
+                        ? "haymaker"
+                        : listSwagger === "pending"
+                          ? "swagger"
+                          : null
+                    }
+                    onUse={useFromList}
+                    onUndo={undoListUse}
+                    onHit={() => settleListHaymaker(true)}
+                    onMiss={() => settleListHaymaker(false)}
+                    onSwaggerFailed={() => settleListSwagger("failed")}
+                    onSwaggerKept={() => settleListSwagger("succeeded")}
+                    rolls={(action) => {
+                      const dice =
+                        "dice" in action
+                          ? action.dice?.filter(
+                              (die): die is "attack" | "damage" =>
+                                die === "attack" || die === "damage",
+                            )
+                          : undefined;
+                      if (!dice || dice.length === 0) return null;
+                      return (
+                        <ActionRolls dice={dice} sheet={sheet} setSheet={setSheet} />
+                      );
+                    }}
+                  />
                 ) : null}
 
                 {!effects.dead && phase === "reaction" && (

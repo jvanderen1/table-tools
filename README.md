@@ -2,17 +2,19 @@
 
 Phone-friendly D&D (and other) **table play aids** — combat decision trees, trackers, cheat sheets — hosted on GitHub Pages so you can open them mid-session.
 
-First tool: **Gary Grapplesauce — combat tree**. Character and UI context for agents/humans: [`src/tools/gary-grapplesauce-combat/README.md`](./src/tools/gary-grapplesauce-combat/README.md).
+|                   |                                                                                          |
+| ----------------- | ---------------------------------------------------------------------------------------- |
+| Table             | [jvanderen1.github.io/table-tools](https://jvanderen1.github.io/table-tools/)            |
+| Gary Grapplesauce | [combat tool](https://jvanderen1.github.io/table-tools/#/tools/gary-grapplesauce-combat) |
+| Source            | [github.com/jvanderen1/table-tools](https://github.com/jvanderen1/table-tools)           |
+
+Character and UI context for that tool: [`src/tools/gary-grapplesauce-combat/README.md`](./src/tools/gary-grapplesauce-combat/README.md).
 
 ## Use at the table
 
-After Pages is enabled:
+Open [the site](https://jvanderen1.github.io/table-tools/) on a phone. Each tool is a hash route, so it stays on one page and works after the app has been cached:
 
-`https://<you>.github.io/table-tools/`
-
-Hash routes work offline-friendly on phones:
-
-`https://<you>.github.io/table-tools/#/tools/gary-grapplesauce-combat`
+[Gary Grapplesauce](https://jvanderen1.github.io/table-tools/#/tools/gary-grapplesauce-combat)
 
 ### Offline and data safety
 
@@ -40,7 +42,7 @@ npm run check         # lint, format, types, and unit tests
 
 The first end-to-end run needs `npx playwright install chromium`.
 
-This repo is **colocated Jujutsu + Git**. Prefer `jj` for day-to-day changes (`jj describe`, `jj new`, `jj git push`). See [AGENTS.md](./AGENTS.md).
+This repo is **colocated Jujutsu + Git**. Prefer `jj` for day-to-day changes (`jj describe`, `jj new`). Push with `npm run push -- --bookmark main`. See [AGENTS.md](./AGENTS.md).
 
 ```bash
 # first clone only — if you already have the git repo:
@@ -55,23 +57,17 @@ npm run new-tool -- <kebab-case-id>
 
 Then edit `src/tools/<id>/Tool.tsx` and `meta.ts`. Full notes in [AGENTS.md](./AGENTS.md).
 
-## Publish to GitHub
+## Publish
+
+Pages is already on for this repo. A push to `main` runs [Check](https://github.com/jvanderen1/table-tools/actions/workflows/ci.yml), then [Deploy GitHub Pages](https://github.com/jvanderen1/table-tools/actions/workflows/pages.yml), which publishes [the site](https://jvanderen1.github.io/table-tools/).
 
 ```bash
-gh repo create table-tools --public --source=. --remote=origin --push
+npm run push -- --bookmark main
 ```
 
-In the repo: **Settings → Pages → Source: GitHub Actions**.
+That formats, runs the same lint, format, typecheck, and unit tests as Check, then pushes. A raw `jj git push` or `git push` is blocked locally when that check fails.
 
-The workflow in `.github/workflows/pages.yml` builds on every push to `main`.
-
-If the repo name is not `table-tools`, set the Pages base when building:
-
-```bash
-BASE_PATH=/your-repo-name/ npm run build
-```
-
-(or change the default in `vite.config.ts` / the workflow `BASE_PATH` env).
+The Pages build sets `BASE_PATH` from the repository name (`/table-tools/`). A fork with another name picks that up from the workflow. For a custom domain at the site root, build with `BASE_PATH=/`.
 
 ## Mirror on Cloudflare Pages (backup URL)
 

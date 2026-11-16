@@ -85,7 +85,9 @@ export function DiceShow({
   const stage = useRef<HTMLDivElement>(null);
   const boxRef = useRef<{ box: DiceBox; ready: Promise<void> } | null>(null);
   const onSettledRef = useRef(onSettled);
-  onSettledRef.current = onSettled;
+  useEffect(() => {
+    onSettledRef.current = onSettled;
+  });
   const [settledId, setSettledId] = useState<string | null>(null);
   const rollId = roll?.id ?? null;
   const notation = roll ? diceBoxNotation(roll.faces) : "";

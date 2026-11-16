@@ -4341,7 +4341,11 @@ export function GaryCombatTool() {
     <GaryContext.Provider value={gary}>
       <RollLogContext.Provider value={rollApi}>
         <DiceShow
-          holdMs={dicePrefs.hold === "stay" ? null : dicePrefs.hold * 1000}
+          holdMs={
+            dicePrefs.hold.stay || !Number.isFinite(dicePrefs.hold.seconds)
+              ? null
+              : dicePrefs.hold.seconds * 1000
+          }
           onDismiss={dismissDice}
           roll={
             premiere?.faces?.length

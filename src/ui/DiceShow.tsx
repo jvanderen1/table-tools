@@ -1,9 +1,60 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
+import { LoaderCircle, X } from "lucide-react";
 import DiceBox from "@3d-dice/dice-box-threejs";
 import { cx } from "../lib/cx";
 import { diceBoxNotation, type DieFace } from "./diceGeometry";
+
+type SettledDie = {
+  position: { x: number; y: number; z: number };
+  quaternion: { x: number; y: number; z: number; w: number };
+};
+
+/** The physics sleep can lag long after a die looks still. Watch the meshes. */
+function watchUntilStill(box: { diceList?: SettledDie[] }, onSettle: () => void) {
+  let last = "";
+  let stableFor = 0;
+  let previous = performance.now();
+  let frame = 0;
+  const tick = (now: number) => {
+    try {
+      const dice = box.diceList ?? [];
+      const dt = now - previous;
+      previous = now;
+      if (dice.length > 0) {
+        const pose = dice
+          .map((die) =>
+            [
+              die.position.x,
+              die.position.y,
+              die.position.z,
+              die.quaternion.x,
+              die.quaternion.y,
+              die.quaternion.z,
+              die.quaternion.w,
+            ]
+              .map((part) => part.toFixed(0))
+              .join(","),
+          )
+          .join("|");
+        if (pose === last) stableFor += dt;
+        else {
+          stableFor = 0;
+          last = pose;
+        }
+        if (stableFor >= 280) {
+          onSettle();
+          return;
+        }
+      }
+    } catch {
+      // Keep waiting. The fallback reveals the total if a mesh has no pose.
+    }
+    frame = requestAnimationFrame(tick);
+  };
+  frame = requestAnimationFrame(tick);
+  return () => cancelAnimationFrame(frame);
+}
 
 export type DiceThrow = {
   id: string;
@@ -31,8 +82,10 @@ export function DiceShow({
 }) {
   const stage = useRef<HTMLDivElement>(null);
   const boxRef = useRef<{ box: DiceBox; ready: Promise<void> } | null>(null);
+  const [settledId, setSettledId] = useState<string | null>(null);
   const rollId = roll?.id ?? null;
   const notation = roll ? diceBoxNotation(roll.faces) : "";
+  const settled = rollId != null && settledId === rollId;
 
   const dismiss = useCallback(() => {
     const box = boxRef.current?.box;
@@ -40,11 +93,13 @@ export function DiceShow({
     onDismiss();
   }, [onDismiss]);
 
+  const linger = holdMs != null && Number.isFinite(holdMs) ? holdMs : null;
+
   useEffect(() => {
-    if (!rollId || holdMs == null) return;
-    const timer = window.setTimeout(dismiss, holdMs);
+    if (!rollId || linger == null || !settled) return;
+    const timer = window.setTimeout(dismiss, linger);
     return () => window.clearTimeout(timer);
-  }, [rollId, holdMs, dismiss]);
+  }, [rollId, linger, dismiss, settled]);
 
   useEffect(() => {
     if (!rollId) return;
@@ -111,17 +166,29 @@ export function DiceShow({
       return;
     }
     let cancelled = false;
+    let stopWatching = () => {};
+    let fallback = 0;
+    const settle = () => {
+      if (!cancelled) setSettledId(rollId);
+    };
     current.ready
       .then(() => {
         if (cancelled) return;
         if (current.box.desk) current.box.desk.visible = false;
-        return current.box.roll(notation);
+        const pending = current.box.roll(notation);
+        stopWatching = watchUntilStill(current.box, settle);
+        fallback = window.setTimeout(settle, 4000);
+        return pending;
       })
+      .then(settle)
       .catch(() => {
-        // A failed scene must not block the logged number.
+        // A failed scene must not hide the logged number.
+        settle();
       });
     return () => {
       cancelled = true;
+      stopWatching();
+      window.clearTimeout(fallback);
     };
   }, [rollId, notation]);
 
@@ -152,6 +219,7 @@ export function DiceShow({
         <button
           type="button"
           className="pointer-events-auto absolute inset-0 cursor-pointer"
+          aria-busy={!settled}
           aria-label={`Dismiss ${roll.label}`}
           onClick={dismiss}
         >
@@ -160,13 +228,22 @@ export function DiceShow({
               <span className="truncate text-xs font-semibold tracking-wide text-muted">
                 {roll.label}
               </span>
-              <span
-                className={cx(
-                  "font-display text-2xl leading-none font-semibold tabular-nums",
-                  tone,
+              <span className="relative grid place-items-center">
+                <span
+                  className={cx(
+                    "font-display text-2xl leading-none font-semibold tabular-nums",
+                    tone,
+                    settled ? "" : "invisible",
+                  )}
+                >
+                  {roll.result ?? roll.total}
+                </span>
+                {settled ? null : (
+                  <LoaderCircle
+                    className="absolute size-5 animate-spin text-gold-soft"
+                    aria-hidden
+                  />
                 )}
-              >
-                {roll.result ?? roll.total}
               </span>
               <X className="size-3.5 shrink-0 text-faint" aria-hidden />
             </span>

@@ -12,6 +12,10 @@ declare module "@3d-dice/dice-box-threejs" {
       },
     );
     desk?: { visible: boolean };
+    diceList?: {
+      position: { x: number; y: number; z: number };
+      quaternion: { x: number; y: number; z: number; w: number };
+    }[];
     renderer?: {
       render: (scene: unknown, camera: unknown) => void;
       dispose: () => void;

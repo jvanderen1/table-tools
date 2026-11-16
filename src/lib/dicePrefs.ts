@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 
-/** How many seconds the dice stay. "stay" waits until they are tapped away. */
-export const DICE_HOLD_CHOICES = [3, 5, 8] as const;
-export type DiceHold = (typeof DICE_HOLD_CHOICES)[number] | "stay";
+/** Shortest time the dice linger after they land. Stay waits for a tap instead. */
+export const DICE_HOLD_MIN = 3;
+/** Long enough to read a result; Stay covers anything past this. */
+export const DICE_HOLD_MAX = 600;
+
+export type DiceHold = {
+  seconds: number;
+  stay: boolean;
+};
 
 export type DicePrefs = {
   motion: boolean;
@@ -16,11 +22,27 @@ const HOLD_KEY = "table-tools:gary-grapplesauce-combat:dice-hold";
 
 const listeners = new Set<() => void>();
 
-export function isDiceHold(value: unknown): value is DiceHold {
-  return value === "stay" || value === 3 || value === 5 || value === 8;
+const DEFAULT_HOLD: DiceHold = { seconds: 5, stay: false };
+const DEFAULTS: DicePrefs = { motion: true, sound: true, hold: DEFAULT_HOLD };
+
+/** Clamp a typed duration into the allowed range. */
+export function clampHoldSeconds(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_HOLD.seconds;
+  return Math.min(DICE_HOLD_MAX, Math.max(DICE_HOLD_MIN, Math.round(value)));
 }
 
-const DEFAULTS: DicePrefs = { motion: true, sound: true, hold: 5 };
+/**
+ * Read a stored duration. Older builds saved `5` or `"stay"`;
+ * the current value is `{ seconds, stay }`.
+ */
+export function parseDiceHold(value: unknown): DiceHold | null {
+  if (value === "stay") return { seconds: DEFAULT_HOLD.seconds, stay: true };
+  if (typeof value === "number") return { seconds: clampHoldSeconds(value), stay: false };
+  if (!value || typeof value !== "object") return null;
+  const record = value as { seconds?: unknown; stay?: unknown };
+  if (typeof record.seconds !== "number" || typeof record.stay !== "boolean") return null;
+  return { seconds: clampHoldSeconds(record.seconds), stay: record.stay };
+}
 
 export function readDicePrefs(): DicePrefs {
   return {
@@ -60,8 +82,7 @@ function readBool(key: string, fallback: boolean) {
 }
 
 function readHold(key: string): DiceHold {
-  const value = readJson(key);
-  return isDiceHold(value) ? value : DEFAULTS.hold;
+  return parseDiceHold(readJson(key)) ?? DEFAULT_HOLD;
 }
 
 function readJson(key: string): unknown {
